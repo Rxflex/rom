@@ -14,11 +14,12 @@ use serde_json::Value;
 use self::{
     ops::{
         build_aes_algorithm, build_hkdf_algorithm, build_hmac_algorithm, build_pbkdf2_algorithm,
-        default_hmac_key_length, derive_hkdf_bits, derive_pbkdf2_bits, digest_bytes,
-        encrypt_aes_gcm, ensure_algorithm_name, export_aes_jwk, export_hmac_jwk, import_aes_jwk,
-        import_hmac_jwk, normalize_aes_length, parse_hash_algorithm, parse_hash_from_descriptor,
-        sign_hmac, validate_aes_usages, validate_hkdf_usages, validate_hmac_usages,
-        validate_pbkdf2_usages, verify_hmac,
+        decrypt_aes_kw, default_hmac_key_length, derive_hkdf_bits, derive_pbkdf2_bits,
+        digest_bytes, encrypt_aes_gcm, encrypt_aes_kw, ensure_algorithm_name, export_aes_jwk,
+        export_hmac_jwk, import_aes_jwk, import_hmac_jwk, normalize_aes_length,
+        parse_hash_algorithm, parse_hash_from_descriptor, sign_hmac, validate_aes_gcm_usages,
+        validate_aes_kw_usages, validate_hkdf_usages, validate_hmac_usages, validate_pbkdf2_usages,
+        verify_hmac,
     },
     types::{
         BytesPayload, CryptoKeyRecord, DecryptPayload, DeriveBitsPayload, DigestPayload,
@@ -73,12 +74,13 @@ impl CryptoHost {
                 })
             }
             "AES-GCM" => {
-                validate_aes_usages(&payload.usages)?;
+                validate_aes_gcm_usages(&payload.usages)?;
                 let byte_length = normalize_aes_length(
                     payload
                         .algorithm
                         .length
                         .ok_or_else(|| "Missing algorithm.length".to_owned())?,
+                    "AES-GCM",
                 )?;
                 let mut secret = vec![0_u8; byte_length];
                 getrandom::fill(&mut secret).map_err(|error| error.to_string())?;
@@ -86,7 +88,27 @@ impl CryptoHost {
                 self.store_key(CryptoKeyRecord {
                     extractable: payload.extractable,
                     key_type: "secret".to_owned(),
-                    algorithm: build_aes_algorithm(secret.len()),
+                    algorithm: build_aes_algorithm("AES-GCM", secret.len()),
+                    usages: payload.usages,
+                    material: KeyMaterial::Aes { secret },
+                })
+            }
+            "AES-KW" => {
+                validate_aes_kw_usages(&payload.usages)?;
+                let byte_length = normalize_aes_length(
+                    payload
+                        .algorithm
+                        .length
+                        .ok_or_else(|| "Missing algorithm.length".to_owned())?,
+                    "AES-KW",
+                )?;
+                let mut secret = vec![0_u8; byte_length];
+                getrandom::fill(&mut secret).map_err(|error| error.to_string())?;
+
+                self.store_key(CryptoKeyRecord {
+                    extractable: payload.extractable,
+                    key_type: "secret".to_owned(),
+                    algorithm: build_aes_algorithm("AES-KW", secret.len()),
                     usages: payload.usages,
                     material: KeyMaterial::Aes { secret },
                 })
@@ -118,18 +140,35 @@ impl CryptoHost {
                 })
             }
             "AES-GCM" => {
-                validate_aes_usages(&payload.usages)?;
+                validate_aes_gcm_usages(&payload.usages)?;
                 let secret = match payload.format.as_str() {
                     "raw" => deserialize_raw_bytes(payload.key_data)?,
-                    "jwk" => import_aes_jwk(payload.key_data)?,
+                    "jwk" => import_aes_jwk(payload.key_data, "AES-GCM")?,
                     other => return Err(format!("Unsupported key import format: {other}")),
                 };
-                let _ = normalize_aes_length(secret.len() * 8)?;
+                let _ = normalize_aes_length(secret.len() * 8, "AES-GCM")?;
 
                 self.store_key(CryptoKeyRecord {
                     extractable: payload.extractable,
                     key_type: "secret".to_owned(),
-                    algorithm: build_aes_algorithm(secret.len()),
+                    algorithm: build_aes_algorithm("AES-GCM", secret.len()),
+                    usages: payload.usages,
+                    material: KeyMaterial::Aes { secret },
+                })
+            }
+            "AES-KW" => {
+                validate_aes_kw_usages(&payload.usages)?;
+                let secret = match payload.format.as_str() {
+                    "raw" => deserialize_raw_bytes(payload.key_data)?,
+                    "jwk" => import_aes_jwk(payload.key_data, "AES-KW")?,
+                    other => return Err(format!("Unsupported key import format: {other}")),
+                };
+                let _ = normalize_aes_length(secret.len() * 8, "AES-KW")?;
+
+                self.store_key(CryptoKeyRecord {
+                    extractable: payload.extractable,
+                    key_type: "secret".to_owned(),
+                    algorithm: build_aes_algorithm("AES-KW", secret.len()),
                     usages: payload.usages,
                     material: KeyMaterial::Aes { secret },
                 })
@@ -204,6 +243,7 @@ impl CryptoHost {
                     .map_err(|error| error.to_string())?,
                     KeyMaterial::Aes { secret } => serde_json::to_value(export_aes_jwk(
                         secret,
+                        &record.algorithm.name,
                         record.extractable,
                         record.usages.clone(),
                     )?)
@@ -262,26 +302,48 @@ impl CryptoHost {
     pub fn subtle_encrypt(&self, payload: &str) -> Result<String, String> {
         let payload: EncryptPayload =
             serde_json::from_str(payload).map_err(|error| error.to_string())?;
-        ensure_algorithm_name(&payload.algorithm.name, "AES-GCM")?;
         let record = self.get_key(&payload.key_id)?;
 
-        if !record.usages.iter().any(|usage| usage == "encrypt") {
-            return Err("InvalidAccessError: key does not allow encrypt".to_owned());
+        if !record
+            .algorithm
+            .name
+            .eq_ignore_ascii_case(&payload.algorithm.name)
+        {
+            return Err(
+                "InvalidAccessError: key algorithm does not match requested operation".to_owned(),
+            );
         }
 
-        let bytes = match &record.material {
-            KeyMaterial::Aes { secret } => encrypt_aes_gcm(
-                secret,
-                payload
-                    .algorithm
-                    .iv
-                    .as_deref()
-                    .ok_or_else(|| "Missing algorithm.iv".to_owned())?,
-                payload.algorithm.additional_data.as_deref().unwrap_or(&[]),
-                &payload.data,
-                payload.algorithm.tag_length,
-            )?,
-            _ => return Err("InvalidAccessError: key does not support encrypt".to_owned()),
+        let bytes = match payload.algorithm.name.to_ascii_uppercase().as_str() {
+            "AES-GCM" => {
+                if !record.usages.iter().any(|usage| usage == "encrypt") {
+                    return Err("InvalidAccessError: key does not allow encrypt".to_owned());
+                }
+                match &record.material {
+                    KeyMaterial::Aes { secret } => encrypt_aes_gcm(
+                        secret,
+                        payload
+                            .algorithm
+                            .iv
+                            .as_deref()
+                            .ok_or_else(|| "Missing algorithm.iv".to_owned())?,
+                        payload.algorithm.additional_data.as_deref().unwrap_or(&[]),
+                        &payload.data,
+                        payload.algorithm.tag_length,
+                    )?,
+                    _ => return Err("InvalidAccessError: key does not support encrypt".to_owned()),
+                }
+            }
+            "AES-KW" => {
+                if !record.usages.iter().any(|usage| usage == "wrapKey") {
+                    return Err("InvalidAccessError: key does not allow wrapKey".to_owned());
+                }
+                match &record.material {
+                    KeyMaterial::Aes { secret } => encrypt_aes_kw(secret, &payload.data)?,
+                    _ => return Err("InvalidAccessError: key does not support encrypt".to_owned()),
+                }
+            }
+            other => return Err(format!("Unsupported algorithm: {other}")),
         };
 
         serde_json::to_string(&BytesPayload { bytes }).map_err(|error| error.to_string())
@@ -290,26 +352,48 @@ impl CryptoHost {
     pub fn subtle_decrypt(&self, payload: &str) -> Result<String, String> {
         let payload: DecryptPayload =
             serde_json::from_str(payload).map_err(|error| error.to_string())?;
-        ensure_algorithm_name(&payload.algorithm.name, "AES-GCM")?;
         let record = self.get_key(&payload.key_id)?;
 
-        if !record.usages.iter().any(|usage| usage == "decrypt") {
-            return Err("InvalidAccessError: key does not allow decrypt".to_owned());
+        if !record
+            .algorithm
+            .name
+            .eq_ignore_ascii_case(&payload.algorithm.name)
+        {
+            return Err(
+                "InvalidAccessError: key algorithm does not match requested operation".to_owned(),
+            );
         }
 
-        let bytes = match &record.material {
-            KeyMaterial::Aes { secret } => ops::decrypt_aes_gcm(
-                secret,
-                payload
-                    .algorithm
-                    .iv
-                    .as_deref()
-                    .ok_or_else(|| "Missing algorithm.iv".to_owned())?,
-                payload.algorithm.additional_data.as_deref().unwrap_or(&[]),
-                &payload.data,
-                payload.algorithm.tag_length,
-            )?,
-            _ => return Err("InvalidAccessError: key does not support decrypt".to_owned()),
+        let bytes = match payload.algorithm.name.to_ascii_uppercase().as_str() {
+            "AES-GCM" => {
+                if !record.usages.iter().any(|usage| usage == "decrypt") {
+                    return Err("InvalidAccessError: key does not allow decrypt".to_owned());
+                }
+                match &record.material {
+                    KeyMaterial::Aes { secret } => ops::decrypt_aes_gcm(
+                        secret,
+                        payload
+                            .algorithm
+                            .iv
+                            .as_deref()
+                            .ok_or_else(|| "Missing algorithm.iv".to_owned())?,
+                        payload.algorithm.additional_data.as_deref().unwrap_or(&[]),
+                        &payload.data,
+                        payload.algorithm.tag_length,
+                    )?,
+                    _ => return Err("InvalidAccessError: key does not support decrypt".to_owned()),
+                }
+            }
+            "AES-KW" => {
+                if !record.usages.iter().any(|usage| usage == "unwrapKey") {
+                    return Err("InvalidAccessError: key does not allow unwrapKey".to_owned());
+                }
+                match &record.material {
+                    KeyMaterial::Aes { secret } => decrypt_aes_kw(secret, &payload.data)?,
+                    _ => return Err("InvalidAccessError: key does not support decrypt".to_owned()),
+                }
+            }
+            other => return Err(format!("Unsupported algorithm: {other}")),
         };
 
         serde_json::to_string(&BytesPayload { bytes }).map_err(|error| error.to_string())

@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+aes-kw.workspace = true
 aes-gcm.workspace = true
 base64.workspace = true
 getrandom.workspace = true

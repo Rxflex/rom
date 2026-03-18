@@ -2,6 +2,7 @@ use aes_gcm::{
     Aes128Gcm, Aes256Gcm, KeyInit,
     aead::{Aead, Payload, generic_array::GenericArray},
 };
+use aes_kw::{KekAes128, KekAes192, KekAes256};
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
@@ -46,8 +47,16 @@ pub(crate) fn validate_hmac_usages(usages: &[String]) -> Result<(), String> {
     validate_usages(usages, &["sign", "verify"], "HMAC")
 }
 
-pub(crate) fn validate_aes_usages(usages: &[String]) -> Result<(), String> {
-    validate_usages(usages, &["encrypt", "decrypt", "wrapKey", "unwrapKey"], "AES-GCM")
+pub(crate) fn validate_aes_gcm_usages(usages: &[String]) -> Result<(), String> {
+    validate_usages(
+        usages,
+        &["encrypt", "decrypt", "wrapKey", "unwrapKey"],
+        "AES-GCM",
+    )
+}
+
+pub(crate) fn validate_aes_kw_usages(usages: &[String]) -> Result<(), String> {
+    validate_usages(usages, &["wrapKey", "unwrapKey"], "AES-KW")
 }
 
 pub(crate) fn validate_pbkdf2_usages(usages: &[String]) -> Result<(), String> {
@@ -77,9 +86,9 @@ pub(crate) fn build_hmac_algorithm(hash: HashAlgorithm, secret_len: usize) -> Ke
     }
 }
 
-pub(crate) fn build_aes_algorithm(secret_len: usize) -> KeyAlgorithm {
+pub(crate) fn build_aes_algorithm(name: &str, secret_len: usize) -> KeyAlgorithm {
     KeyAlgorithm {
-        name: "AES-GCM".to_owned(),
+        name: name.to_owned(),
         hash: None,
         length: Some(secret_len * 8),
     }
@@ -110,10 +119,10 @@ pub(crate) fn default_hmac_key_length(hash: HashAlgorithm) -> usize {
     }
 }
 
-pub(crate) fn normalize_aes_length(length: usize) -> Result<usize, String> {
-    match length {
-        128 | 256 => Ok(length / 8),
-        other => Err(format!("Unsupported AES-GCM length: {other}")),
+pub(crate) fn normalize_aes_length(length: usize, algorithm: &str) -> Result<usize, String> {
+    match (algorithm.to_ascii_uppercase().as_str(), length) {
+        ("AES-GCM", 128 | 256) | ("AES-KW", 128 | 192 | 256) => Ok(length / 8),
+        (_, other) => Err(format!("Unsupported {algorithm} length: {other}")),
     }
 }
 
@@ -124,14 +133,30 @@ pub(crate) fn import_hmac_jwk(
     import_jwk_oct_secret(value, Some(hash.jwk_alg_name()), "HMAC")
 }
 
-pub(crate) fn import_aes_jwk(value: serde_json::Value) -> Result<Vec<u8>, String> {
-    let secret = import_jwk_oct_secret(value, None, "AES-GCM")?;
-    let _ = jwk_alg_for_aes(secret.len()).ok_or_else(|| {
+pub(crate) fn import_aes_jwk(value: serde_json::Value, algorithm: &str) -> Result<Vec<u8>, String> {
+    let jwk: JsonWebKey = serde_json::from_value(value).map_err(|error| error.to_string())?;
+    if jwk.kty != "oct" {
+        return Err(format!("Unsupported JWK kty for {algorithm}"));
+    }
+
+    let secret = URL_SAFE_NO_PAD
+        .decode(jwk.k.as_bytes())
+        .map_err(|error| error.to_string())?;
+    let expected_alg = jwk_alg_for_aes(algorithm, secret.len()).ok_or_else(|| {
         format!(
-            "Unsupported AES-GCM raw key length: {} bits",
+            "Unsupported {algorithm} raw key length: {} bits",
             secret.len() * 8
         )
     })?;
+
+    if let Some(actual_alg) = jwk.alg.as_deref() {
+        if actual_alg != expected_alg {
+            return Err(format!(
+                "JWK alg mismatch: expected {expected_alg}, got {actual_alg}"
+            ));
+        }
+    }
+
     Ok(secret)
 }
 
@@ -148,20 +173,20 @@ pub(crate) fn sign_hmac(
             Ok(mac.finalize().into_bytes().to_vec())
         }
         HashAlgorithm::Sha256 => {
-            let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(secret)
-                .map_err(|error| error.to_string())?;
+            let mut mac =
+                <Hmac<Sha256> as Mac>::new_from_slice(secret).map_err(|error| error.to_string())?;
             mac.update(data);
             Ok(mac.finalize().into_bytes().to_vec())
         }
         HashAlgorithm::Sha384 => {
-            let mut mac = <Hmac<Sha384> as Mac>::new_from_slice(secret)
-                .map_err(|error| error.to_string())?;
+            let mut mac =
+                <Hmac<Sha384> as Mac>::new_from_slice(secret).map_err(|error| error.to_string())?;
             mac.update(data);
             Ok(mac.finalize().into_bytes().to_vec())
         }
         HashAlgorithm::Sha512 => {
-            let mut mac = <Hmac<Sha512> as Mac>::new_from_slice(secret)
-                .map_err(|error| error.to_string())?;
+            let mut mac =
+                <Hmac<Sha512> as Mac>::new_from_slice(secret).map_err(|error| error.to_string())?;
             mac.update(data);
             Ok(mac.finalize().into_bytes().to_vec())
         }
@@ -182,20 +207,20 @@ pub(crate) fn verify_hmac(
             Ok(mac.verify_slice(signature).is_ok())
         }
         HashAlgorithm::Sha256 => {
-            let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(secret)
-                .map_err(|error| error.to_string())?;
+            let mut mac =
+                <Hmac<Sha256> as Mac>::new_from_slice(secret).map_err(|error| error.to_string())?;
             mac.update(data);
             Ok(mac.verify_slice(signature).is_ok())
         }
         HashAlgorithm::Sha384 => {
-            let mut mac = <Hmac<Sha384> as Mac>::new_from_slice(secret)
-                .map_err(|error| error.to_string())?;
+            let mut mac =
+                <Hmac<Sha384> as Mac>::new_from_slice(secret).map_err(|error| error.to_string())?;
             mac.update(data);
             Ok(mac.verify_slice(signature).is_ok())
         }
         HashAlgorithm::Sha512 => {
-            let mut mac = <Hmac<Sha512> as Mac>::new_from_slice(secret)
-                .map_err(|error| error.to_string())?;
+            let mut mac =
+                <Hmac<Sha512> as Mac>::new_from_slice(secret).map_err(|error| error.to_string())?;
             mac.update(data);
             Ok(mac.verify_slice(signature).is_ok())
         }
@@ -288,6 +313,78 @@ pub(crate) fn decrypt_aes_gcm(
     }
 }
 
+pub(crate) fn encrypt_aes_kw(secret: &[u8], data: &[u8]) -> Result<Vec<u8>, String> {
+    match secret.len() {
+        16 => {
+            let kek = KekAes128::try_from(secret).map_err(|error| error.to_string())?;
+            let mut out = vec![0_u8; data.len() + aes_kw::IV_LEN];
+            kek.wrap(data, &mut out)
+                .map_err(|_| "OperationError: AES-KW wrap failed".to_owned())?;
+            Ok(out)
+        }
+        24 => {
+            let kek = KekAes192::try_from(secret).map_err(|error| error.to_string())?;
+            let mut out = vec![0_u8; data.len() + aes_kw::IV_LEN];
+            kek.wrap(data, &mut out)
+                .map_err(|_| "OperationError: AES-KW wrap failed".to_owned())?;
+            Ok(out)
+        }
+        32 => {
+            let kek = KekAes256::try_from(secret).map_err(|error| error.to_string())?;
+            let mut out = vec![0_u8; data.len() + aes_kw::IV_LEN];
+            kek.wrap(data, &mut out)
+                .map_err(|_| "OperationError: AES-KW wrap failed".to_owned())?;
+            Ok(out)
+        }
+        other => Err(format!(
+            "Unsupported AES-KW raw key length: {} bits",
+            other * 8
+        )),
+    }
+}
+
+pub(crate) fn decrypt_aes_kw(secret: &[u8], data: &[u8]) -> Result<Vec<u8>, String> {
+    match secret.len() {
+        16 => {
+            let kek = KekAes128::try_from(secret).map_err(|error| error.to_string())?;
+            let out_len = data
+                .len()
+                .checked_sub(aes_kw::IV_LEN)
+                .ok_or_else(|| "OperationError: AES-KW unwrap failed".to_owned())?;
+            let mut out = vec![0_u8; out_len];
+            kek.unwrap(data, &mut out)
+                .map_err(|_| "OperationError: AES-KW unwrap failed".to_owned())?;
+            Ok(out)
+        }
+        24 => {
+            let kek = KekAes192::try_from(secret).map_err(|error| error.to_string())?;
+            let out_len = data
+                .len()
+                .checked_sub(aes_kw::IV_LEN)
+                .ok_or_else(|| "OperationError: AES-KW unwrap failed".to_owned())?;
+            let mut out = vec![0_u8; out_len];
+            kek.unwrap(data, &mut out)
+                .map_err(|_| "OperationError: AES-KW unwrap failed".to_owned())?;
+            Ok(out)
+        }
+        32 => {
+            let kek = KekAes256::try_from(secret).map_err(|error| error.to_string())?;
+            let out_len = data
+                .len()
+                .checked_sub(aes_kw::IV_LEN)
+                .ok_or_else(|| "OperationError: AES-KW unwrap failed".to_owned())?;
+            let mut out = vec![0_u8; out_len];
+            kek.unwrap(data, &mut out)
+                .map_err(|_| "OperationError: AES-KW unwrap failed".to_owned())?;
+            Ok(out)
+        }
+        other => Err(format!(
+            "Unsupported AES-KW raw key length: {} bits",
+            other * 8
+        )),
+    }
+}
+
 pub(crate) fn derive_pbkdf2_bits(
     secret: &[u8],
     salt: &[u8],
@@ -358,12 +455,13 @@ pub(crate) fn export_hmac_jwk(
 
 pub(crate) fn export_aes_jwk(
     secret: &[u8],
+    algorithm: &str,
     extractable: bool,
     usages: Vec<String>,
 ) -> Result<ExportedJwk, String> {
-    let alg = jwk_alg_for_aes(secret.len()).ok_or_else(|| {
+    let alg = jwk_alg_for_aes(algorithm, secret.len()).ok_or_else(|| {
         format!(
-            "Unsupported AES-GCM raw key length: {} bits",
+            "Unsupported {algorithm} raw key length: {} bits",
             secret.len() * 8
         )
     })?;
@@ -378,7 +476,9 @@ pub(crate) fn export_aes_jwk(
 
 fn validate_usages(usages: &[String], allowed: &[&str], algorithm: &str) -> Result<(), String> {
     if usages.is_empty() {
-        return Err(format!("SyntaxError: {algorithm} keys require at least one usage"));
+        return Err(format!(
+            "SyntaxError: {algorithm} keys require at least one usage"
+        ));
     }
     for usage in usages {
         if allowed.iter().any(|allowed_usage| usage == allowed_usage) {
@@ -427,10 +527,13 @@ fn prepare_nonce(iv: &[u8]) -> Result<&GenericArray<u8, U12>, String> {
     Ok(GenericArray::from_slice(iv))
 }
 
-fn jwk_alg_for_aes(secret_len: usize) -> Option<&'static str> {
-    match secret_len {
-        16 => Some("A128GCM"),
-        32 => Some("A256GCM"),
+fn jwk_alg_for_aes(algorithm: &str, secret_len: usize) -> Option<&'static str> {
+    match (algorithm.to_ascii_uppercase().as_str(), secret_len) {
+        ("AES-GCM", 16) => Some("A128GCM"),
+        ("AES-GCM", 32) => Some("A256GCM"),
+        ("AES-KW", 16) => Some("A128KW"),
+        ("AES-KW", 24) => Some("A192KW"),
+        ("AES-KW", 32) => Some("A256KW"),
         _ => None,
     }
 }

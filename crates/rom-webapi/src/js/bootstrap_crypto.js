@@ -364,9 +364,9 @@
 
     function getDerivedKeyLengthBits(algorithm) {
         const normalizedName = String(algorithm.name ?? "").toUpperCase();
-        if (normalizedName === "AES-GCM") {
+        if (normalizedName === "AES-GCM" || normalizedName === "AES-KW") {
             if (algorithm.length === undefined) {
-                throw new TypeError("Derived AES-GCM key requires algorithm.length");
+                throw new TypeError(`Derived ${algorithm.name} key requires algorithm.length`);
             }
             return Number(algorithm.length);
         }

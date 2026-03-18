@@ -35,9 +35,10 @@ The browser surface now also includes an initial web data stack:
 - `crypto.subtle.digest()` for `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512`
 - HMAC `generateKey()`, `importKey()`, `exportKey()`, `sign()`, `verify()`
 - `AES-GCM` `generateKey()`, `importKey()`, `exportKey()`, `encrypt()`, `decrypt()`
+- `AES-KW` `generateKey()`, `importKey()`, `exportKey()`, and `deriveKey()` for wrapping flows
 - `PBKDF2` `importKey()`, `deriveBits()`, `deriveKey()`
 - `HKDF` `importKey()`, `deriveBits()`, `deriveKey()`
-- `SubtleCrypto.wrapKey()` and `SubtleCrypto.unwrapKey()` via the current secret-key flow
+- `SubtleCrypto.wrapKey()` and `SubtleCrypto.unwrapKey()` via the current secret-key flow, including `AES-KW`
 - `document.cookie` with path/domain/secure handling
 - fetch cookie roundtrip via `Cookie` / `Set-Cookie` for `same-origin` and `include` credentials modes
 - CORS response gating for cross-origin `fetch`
