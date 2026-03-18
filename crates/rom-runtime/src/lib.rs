@@ -14,6 +14,8 @@ mod tests_fetch_semantics;
 #[cfg(test)]
 mod tests_file_reader;
 #[cfg(test)]
+mod tests_layout_observers;
+#[cfg(test)]
 mod tests_messaging;
 #[cfg(test)]
 mod tests_mutation_observer;

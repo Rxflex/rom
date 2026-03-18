@@ -313,8 +313,8 @@
     g.MimeType = MimeType;
     g.MimeTypeArray = MimeTypeArray;
     g.MutationObserver = MutationObserver;
-    g.ResizeObserver = class ResizeObserver extends ObserverBase {};
-    g.IntersectionObserver = class IntersectionObserver extends ObserverBase {};
+    g.ResizeObserver = ResizeObserver;
+    g.IntersectionObserver = IntersectionObserver;
     g.PerformanceObserver = class PerformanceObserver extends ObserverBase {};
     g.AudioContext = audioContextFactory;
     g.OfflineAudioContext = OfflineAudioContext;
