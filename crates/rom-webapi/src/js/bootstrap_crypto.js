@@ -330,12 +330,6 @@
         return serializeNormalizedAlgorithmDescriptor(normalizeAlgorithmObject(algorithm));
     }
 
-    function serializeDataOperationAlgorithm(algorithm, dataLength) {
-        const source = normalizeAlgorithmObject(algorithm);
-        validateDataOperationAlgorithm(source, dataLength);
-        return serializeNormalizedAlgorithmDescriptor(source);
-    }
-
     function serializeNormalizedAlgorithmDescriptor(source) {
         return {
             name: source.name,
@@ -349,10 +343,6 @@
             info: toOptionalByteArray(source.info),
             iterations: source.iterations === undefined ? null : Number(source.iterations),
         };
-    }
-
-    function validateDataOperationAlgorithm(algorithm, dataLength) {
-        if (String(algorithm.name ?? "").toUpperCase() === "AES-CTR") validateAesCtrParams(algorithm, dataLength);
     }
 
     function normalizeCryptoKeyAlgorithm(algorithm) {
@@ -417,43 +407,6 @@
 
     function toOptionalByteArray(value) {
         return value === undefined || value === null ? null : toByteArray(value);
-    }
-
-    function validateAesCtrParams(algorithm, dataLength) {
-        if (algorithm.counter === undefined) {
-            throw new TypeError("AES-CTR requires algorithm.counter");
-        }
-        if (algorithm.length === undefined) {
-            throw new TypeError("AES-CTR requires algorithm.length");
-        }
-        const counter = toByteArray(algorithm.counter);
-        const length = Number(algorithm.length);
-        if (counter.length !== 16 || !Number.isInteger(length) || length < 1 || length > 128) {
-            throw createCryptoDomException("OperationError", "Invalid AES-CTR parameters.");
-        }
-        const blocks = BigInt(Math.ceil(Number(dataLength) / 16));
-        if (blocks === 0n) {
-            return;
-        }
-        const counterValue = bytesToBigInt(counter);
-        if (length === 128) {
-            if ((blocks - 1n) > ((1n << 128n) - 1n - counterValue)) {
-                throw createCryptoDomException("OperationError", "AES-CTR counter would wrap.");
-            }
-            return;
-        }
-        const space = 1n << BigInt(length);
-        if (blocks > (space - (counterValue & (space - 1n)))) {
-            throw createCryptoDomException("OperationError", "AES-CTR counter would wrap.");
-        }
-    }
-
-    function bytesToBigInt(bytes) {
-        let value = 0n;
-        for (const byte of bytes) {
-            value = (value << 8n) | BigInt(byte);
-        }
-        return value;
     }
 
     function getDerivedKeyLengthBits(algorithm) {
