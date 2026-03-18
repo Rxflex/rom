@@ -283,6 +283,7 @@
             additional_data: toOptionalByteArray(source.additionalData),
             tag_length: source.tagLength === undefined ? null : Number(source.tagLength),
             salt: toOptionalByteArray(source.salt),
+            info: toOptionalByteArray(source.info),
             iterations: source.iterations === undefined ? null : Number(source.iterations),
         };
     }
@@ -315,6 +316,7 @@
             additionalData: algorithm.additionalData,
             tagLength: algorithm.tagLength,
             salt: algorithm.salt,
+            info: algorithm.info,
             iterations: algorithm.iterations,
         };
     }

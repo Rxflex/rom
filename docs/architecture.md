@@ -58,7 +58,7 @@ Status:
 - `URLPattern` and `DOMParser` are present in initial but usable form
 - `Request` and `Response` now expose `text()`, `json()`, `arrayBuffer()`, `blob()`, `formData()`, and `bodyUsed`
 - `FormData` bodies serialize as multipart requests, and `blob:` object URLs are fetchable inside ROM
-- `crypto.getRandomValues()`, `crypto.randomUUID()`, `crypto.subtle.digest()`, HMAC flows, `AES-GCM`, `PBKDF2` derivation, and secret-key wrap/unwrap flows are present
+- `crypto.getRandomValues()`, `crypto.randomUUID()`, `crypto.subtle.digest()`, HMAC flows, `AES-GCM`, `PBKDF2` derivation, `HKDF` derivation, and secret-key wrap/unwrap flows are present
 - `document.cookie` plus request/response cookie roundtrips are present in the initial networking model
 - CORS enforcement is present for cross-origin `fetch`, including preflight and credential gating
 - `structuredClone()`, `MessageEvent`, `MessagePort`, `MessageChannel`, and a first `Worker` model are present
@@ -71,7 +71,7 @@ Status:
 - DOM event propagation is present in an initial usable form with capture/bubble phases, `once`, propagation stopping, and `composedPath()`
 - `navigator.permissions`, `navigator.mediaDevices`, `navigator.userAgentData`, `navigator.plugins`, and `navigator.mimeTypes` are present in compatibility-oriented form
 - viewport and media-query globals are present in compatibility-oriented form: `innerWidth/Height`, `outerWidth/Height`, `devicePixelRatio`, `visualViewport`, `screen.orientation`, `matchMedia`
-- deeper networking and worker semantics still need work: fuller stream semantics, longer-lived `WebSocket` behavior, richer URL/file semantics, `no-cors`/opaque details, worker isolation fidelity, richer permission/device behavior, and broader `SubtleCrypto` coverage beyond the current digest/HMAC/AES-GCM/PBKDF2 slice
+- deeper networking and worker semantics still need work: fuller stream semantics, longer-lived `WebSocket` behavior, richer URL/file semantics, `no-cors`/opaque details, worker isolation fidelity, richer permission/device behavior, and broader `SubtleCrypto` coverage beyond the current digest/HMAC/AES-GCM/PBKDF2/HKDF slice
 
 ### Phase 3
 

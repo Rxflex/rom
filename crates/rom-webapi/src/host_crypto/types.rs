@@ -35,6 +35,9 @@ pub(crate) enum KeyMaterial {
     Pbkdf2 {
         secret: Vec<u8>,
     },
+    Hkdf {
+        secret: Vec<u8>,
+    },
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -124,6 +127,8 @@ pub struct AlgorithmDescriptor {
     pub tag_length: Option<usize>,
     #[serde(default)]
     pub salt: Option<Vec<u8>>,
+    #[serde(default)]
+    pub info: Option<Vec<u8>>,
     #[serde(default)]
     pub iterations: Option<u32>,
 }

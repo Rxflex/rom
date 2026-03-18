@@ -3,6 +3,7 @@ use aes_gcm::{
     aead::{Aead, Payload, generic_array::GenericArray},
 };
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
 use pbkdf2::pbkdf2_hmac;
 use sha1::Sha1;
@@ -53,6 +54,10 @@ pub(crate) fn validate_pbkdf2_usages(usages: &[String]) -> Result<(), String> {
     validate_usages(usages, &["deriveBits", "deriveKey"], "PBKDF2")
 }
 
+pub(crate) fn validate_hkdf_usages(usages: &[String]) -> Result<(), String> {
+    validate_usages(usages, &["deriveBits", "deriveKey"], "HKDF")
+}
+
 pub(crate) fn digest_bytes(algorithm: HashAlgorithm, data: &[u8]) -> Vec<u8> {
     match algorithm {
         HashAlgorithm::Sha1 => Sha1::digest(data).to_vec(),
@@ -83,6 +88,14 @@ pub(crate) fn build_aes_algorithm(secret_len: usize) -> KeyAlgorithm {
 pub(crate) fn build_pbkdf2_algorithm() -> KeyAlgorithm {
     KeyAlgorithm {
         name: "PBKDF2".to_owned(),
+        hash: None,
+        length: None,
+    }
+}
+
+pub(crate) fn build_hkdf_algorithm() -> KeyAlgorithm {
+    KeyAlgorithm {
+        name: "HKDF".to_owned(),
         hash: None,
         length: None,
     }
@@ -295,6 +308,35 @@ pub(crate) fn derive_pbkdf2_bits(
         HashAlgorithm::Sha256 => pbkdf2_hmac::<Sha256>(secret, salt, iterations, &mut bytes),
         HashAlgorithm::Sha384 => pbkdf2_hmac::<Sha384>(secret, salt, iterations, &mut bytes),
         HashAlgorithm::Sha512 => pbkdf2_hmac::<Sha512>(secret, salt, iterations, &mut bytes),
+    }
+    Ok(bytes)
+}
+
+pub(crate) fn derive_hkdf_bits(
+    secret: &[u8],
+    salt: &[u8],
+    info: &[u8],
+    hash: HashAlgorithm,
+    length: usize,
+) -> Result<Vec<u8>, String> {
+    if !length.is_multiple_of(8) {
+        return Err("HKDF deriveBits length must be a multiple of 8".to_owned());
+    }
+
+    let mut bytes = vec![0_u8; length / 8];
+    match hash {
+        HashAlgorithm::Sha1 => Hkdf::<Sha1>::new(Some(salt), secret)
+            .expand(info, &mut bytes)
+            .map_err(|_| "OperationError: HKDF expansion failed".to_owned())?,
+        HashAlgorithm::Sha256 => Hkdf::<Sha256>::new(Some(salt), secret)
+            .expand(info, &mut bytes)
+            .map_err(|_| "OperationError: HKDF expansion failed".to_owned())?,
+        HashAlgorithm::Sha384 => Hkdf::<Sha384>::new(Some(salt), secret)
+            .expand(info, &mut bytes)
+            .map_err(|_| "OperationError: HKDF expansion failed".to_owned())?,
+        HashAlgorithm::Sha512 => Hkdf::<Sha512>::new(Some(salt), secret)
+            .expand(info, &mut bytes)
+            .map_err(|_| "OperationError: HKDF expansion failed".to_owned())?,
     }
     Ok(bytes)
 }
