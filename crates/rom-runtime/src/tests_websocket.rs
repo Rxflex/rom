@@ -210,3 +210,148 @@ fn supports_websocket_messages_after_idle_delay() {
     let value: serde_json::Value = serde_json::from_str(&result).unwrap();
     assert_eq!(value, serde_json::json!(["open", "late-message"]));
 }
+
+#[test]
+fn supports_websocket_http_url_normalization() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().unwrap();
+        let mut websocket = accept(stream).unwrap();
+        let message = websocket.read().unwrap();
+
+        match message {
+            Message::Close(frame) => {
+                let frame = frame.expect("expected close frame");
+                assert_eq!(u16::from(frame.code), 1000);
+            }
+            other => panic!("unexpected websocket message: {other:?}"),
+        }
+    });
+
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let script = format!(
+        r#"
+        (async () => {{
+            const socket = new WebSocket("http://127.0.0.1:{}/normalized");
+
+            return await new Promise((resolve, reject) => {{
+                socket.onopen = () => socket.close();
+                socket.onclose = () => resolve(socket.url);
+                socket.onerror = () => reject(new Error("unexpected websocket error"));
+            }});
+        }})()
+        "#,
+        address.port()
+    );
+
+    let result = runtime.eval_async_as_string(&script).unwrap();
+
+    server.join().unwrap();
+    assert_eq!(result, format!("ws://127.0.0.1:{}/normalized", address.port()));
+}
+
+#[test]
+fn validates_websocket_constructor_and_close_arguments() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().unwrap();
+        let mut websocket = accept(stream).unwrap();
+        let message = websocket.read().unwrap();
+
+        match message {
+            Message::Close(frame) => {
+                let frame = frame.expect("expected close frame");
+                assert_eq!(u16::from(frame.code), 1000);
+                assert_eq!(frame.reason.to_string(), "done");
+            }
+            other => panic!("unexpected websocket message: {other:?}"),
+        }
+    });
+
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let script = format!(
+        r#"
+        (async () => {{
+            const constructorErrors = {{}};
+
+            try {{
+                new WebSocket("ws://example.com/path#fragment");
+            }} catch (error) {{
+                constructorErrors.fragment = error.name;
+            }}
+
+            try {{
+                new WebSocket("ftp://example.com/socket");
+            }} catch (error) {{
+                constructorErrors.scheme = error.name;
+            }}
+
+            try {{
+                new WebSocket("ws://example.com/socket", ["chat", "chat"]);
+            }} catch (error) {{
+                constructorErrors.duplicateProtocol = error.name;
+            }}
+
+            try {{
+                new WebSocket("ws://example.com/socket", ["bad protocol"]);
+            }} catch (error) {{
+                constructorErrors.invalidProtocol = error.name;
+            }}
+
+            const socket = new WebSocket("ws://{address}/close");
+            const closeErrors = {{}};
+
+            try {{
+                socket.close(2000);
+            }} catch (error) {{
+                closeErrors.invalidCode = error.name;
+            }}
+
+            try {{
+                socket.close(1000, "x".repeat(124));
+            }} catch (error) {{
+                closeErrors.longReason = error.name;
+            }}
+
+            return await new Promise((resolve, reject) => {{
+                socket.onopen = () => {{
+                    closeErrors.readyStateBeforeValidClose = socket.readyState;
+                    socket.close(1000, "done");
+                }};
+
+                socket.onclose = (event) => {{
+                    resolve({{
+                        constructorErrors,
+                        closeErrors,
+                        closeCode: event.code,
+                        closeReason: event.reason,
+                        finalReadyState: socket.readyState,
+                    }});
+                }};
+
+                socket.onerror = () => reject(new Error("unexpected websocket error"));
+            }});
+        }})()
+        "#
+    );
+
+    let result = runtime.eval_async_as_string(&script).unwrap();
+
+    server.join().unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(value["constructorErrors"]["fragment"], "SyntaxError");
+    assert_eq!(value["constructorErrors"]["scheme"], "SyntaxError");
+    assert_eq!(value["constructorErrors"]["duplicateProtocol"], "SyntaxError");
+    assert_eq!(value["constructorErrors"]["invalidProtocol"], "SyntaxError");
+    assert_eq!(value["closeErrors"]["invalidCode"], "InvalidAccessError");
+    assert_eq!(value["closeErrors"]["longReason"], "SyntaxError");
+    assert_eq!(value["closeErrors"]["readyStateBeforeValidClose"], 1);
+    assert_eq!(value["closeCode"], 1000);
+    assert_eq!(value["closeReason"], "done");
+    assert_eq!(value["finalReadyState"], 3);
+}
