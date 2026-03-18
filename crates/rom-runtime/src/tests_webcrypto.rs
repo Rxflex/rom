@@ -551,6 +551,86 @@ fn supports_webcrypto_wrap_and_unwrap_key() {
 }
 
 #[test]
+fn validates_method_specific_webcrypto_key_usages() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const encoder = new TextEncoder();
+                const iv = new Uint8Array(12);
+                const wrappingKey = await crypto.subtle.generateKey(
+                    { name: "AES-GCM", length: 256 },
+                    true,
+                    ["wrapKey", "unwrapKey"],
+                );
+                const sourceKey = await crypto.subtle.importKey(
+                    "raw",
+                    encoder.encode("secret"),
+                    { name: "HMAC", hash: "SHA-256" },
+                    true,
+                    ["sign", "verify"],
+                );
+                const wrapped = await crypto.subtle.wrapKey(
+                    "raw",
+                    sourceKey,
+                    wrappingKey,
+                    { name: "AES-GCM", iv },
+                );
+                const unwrapped = await crypto.subtle.unwrapKey(
+                    "raw",
+                    wrapped,
+                    wrappingKey,
+                    { name: "AES-GCM", iv },
+                    { name: "HMAC", hash: "SHA-256" },
+                    true,
+                    ["sign", "verify"],
+                );
+
+                let encryptError = "";
+                try {
+                    await crypto.subtle.encrypt(
+                        { name: "AES-GCM", iv },
+                        wrappingKey,
+                        encoder.encode("payload"),
+                    );
+                } catch (error) {
+                    encryptError = String(error.name);
+                }
+
+                let decryptError = "";
+                try {
+                    await crypto.subtle.decrypt(
+                        { name: "AES-GCM", iv },
+                        wrappingKey,
+                        wrapped,
+                    );
+                } catch (error) {
+                    decryptError = String(error.name);
+                }
+
+                return {
+                    wrappingUsages: wrappingKey.usages.join(","),
+                    wrappedLength: new Uint8Array(wrapped).length,
+                    unwrappedAlgorithm: unwrapped.algorithm.name,
+                    encryptError,
+                    decryptError,
+                };
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+
+    assert_eq!(value["wrappingUsages"], "wrapKey,unwrapKey");
+    assert_eq!(value["wrappedLength"], 22);
+    assert_eq!(value["unwrappedAlgorithm"], "HMAC");
+    assert_eq!(value["encryptError"], "InvalidAccessError");
+    assert_eq!(value["decryptError"], "InvalidAccessError");
+}
+
+#[test]
 fn supports_webcrypto_hkdf_derivation() {
     let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
     let result = runtime
