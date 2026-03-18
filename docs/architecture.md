@@ -58,7 +58,7 @@ Status:
 - `URLPattern` and `DOMParser` are present in initial but usable form
 - `Request` and `Response` now expose `text()`, `json()`, `arrayBuffer()`, `blob()`, `formData()`, and `bodyUsed`
 - `FormData` bodies serialize as multipart requests, and `blob:` object URLs are fetchable inside ROM
-- `crypto.getRandomValues()`, `crypto.randomUUID()`, `crypto.subtle.digest()`, HMAC flows, `AES-CTR` / `AES-CBC` / `AES-GCM` with browser-like parameter validation, `AES-KW` wrapping flows, `PBKDF2` derivation, `HKDF` derivation, and secret-key wrap/unwrap flows are present
+- `crypto.getRandomValues()`, `crypto.randomUUID()`, `crypto.subtle.digest()`, HMAC flows, `AES-CTR` / `AES-CBC` / `AES-GCM` with browser-like parameter validation and `AES-GCM` tag lengths `96..128`, `AES-KW` wrapping flows, `PBKDF2` derivation, `HKDF` derivation, and secret-key wrap/unwrap flows are present
 - `document.cookie` plus request/response cookie roundtrips are present in the initial networking model
 - CORS enforcement is present for cross-origin `fetch`, including preflight and credential gating
 - `structuredClone()`, `MessageEvent`, `MessagePort`, `MessageChannel`, and a first `Worker` model are present

@@ -131,7 +131,7 @@ fn validates_webcrypto_aes_cbc_and_gcm_params() {
                     ),
                     gcmInvalidTagLength: await captureError(() =>
                         crypto.subtle.encrypt(
-                            { name: "AES-GCM", iv: new Uint8Array(12), tagLength: 96 },
+                            { name: "AES-GCM", iv: new Uint8Array(12), tagLength: 88 },
                             gcmKey,
                             payload,
                         ),
@@ -149,4 +149,45 @@ fn validates_webcrypto_aes_cbc_and_gcm_params() {
     assert_eq!(value["gcmMissingIv"]["name"], "TypeError");
     assert_eq!(value["gcmInvalidIv"]["name"], "OperationError");
     assert_eq!(value["gcmInvalidTagLength"]["name"], "OperationError");
+}
+
+#[test]
+fn supports_webcrypto_aes_gcm_truncated_tags() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const encoder = new TextEncoder();
+                const iv = new Uint8Array(12);
+                const payload = encoder.encode("payload");
+                const key = await crypto.subtle.generateKey(
+                    { name: "AES-GCM", length: 128 },
+                    true,
+                    ["encrypt", "decrypt"],
+                );
+                const ciphertext = await crypto.subtle.encrypt(
+                    { name: "AES-GCM", iv, tagLength: 96 },
+                    key,
+                    payload,
+                );
+                const plaintext = await crypto.subtle.decrypt(
+                    { name: "AES-GCM", iv, tagLength: 96 },
+                    key,
+                    ciphertext,
+                );
+
+                return {
+                    cipherLength: new Uint8Array(ciphertext).length,
+                    plaintext: new TextDecoder().decode(new Uint8Array(plaintext)),
+                };
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+
+    assert_eq!(value["cipherLength"], 19);
+    assert_eq!(value["plaintext"], "payload");
 }
