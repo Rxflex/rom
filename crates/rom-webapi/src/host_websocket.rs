@@ -9,6 +9,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 use tungstenite::{
+    protocol::{CloseFrame, frame::Utf8Bytes, frame::coding::CloseCode},
     Connector, Message, WebSocket, client::IntoClientRequest, client_tls_with_config,
     handshake::client::Response,
     stream::MaybeTlsStream,
@@ -226,7 +227,11 @@ impl WebSocketHost {
         let code = payload.code.unwrap_or(1000);
         let reason = payload.reason.unwrap_or_default();
 
-        let _ = session.socket.close(None);
+        let frame = CloseFrame {
+            code: CloseCode::from(code),
+            reason: Utf8Bytes::from(reason.clone()),
+        };
+        let _ = session.socket.close(Some(frame));
         session.closed = true;
         session.close_code = code;
         session.close_reason = reason.clone();

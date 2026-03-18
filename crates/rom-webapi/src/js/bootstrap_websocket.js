@@ -10,11 +10,12 @@
     class WebSocket extends EventTarget {
         constructor(url, protocols = []) {
             super();
+            const resolvedUrl = normalizeWebSocketUrl(url);
             const protocolList = normalizeWebSocketProtocols(protocols);
             const response = JSON.parse(
                 g.__rom_websocket_connect(
                     JSON.stringify({
-                        url: new URL(String(url), location.href).href,
+                        url: resolvedUrl.href,
                         protocols: protocolList,
                     }),
                 ),
@@ -57,6 +58,7 @@
         }
 
         close(code, reason) {
+            const normalizedClose = normalizeCloseParameters(code, reason);
             if (this.readyState === WebSocket.CLOSING || this.readyState === WebSocket.CLOSED) {
                 return;
             }
@@ -66,8 +68,8 @@
                 g.__rom_websocket_close(
                     JSON.stringify({
                         socket_id: this.__socketId,
-                        code: code ?? null,
-                        reason: reason ?? null,
+                        code: normalizedClose.code,
+                        reason: normalizedClose.reason,
                     }),
                 ),
             );
@@ -154,16 +156,101 @@
     WebSocket.prototype.CLOSING = WebSocket.CLOSING;
     WebSocket.prototype.CLOSED = WebSocket.CLOSED;
 
+    function normalizeWebSocketUrl(url) {
+        const resolved = new URL(String(url), location.href);
+
+        if (resolved.protocol === "http:") {
+            resolved.protocol = "ws:";
+        } else if (resolved.protocol === "https:") {
+            resolved.protocol = "wss:";
+        }
+
+        if (resolved.protocol !== "ws:" && resolved.protocol !== "wss:") {
+            throw new SyntaxError(
+                "Failed to construct 'WebSocket': The URL's scheme must be 'ws', 'wss', 'http', or 'https'.",
+            );
+        }
+
+        if (resolved.hash) {
+            throw new SyntaxError(
+                "Failed to construct 'WebSocket': The URL contains a fragment identifier.",
+            );
+        }
+
+        return resolved;
+    }
+
     function normalizeWebSocketProtocols(protocols) {
-        if (typeof protocols === "string") {
-            return [protocols];
+        const normalized =
+            typeof protocols === "string"
+                ? [protocols]
+                : Array.isArray(protocols)
+                  ? protocols.map(String)
+                  : [];
+        const seen = new Set();
+
+        for (const protocol of normalized) {
+            if (!isValidWebSocketProtocol(protocol)) {
+                throw new SyntaxError(
+                    "Failed to construct 'WebSocket': The subprotocol is invalid.",
+                );
+            }
+
+            if (seen.has(protocol)) {
+                throw new SyntaxError(
+                    "Failed to construct 'WebSocket': The subprotocol is duplicated.",
+                );
+            }
+
+            seen.add(protocol);
         }
 
-        if (Array.isArray(protocols)) {
-            return protocols.map(String);
+        return normalized;
+    }
+
+    function normalizeCloseParameters(code, reason) {
+        const normalizedReason =
+            reason === undefined || reason === null ? null : String(reason);
+
+        if (normalizedReason !== null && new TextEncoder().encode(normalizedReason).length > 123) {
+            throw new SyntaxError(
+                "Failed to execute 'close' on 'WebSocket': The close reason must not exceed 123 bytes.",
+            );
         }
 
-        return [];
+        if (code === undefined || code === null) {
+            return {
+                code: null,
+                reason: normalizedReason,
+            };
+        }
+
+        const normalizedCode = Number(code);
+        if (
+            !Number.isInteger(normalizedCode) ||
+            (normalizedCode !== 1000 &&
+                (normalizedCode < 3000 || normalizedCode > 4999))
+        ) {
+            throw createWebSocketDomException(
+                "InvalidAccessError",
+                "The close code must be 1000 or between 3000 and 4999.",
+            );
+        }
+
+        return {
+            code: normalizedCode,
+            reason: normalizedReason,
+        };
+    }
+
+    function isValidWebSocketProtocol(protocol) {
+        return /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/.test(protocol);
+    }
+
+    function createWebSocketDomException(name, message) {
+        const error = new Error(message);
+        error.name = name;
+        return error;
     }
 
     function serializeWebSocketData(data) {
