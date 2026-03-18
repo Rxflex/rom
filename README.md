@@ -50,6 +50,9 @@ The browser surface now also includes an initial web data stack:
 - initial `WebSocket` support for local `ws:` connections, text/binary frames, `binaryType = "arraybuffer"`, and close events
 - `BroadcastChannel`
 - `FileReader` with `readAsText()`, `readAsArrayBuffer()`, `readAsDataURL()`
+- `navigator.permissions.query()`
+- `navigator.mediaDevices` with `enumerateDevices()`, `getSupportedConstraints()`, `getUserMedia()`, and `getDisplayMedia()`
+- `navigator.plugins`, `navigator.mimeTypes`, and `navigator.pdfViewerEnabled`
 
 There is also an optional real-browser reference runner:
 

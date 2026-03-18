@@ -16,6 +16,8 @@ mod tests_file_reader;
 #[cfg(test)]
 mod tests_messaging;
 #[cfg(test)]
+mod tests_navigator;
+#[cfg(test)]
 mod tests_parsing;
 #[cfg(test)]
 mod tests_webcrypto;

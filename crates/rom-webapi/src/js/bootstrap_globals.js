@@ -31,25 +31,7 @@
         targetLocation.hash = parsed.hash;
     }
 
-    const navigator = {
-        userAgent: navigatorConfig.userAgent ?? "ROM/0.1",
-        appVersion: navigatorConfig.userAgent ?? "ROM/0.1",
-        appName: navigatorConfig.appName ?? "Netscape",
-        platform: navigatorConfig.platform ?? "unknown",
-        language: navigatorConfig.language ?? "en-US",
-        languages: navigatorConfig.languages ?? ["en-US"],
-        hardwareConcurrency: navigatorConfig.hardwareConcurrency ?? 4,
-        deviceMemory: navigatorConfig.deviceMemory ?? 8,
-        cookieEnabled: true,
-        webdriver: Boolean(navigatorConfig.webdriver),
-        maxTouchPoints: 0,
-        vendor: "ROM",
-        product: "Gecko",
-        productSub: "20030107",
-        plugins: [],
-        mimeTypes: [],
-        userAgentData: null,
-    };
+    const navigator = createNavigator(navigatorConfig);
 
     const history = {
         length: 1,
@@ -327,6 +309,17 @@
     g.Text = Text;
     g.Document = Document;
     g.DOMParser = DOMParser;
+    g.Permissions = Permissions;
+    g.PermissionStatus = PermissionStatus;
+    g.MediaDevices = MediaDevices;
+    g.MediaDeviceInfo = MediaDeviceInfo;
+    g.InputDeviceInfo = InputDeviceInfo;
+    g.MediaStream = MediaStream;
+    g.MediaStreamTrack = MediaStreamTrack;
+    g.Plugin = Plugin;
+    g.PluginArray = PluginArray;
+    g.MimeType = MimeType;
+    g.MimeTypeArray = MimeTypeArray;
     g.MutationObserver = class MutationObserver extends ObserverBase {};
     g.ResizeObserver = class ResizeObserver extends ObserverBase {};
     g.IntersectionObserver = class IntersectionObserver extends ObserverBase {};

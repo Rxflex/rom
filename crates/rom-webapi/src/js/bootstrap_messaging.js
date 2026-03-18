@@ -238,6 +238,17 @@
         scope.FormData = FormData;
         scope.TextEncoder = TextEncoder;
         scope.TextDecoder = TextDecoder;
+        scope.Permissions = Permissions;
+        scope.PermissionStatus = PermissionStatus;
+        scope.MediaDevices = MediaDevices;
+        scope.MediaDeviceInfo = MediaDeviceInfo;
+        scope.InputDeviceInfo = InputDeviceInfo;
+        scope.MediaStream = MediaStream;
+        scope.MediaStreamTrack = MediaStreamTrack;
+        scope.Plugin = Plugin;
+        scope.PluginArray = PluginArray;
+        scope.MimeType = MimeType;
+        scope.MimeTypeArray = MimeTypeArray;
         scope.crypto = crypto;
         scope.performance = performance;
         scope.console = console;
