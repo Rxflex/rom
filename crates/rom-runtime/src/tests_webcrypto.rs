@@ -420,3 +420,98 @@ fn supports_webcrypto_hkdf_derivation() {
     assert_eq!(value["derivedUsages"], "sign,verify");
     assert_eq!(value["verified"], true);
 }
+
+#[test]
+fn supports_webcrypto_aes_kw_wrap_and_derivation() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const encoder = new TextEncoder();
+                const password = encoder.encode("password");
+                const salt = encoder.encode("salt");
+                const baseKey = await crypto.subtle.importKey(
+                    "raw",
+                    password,
+                    "PBKDF2",
+                    false,
+                    ["deriveBits", "deriveKey"],
+                );
+                const wrappingKey = await crypto.subtle.deriveKey(
+                    { name: "PBKDF2", salt, iterations: 1000, hash: "SHA-256" },
+                    baseKey,
+                    { name: "AES-KW", length: 192 },
+                    true,
+                    ["wrapKey", "unwrapKey"],
+                );
+                const sourceKey = await crypto.subtle.generateKey(
+                    { name: "AES-GCM", length: 128 },
+                    true,
+                    ["encrypt", "decrypt"],
+                );
+                const wrapped = await crypto.subtle.wrapKey(
+                    "raw",
+                    sourceKey,
+                    wrappingKey,
+                    "AES-KW",
+                );
+                const unwrapped = await crypto.subtle.unwrapKey(
+                    "raw",
+                    wrapped,
+                    wrappingKey,
+                    "AES-KW",
+                    { name: "AES-GCM" },
+                    true,
+                    ["encrypt", "decrypt"],
+                );
+                const jwk = await crypto.subtle.exportKey("jwk", wrappingKey);
+                const imported = await crypto.subtle.importKey(
+                    "jwk",
+                    jwk,
+                    { name: "AES-KW" },
+                    true,
+                    ["wrapKey", "unwrapKey"],
+                );
+                const iv = new Uint8Array(12);
+                const ciphertext = await crypto.subtle.encrypt(
+                    { name: "AES-GCM", iv },
+                    unwrapped,
+                    encoder.encode("payload"),
+                );
+                const plaintext = await crypto.subtle.decrypt(
+                    { name: "AES-GCM", iv },
+                    unwrapped,
+                    ciphertext,
+                );
+
+                return {
+                    baseAlgorithm: baseKey.algorithm.name,
+                    wrappingAlgorithm: wrappingKey.algorithm.name,
+                    wrappingLength: wrappingKey.algorithm.length,
+                    wrappingUsages: wrappingKey.usages.join(","),
+                    wrappedLength: new Uint8Array(wrapped).length,
+                    unwrappedAlgorithm: unwrapped.algorithm.name,
+                    importedAlgorithm: imported.algorithm.name,
+                    importedLength: imported.algorithm.length,
+                    jwkAlg: jwk.alg,
+                    plaintext: new TextDecoder().decode(new Uint8Array(plaintext)),
+                };
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+
+    assert_eq!(value["baseAlgorithm"], "PBKDF2");
+    assert_eq!(value["wrappingAlgorithm"], "AES-KW");
+    assert_eq!(value["wrappingLength"], 192);
+    assert_eq!(value["wrappingUsages"], "wrapKey,unwrapKey");
+    assert_eq!(value["wrappedLength"], 24);
+    assert_eq!(value["unwrappedAlgorithm"], "AES-GCM");
+    assert_eq!(value["importedAlgorithm"], "AES-KW");
+    assert_eq!(value["importedLength"], 192);
+    assert_eq!(value["jwkAlg"], "A192KW");
+    assert_eq!(value["plaintext"], "payload");
+}
