@@ -59,6 +59,7 @@ The browser surface now also includes an initial web data stack:
 - `visualViewport`, `screen.orientation`, and browser-like `matchMedia()`
 - initial working `MutationObserver` for `childList`, `attributes`, `characterData`, `subtree`, and `oldValue`
 - initial working `ResizeObserver` and `IntersectionObserver`
+- DOM event propagation with capture/bubble phases, `once`, `stopPropagation()`, `stopImmediatePropagation()`, and `composedPath()`
 
 There is also an optional real-browser reference runner:
 
