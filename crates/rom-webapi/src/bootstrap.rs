@@ -4,6 +4,7 @@ use crate::config::WebRuntimeConfig;
 use crate::host_crypto::CryptoHost;
 use crate::host_fetch::perform_fetch;
 use crate::host_url::parse_url;
+use crate::host_websocket::WebSocketHost;
 
 const WEB_BOOTSTRAP: &str = concat!(
     include_str!("js/bootstrap_prelude.js"),
@@ -28,12 +29,15 @@ const WEB_BOOTSTRAP: &str = concat!(
     "\n",
     include_str!("js/bootstrap_eventsource.js"),
     "\n",
+    include_str!("js/bootstrap_websocket.js"),
+    "\n",
     include_str!("js/bootstrap_globals.js"),
 );
 
 pub fn install_browser_api(ctx: Ctx<'_>, config: &WebRuntimeConfig) -> Result<()> {
     let globals = ctx.globals();
     let crypto_host = CryptoHost::default();
+    let websocket_host = WebSocketHost::default();
 
     globals.set("__rom_console_log", make_console_fn(ctx.clone(), "log"))?;
     globals.set("__rom_console_warn", make_console_fn(ctx.clone(), "warn"))?;
@@ -79,6 +83,22 @@ pub fn install_browser_api(ctx: Ctx<'_>, config: &WebRuntimeConfig) -> Result<()
     globals.set(
         "__rom_subtle_derive_bits",
         make_subtle_derive_bits_fn(ctx.clone(), crypto_host)?,
+    )?;
+    globals.set(
+        "__rom_websocket_connect",
+        make_websocket_connect_fn(ctx.clone(), websocket_host.clone())?,
+    )?;
+    globals.set(
+        "__rom_websocket_send",
+        make_websocket_send_fn(ctx.clone(), websocket_host.clone())?,
+    )?;
+    globals.set(
+        "__rom_websocket_poll",
+        make_websocket_poll_fn(ctx.clone(), websocket_host.clone())?,
+    )?;
+    globals.set(
+        "__rom_websocket_close",
+        make_websocket_close_fn(ctx.clone(), websocket_host)?,
     )?;
     globals.set("__rom_config", make_config_object(ctx.clone(), config)?)?;
 
@@ -191,6 +211,50 @@ fn make_subtle_derive_bits_fn<'js>(
     Function::new(ctx, move |payload: String| -> rquickjs::Result<String> {
         crypto_host.subtle_derive_bits(&payload).map_err(|error| {
             rquickjs::Error::new_from_js_message("DeriveBitsInput", "DerivedBits", error)
+        })
+    })
+}
+
+fn make_websocket_connect_fn<'js>(
+    ctx: Ctx<'js>,
+    websocket_host: WebSocketHost,
+) -> Result<Function<'js>> {
+    Function::new(ctx, move |payload: String| -> rquickjs::Result<String> {
+        websocket_host.connect(&payload).map_err(|error| {
+            rquickjs::Error::new_from_js_message("WebSocketConnectInput", "WebSocket", error)
+        })
+    })
+}
+
+fn make_websocket_send_fn<'js>(
+    ctx: Ctx<'js>,
+    websocket_host: WebSocketHost,
+) -> Result<Function<'js>> {
+    Function::new(ctx, move |payload: String| -> rquickjs::Result<()> {
+        websocket_host.send(&payload).map_err(|error| {
+            rquickjs::Error::new_from_js_message("WebSocketSendInput", "WebSocket", error)
+        })
+    })
+}
+
+fn make_websocket_poll_fn<'js>(
+    ctx: Ctx<'js>,
+    websocket_host: WebSocketHost,
+) -> Result<Function<'js>> {
+    Function::new(ctx, move |payload: String| -> rquickjs::Result<String> {
+        websocket_host.poll(&payload).map_err(|error| {
+            rquickjs::Error::new_from_js_message("WebSocketPollInput", "WebSocket", error)
+        })
+    })
+}
+
+fn make_websocket_close_fn<'js>(
+    ctx: Ctx<'js>,
+    websocket_host: WebSocketHost,
+) -> Result<Function<'js>> {
+    Function::new(ctx, move |payload: String| -> rquickjs::Result<String> {
+        websocket_host.close(&payload).map_err(|error| {
+            rquickjs::Error::new_from_js_message("WebSocketCloseInput", "WebSocket", error)
         })
     })
 }
