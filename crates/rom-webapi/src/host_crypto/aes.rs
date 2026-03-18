@@ -60,7 +60,7 @@ pub(crate) fn normalize_aes_length(length: usize, algorithm: &str) -> Result<usi
     match (algorithm.to_ascii_uppercase().as_str(), length) {
         ("AES-CTR", 128 | 192 | 256)
         | ("AES-CBC", 128 | 192 | 256)
-        | ("AES-GCM", 128 | 256)
+        | ("AES-GCM", 128 | 192 | 256)
         | ("AES-KW", 128 | 192 | 256) => Ok(length / 8),
         (_, other) => Err(format!("Unsupported {algorithm} length: {other}")),
     }
@@ -380,6 +380,7 @@ fn jwk_alg_for_aes(algorithm: &str, secret_len: usize) -> Option<&'static str> {
         ("AES-CBC", 24) => Some("A192CBC"),
         ("AES-CBC", 32) => Some("A256CBC"),
         ("AES-GCM", 16) => Some("A128GCM"),
+        ("AES-GCM", 24) => Some("A192GCM"),
         ("AES-GCM", 32) => Some("A256GCM"),
         ("AES-KW", 16) => Some("A128KW"),
         ("AES-KW", 24) => Some("A192KW"),

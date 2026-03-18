@@ -385,3 +385,62 @@ fn supports_webcrypto_aes_kw_wrap_and_derivation() {
     assert_eq!(value["jwkAlg"], "A192KW");
     assert_eq!(value["plaintext"], "payload");
 }
+
+#[test]
+fn supports_webcrypto_aes_gcm_192_bit_keys() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const encoder = new TextEncoder();
+                const iv = new Uint8Array(12);
+                const key = await crypto.subtle.generateKey(
+                    { name: "AES-GCM", length: 192 },
+                    true,
+                    ["encrypt", "decrypt"],
+                );
+                const ciphertext = await crypto.subtle.encrypt(
+                    { name: "AES-GCM", iv, tagLength: 96 },
+                    key,
+                    encoder.encode("payload"),
+                );
+                const plaintext = await crypto.subtle.decrypt(
+                    { name: "AES-GCM", iv, tagLength: 96 },
+                    key,
+                    ciphertext,
+                );
+                const jwk = await crypto.subtle.exportKey("jwk", key);
+                const imported = await crypto.subtle.importKey(
+                    "jwk",
+                    jwk,
+                    { name: "AES-GCM" },
+                    true,
+                    ["encrypt", "decrypt"],
+                );
+                const importedPlaintext = await crypto.subtle.decrypt(
+                    { name: "AES-GCM", iv, tagLength: 96 },
+                    imported,
+                    ciphertext,
+                );
+
+                return {
+                    keyLength: key.algorithm.length,
+                    cipherLength: new Uint8Array(ciphertext).length,
+                    plaintext: new TextDecoder().decode(new Uint8Array(plaintext)),
+                    importedPlaintext: new TextDecoder().decode(new Uint8Array(importedPlaintext)),
+                    jwkAlg: jwk.alg,
+                };
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+
+    assert_eq!(value["keyLength"], 192);
+    assert_eq!(value["cipherLength"], 19);
+    assert_eq!(value["plaintext"], "payload");
+    assert_eq!(value["importedPlaintext"], "payload");
+    assert_eq!(value["jwkAlg"], "A192GCM");
+}
