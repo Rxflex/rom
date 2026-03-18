@@ -142,12 +142,13 @@
         async deriveBits(algorithm, baseKey, length) {
             assertCryptoKey(baseKey);
             assertCryptoKeyUsage(baseKey, "deriveBits");
+            const lengthBits = normalizeDeriveBitsLength(length);
             const response = JSON.parse(
                 g.__rom_subtle_derive_bits(
                     JSON.stringify({
-                        algorithm: serializeAlgorithmDescriptor(algorithm),
+                        algorithm: serializeDeriveOperationAlgorithm(algorithm),
                         key_id: baseKey.__id,
-                        length: Number(length),
+                        length: lengthBits,
                     }),
                 ),
             );
@@ -163,7 +164,7 @@
             const response = JSON.parse(
                 g.__rom_subtle_derive_bits(
                     JSON.stringify({
-                        algorithm: serializeAlgorithmDescriptor(algorithm),
+                        algorithm: serializeDeriveOperationAlgorithm(algorithm),
                         key_id: baseKey.__id,
                         length: Number(lengthBits),
                     }),

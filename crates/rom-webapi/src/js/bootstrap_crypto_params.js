@@ -4,6 +4,12 @@ function serializeDataOperationAlgorithm(algorithm, dataLength) {
     return serializeNormalizedAlgorithmDescriptor(source);
 }
 
+function serializeDeriveOperationAlgorithm(algorithm) {
+    const source = normalizeAlgorithmObject(algorithm);
+    validateDeriveOperationAlgorithm(source);
+    return serializeNormalizedAlgorithmDescriptor(source);
+}
+
 function validateDataOperationAlgorithm(algorithm, dataLength) {
     switch (String(algorithm.name ?? "").toUpperCase()) {
         case "AES-CTR":
@@ -14,6 +20,17 @@ function validateDataOperationAlgorithm(algorithm, dataLength) {
             break;
         case "AES-GCM":
             validateAesGcmParams(algorithm);
+            break;
+    }
+}
+
+function validateDeriveOperationAlgorithm(algorithm) {
+    switch (String(algorithm.name ?? "").toUpperCase()) {
+        case "PBKDF2":
+            validatePbkdf2Params(algorithm);
+            break;
+        case "HKDF":
+            validateHkdfParams(algorithm);
             break;
     }
 }
@@ -75,6 +92,31 @@ function isSupportedAesGcmTagLength(tagLength) {
     );
 }
 
+function validatePbkdf2Params(algorithm) {
+    requireAlgorithmBytes(algorithm, "salt", "PBKDF2");
+    requireAlgorithmHash(algorithm, "PBKDF2");
+    if (requireAlgorithmInteger(algorithm, "iterations", "PBKDF2") <= 0) {
+        throwInvalidAlgorithmParams("PBKDF2");
+    }
+}
+
+function validateHkdfParams(algorithm) {
+    requireAlgorithmBytes(algorithm, "salt", "HKDF");
+    requireAlgorithmBytes(algorithm, "info", "HKDF");
+    requireAlgorithmHash(algorithm, "HKDF");
+}
+
+function normalizeDeriveBitsLength(length) {
+    const normalized = Number(length);
+    if (!Number.isInteger(normalized) || normalized % 8 !== 0) {
+        throw createCryptoDomException(
+            "OperationError",
+            "deriveBits length must be a multiple of 8.",
+        );
+    }
+    return normalized;
+}
+
 function requireAlgorithmBytes(algorithm, field, algorithmName) {
     if (algorithm[field] === undefined) {
         throw new TypeError(`${algorithmName} requires algorithm.${field}`);
@@ -93,6 +135,13 @@ function requireAlgorithmInteger(algorithm, field, algorithmName) {
         throwInvalidAlgorithmParams(algorithmName);
     }
     return value;
+}
+
+function requireAlgorithmHash(algorithm, algorithmName) {
+    if (algorithm.hash === undefined || algorithm.hash === null) {
+        throw new TypeError(`${algorithmName} requires algorithm.hash`);
+    }
+    return normalizeHashName(algorithm.hash);
 }
 
 function throwInvalidAlgorithmParams(algorithmName) {
