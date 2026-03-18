@@ -11,6 +11,8 @@ const WEB_BOOTSTRAP: &str = concat!(
     "\n",
     include_str!("js/bootstrap_dom.js"),
     "\n",
+    include_str!("js/bootstrap_observers.js"),
+    "\n",
     include_str!("js/bootstrap_url.js"),
     "\n",
     include_str!("js/bootstrap_parser.js"),

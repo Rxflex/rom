@@ -58,6 +58,7 @@ The browser surface now also includes an initial web data stack:
 - viewport globals: `innerWidth`, `innerHeight`, `outerWidth`, `outerHeight`, `devicePixelRatio`
 - `visualViewport`, `screen.orientation`, and browser-like `matchMedia()`
 - initial working `MutationObserver` for `childList`, `attributes`, `characterData`, `subtree`, and `oldValue`
+- initial working `ResizeObserver` and `IntersectionObserver`
 
 There is also an optional real-browser reference runner:
 

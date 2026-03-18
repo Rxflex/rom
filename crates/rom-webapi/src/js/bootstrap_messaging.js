@@ -250,6 +250,9 @@
         scope.PluginArray = PluginArray;
         scope.MimeType = MimeType;
         scope.MimeTypeArray = MimeTypeArray;
+        scope.MutationObserver = MutationObserver;
+        scope.ResizeObserver = ResizeObserver;
+        scope.IntersectionObserver = IntersectionObserver;
         scope.crypto = crypto;
         scope.performance = performance;
         scope.console = console;

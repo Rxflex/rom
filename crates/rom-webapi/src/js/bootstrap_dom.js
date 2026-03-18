@@ -1,4 +1,11 @@
-    const mutationObservers = new Set();
+    function notifyDomMutation(record) {
+        if (typeof g.__rom_queueMutationRecord === "function") {
+            g.__rom_queueMutationRecord(record);
+        }
+        if (typeof g.__rom_queueLayoutObservation === "function") {
+            g.__rom_queueLayoutObservation(record.target);
+        }
+    }
 
     class Node extends EventTarget {
         constructor(nodeType, nodeName) {
@@ -16,7 +23,7 @@
             const previousSibling = this.lastChild;
             node.parentNode = this;
             this.childNodes.push(node);
-            queueMutationRecord({
+            notifyDomMutation({
                 type: "childList",
                 target: this,
                 addedNodes: [node],
@@ -42,7 +49,7 @@
                 const nextSibling = this.childNodes[index + 1] ?? null;
                 this.childNodes.splice(index, 1);
                 node.parentNode = null;
-                queueMutationRecord({
+                notifyDomMutation({
                     type: "childList",
                     target: this,
                     addedNodes: [],
@@ -110,7 +117,7 @@
         set textContent(value) {
             const oldValue = this.data;
             this.data = String(value);
-            queueMutationRecord({
+            notifyDomMutation({
                 type: "characterData",
                 target: this,
                 oldValue,
@@ -145,7 +152,7 @@
             const normalizedName = String(name);
             const oldValue = this.getAttribute(normalizedName);
             this.attributes.set(normalizedName, String(value));
-            queueMutationRecord({
+            notifyDomMutation({
                 type: "attributes",
                 target: this,
                 attributeName: normalizedName,
@@ -165,7 +172,7 @@
             const normalizedName = String(name);
             const oldValue = this.getAttribute(normalizedName);
             this.attributes.delete(normalizedName);
-            queueMutationRecord({
+            notifyDomMutation({
                 type: "attributes",
                 target: this,
                 attributeName: normalizedName,
@@ -391,167 +398,6 @@
         clear() {
             this.__store.clear();
         }
-    }
-
-    class ObserverBase {
-        constructor(callback) {
-            this.callback = typeof callback === "function" ? callback : () => {};
-            this.targets = [];
-        }
-
-        observe(target) {
-            this.targets.push(target);
-        }
-
-        unobserve(target) {
-            this.targets = this.targets.filter((entry) => entry !== target);
-        }
-
-        disconnect() {
-            this.targets = [];
-        }
-
-        takeRecords() {
-            return [];
-        }
-    }
-
-    class MutationObserver extends ObserverBase {
-        constructor(callback) {
-            super(callback);
-            this.__records = [];
-            this.__scheduled = false;
-            mutationObservers.add(this);
-        }
-
-        observe(target, options = {}) {
-            const normalized = normalizeMutationObserverOptions(options);
-            const existing = this.targets.find((entry) => entry.target === target);
-            if (existing) {
-                existing.options = normalized;
-                return;
-            }
-            this.targets.push({ target, options: normalized });
-        }
-
-        disconnect() {
-            this.targets = [];
-            this.__records = [];
-            this.__scheduled = false;
-        }
-
-        takeRecords() {
-            const records = this.__records.slice();
-            this.__records = [];
-            return records;
-        }
-
-        __enqueue(record) {
-            this.__records.push(record);
-            if (this.__scheduled) {
-                return;
-            }
-
-            this.__scheduled = true;
-            queueMicrotask(() => {
-                this.__scheduled = false;
-                if (!this.targets.length || !this.__records.length) {
-                    this.__records = [];
-                    return;
-                }
-
-                const records = this.takeRecords();
-                this.callback(records, this);
-            });
-        }
-    }
-
-    function normalizeMutationObserverOptions(options) {
-        return {
-            childList: Boolean(options.childList),
-            attributes: Boolean(options.attributes),
-            characterData: Boolean(options.characterData),
-            subtree: Boolean(options.subtree),
-            attributeOldValue: Boolean(options.attributeOldValue),
-            characterDataOldValue: Boolean(options.characterDataOldValue),
-            attributeFilter: Array.isArray(options.attributeFilter)
-                ? options.attributeFilter.map(String)
-                : null,
-        };
-    }
-
-    function queueMutationRecord(record) {
-        for (const observer of mutationObservers) {
-            const queuedRecord = createObserverRecord(observer, record);
-            if (queuedRecord) {
-                observer.__enqueue(queuedRecord);
-            }
-        }
-    }
-
-    function createObserverRecord(observer, record) {
-        for (const entry of observer.targets) {
-            if (!matchesObservedTarget(record.target, entry.target, entry.options.subtree)) {
-                continue;
-            }
-
-            if (record.type === "childList" && entry.options.childList) {
-                return buildMutationRecord(record, null);
-            }
-
-            if (record.type === "attributes" && entry.options.attributes) {
-                if (
-                    entry.options.attributeFilter &&
-                    !entry.options.attributeFilter.includes(record.attributeName)
-                ) {
-                    return null;
-                }
-                return buildMutationRecord(
-                    record,
-                    entry.options.attributeOldValue ? record.oldValue ?? null : null,
-                );
-            }
-
-            if (record.type === "characterData" && entry.options.characterData) {
-                return buildMutationRecord(
-                    record,
-                    entry.options.characterDataOldValue ? record.oldValue ?? null : null,
-                );
-            }
-        }
-
-        return null;
-    }
-
-    function matchesObservedTarget(target, observedTarget, subtree) {
-        if (target === observedTarget) {
-            return true;
-        }
-        if (!subtree) {
-            return false;
-        }
-
-        let current = target?.parentNode ?? null;
-        while (current) {
-            if (current === observedTarget) {
-                return true;
-            }
-            current = current.parentNode;
-        }
-        return false;
-    }
-
-    function buildMutationRecord(record, oldValue) {
-        return {
-            type: record.type,
-            target: record.target,
-            addedNodes: record.addedNodes ?? [],
-            removedNodes: record.removedNodes ?? [],
-            previousSibling: record.previousSibling ?? null,
-            nextSibling: record.nextSibling ?? null,
-            attributeName: record.attributeName ?? null,
-            oldValue,
-        };
     }
 
     const document = new Document();
