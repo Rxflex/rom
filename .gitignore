@@ -1,0 +1,9 @@
+target/
+dist/
+node_modules/
+__pycache__/
+*.pyd
+*.so
+*.dll
+*.dylib
+
