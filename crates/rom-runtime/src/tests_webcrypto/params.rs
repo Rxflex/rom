@@ -191,3 +191,94 @@ fn supports_webcrypto_aes_gcm_truncated_tags() {
     assert_eq!(value["cipherLength"], 19);
     assert_eq!(value["plaintext"], "payload");
 }
+
+#[test]
+fn validates_webcrypto_kdf_params() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const encoder = new TextEncoder();
+                const pbkdf2Key = await crypto.subtle.importKey(
+                    "raw",
+                    encoder.encode("password"),
+                    "PBKDF2",
+                    false,
+                    ["deriveBits", "deriveKey"],
+                );
+                const hkdfKey = await crypto.subtle.importKey(
+                    "raw",
+                    encoder.encode("input key"),
+                    "HKDF",
+                    false,
+                    ["deriveBits", "deriveKey"],
+                );
+
+                async function captureError(action) {
+                    try {
+                        await action();
+                        return null;
+                    } catch (error) {
+                        return { name: String(error.name), message: String(error.message) };
+                    }
+                }
+
+                return {
+                    pbkdf2MissingSalt: await captureError(() =>
+                        crypto.subtle.deriveBits(
+                            { name: "PBKDF2", iterations: 1000, hash: "SHA-256" },
+                            pbkdf2Key,
+                            256,
+                        ),
+                    ),
+                    pbkdf2MissingHash: await captureError(() =>
+                        crypto.subtle.deriveBits(
+                            { name: "PBKDF2", salt: encoder.encode("salt"), iterations: 1000 },
+                            pbkdf2Key,
+                            256,
+                        ),
+                    ),
+                    pbkdf2InvalidIterations: await captureError(() =>
+                        crypto.subtle.deriveBits(
+                            { name: "PBKDF2", salt: encoder.encode("salt"), iterations: 0, hash: "SHA-256" },
+                            pbkdf2Key,
+                            256,
+                        ),
+                    ),
+                    hkdfMissingInfo: await captureError(() =>
+                        crypto.subtle.deriveBits(
+                            { name: "HKDF", salt: encoder.encode("salt"), hash: "SHA-256" },
+                            hkdfKey,
+                            256,
+                        ),
+                    ),
+                    hkdfMissingHash: await captureError(() =>
+                        crypto.subtle.deriveBits(
+                            { name: "HKDF", salt: encoder.encode("salt"), info: encoder.encode("info") },
+                            hkdfKey,
+                            256,
+                        ),
+                    ),
+                    invalidLength: await captureError(() =>
+                        crypto.subtle.deriveBits(
+                            { name: "HKDF", salt: encoder.encode("salt"), info: encoder.encode("info"), hash: "SHA-256" },
+                            hkdfKey,
+                            130,
+                        ),
+                    ),
+                };
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+
+    assert_eq!(value["pbkdf2MissingSalt"]["name"], "TypeError");
+    assert_eq!(value["pbkdf2MissingHash"]["name"], "TypeError");
+    assert_eq!(value["pbkdf2InvalidIterations"]["name"], "OperationError");
+    assert_eq!(value["hkdfMissingInfo"]["name"], "TypeError");
+    assert_eq!(value["hkdfMissingHash"]["name"], "TypeError");
+    assert_eq!(value["invalidLength"]["name"], "OperationError");
+}

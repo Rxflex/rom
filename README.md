@@ -36,8 +36,8 @@ The browser surface now also includes an initial web data stack:
 - HMAC `generateKey()`, `importKey()`, `exportKey()`, `sign()`, `verify()`
 - `AES-CTR`, `AES-CBC`, and `AES-GCM` `generateKey()`, `importKey()`, `exportKey()`, `encrypt()`, `decrypt()`, with browser-like parameter validation and `AES-GCM` tag lengths `96..128`
 - `AES-KW` `generateKey()`, `importKey()`, `exportKey()`, and `deriveKey()` for wrapping flows
-- `PBKDF2` `importKey()`, `deriveBits()`, `deriveKey()`
-- `HKDF` `importKey()`, `deriveBits()`, `deriveKey()`
+- `PBKDF2` `importKey()`, `deriveBits()`, `deriveKey()` with browser-like parameter validation
+- `HKDF` `importKey()`, `deriveBits()`, `deriveKey()` with browser-like parameter validation
 - `SubtleCrypto.wrapKey()` and `SubtleCrypto.unwrapKey()` via the current secret-key flow, including `AES-KW`
 - `document.cookie` with path/domain/secure handling
 - fetch cookie roundtrip via `Cookie` / `Set-Cookie` for `same-origin` and `include` credentials modes
