@@ -37,7 +37,8 @@
         }
 
         async importKey(format, keyData, algorithm, extractable, keyUsages) {
-            const normalizedFormat = String(format);
+            const normalizedFormat = normalizeCryptoKeyFormat(format);
+            validateImportKeyData(normalizedFormat, keyData);
             const response = JSON.parse(
                 g.__rom_subtle_import_key(
                     JSON.stringify({
@@ -55,7 +56,9 @@
 
         async exportKey(format, key) {
             assertCryptoKey(key);
-            const normalizedFormat = String(format);
+            assertExtractableCryptoKey(key);
+            const normalizedFormat = normalizeCryptoKeyFormat(format);
+            validateExportKeyFormat(normalizedFormat, key);
             const response = JSON.parse(
                 g.__rom_subtle_export_key(
                     JSON.stringify({
@@ -185,7 +188,9 @@
             assertCryptoKey(key);
             assertCryptoKey(wrappingKey);
             assertCryptoKeyUsage(wrappingKey, "wrapKey");
-            const normalizedFormat = String(format);
+            assertExtractableCryptoKey(key);
+            const normalizedFormat = normalizeCryptoKeyFormat(format);
+            validateExportKeyFormat(normalizedFormat, key);
             const exported = await this.exportKey(normalizedFormat, key);
             const payload =
                 normalizedFormat === "jwk"
@@ -301,6 +306,13 @@
         throw createCryptoDomException("InvalidAccessError", `The key does not support ${usage}.`);
     }
 
+    function assertExtractableCryptoKey(key) {
+        if (key.extractable) {
+            return;
+        }
+        throw createCryptoDomException("InvalidAccessError", "The key is not extractable.");
+    }
+
     function assertIntegerTypedArray(target) {
         if (
             target instanceof Int8Array ||
@@ -386,6 +398,40 @@
             return keyData;
         }
         throw new TypeError(`Unsupported key format: ${format}`);
+    }
+
+    function normalizeCryptoKeyFormat(format) {
+        const normalized = String(format);
+        if (normalized === "raw" || normalized === "jwk") {
+            return normalized;
+        }
+        throw createCryptoDomException(
+            "NotSupportedError",
+            `Unsupported key format: ${normalized}`,
+        );
+    }
+
+    function validateImportKeyData(format, keyData) {
+        if (format === "raw") {
+            toByteArray(keyData);
+            return;
+        }
+        if (!keyData || typeof keyData !== "object" || Array.isArray(keyData)) {
+            throw new TypeError("JWK keyData must be an object");
+        }
+    }
+
+    function validateExportKeyFormat(format, key) {
+        if (
+            format === "jwk" &&
+            (String(key.algorithm?.name ?? "").toUpperCase() === "PBKDF2" ||
+                String(key.algorithm?.name ?? "").toUpperCase() === "HKDF")
+        ) {
+            throw createCryptoDomException(
+                "NotSupportedError",
+                `Unsupported key export format: ${format}`,
+            );
+        }
     }
 
     function toByteArray(value) {
