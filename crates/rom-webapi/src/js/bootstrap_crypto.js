@@ -40,9 +40,9 @@
 
         async importKey(format, keyData, algorithm, extractable, keyUsages) {
             const normalizedFormat = normalizeCryptoKeyFormat(format);
-            validateImportKeyData(normalizedFormat, keyData);
             const normalizedAlgorithm = normalizeAlgorithmObject(algorithm);
             const usages = normalizeCryptoKeyUsages(normalizedAlgorithm, keyUsages);
+            validateImportKeyData(normalizedFormat, keyData, normalizedAlgorithm, Boolean(extractable), usages);
             const response = JSON.parse(
                 g.__rom_subtle_import_key(
                     JSON.stringify({
@@ -407,16 +407,6 @@
             return normalized;
         }
         throw createCryptoDomException("NotSupportedError", `Unsupported key format: ${normalized}`);
-    }
-
-    function validateImportKeyData(format, keyData) {
-        if (format === "raw") {
-            toByteArray(keyData);
-            return;
-        }
-        if (!keyData || typeof keyData !== "object" || Array.isArray(keyData)) {
-            throw new TypeError("JWK keyData must be an object");
-        }
     }
 
     function validateExportKeyFormat(format, key) {

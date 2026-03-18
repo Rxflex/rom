@@ -414,4 +414,5 @@ fn supports_webcrypto_aes_ctr_lifecycle_and_derivation() {
 }
 
 mod advanced;
+mod jwk;
 mod params;
