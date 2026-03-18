@@ -26,6 +26,8 @@ mod tests_navigator;
 #[cfg(test)]
 mod tests_parsing;
 #[cfg(test)]
+mod tests_timers;
+#[cfg(test)]
 mod tests_webcrypto;
 #[cfg(test)]
 mod tests_websocket;

@@ -59,28 +59,57 @@
     let nextTimerId = 1;
     const timers = new Map();
 
-    function registerTimer(callback, interval, args) {
+    function registerTimer(callback, interval, delay, args) {
         const timerId = nextTimerId++;
-        timers.set(timerId, { callback, interval, args });
-
-        Promise.resolve().then(() => {
-            const timer = timers.get(timerId);
-            if (!timer || typeof callback !== "function") {
-                return;
-            }
-
-            callback(...args);
-
-            if (!interval) {
-                timers.delete(timerId);
-            }
+        timers.set(timerId, {
+            callback,
+            interval,
+            args,
+            delay: normalizeTimerDelay(delay),
         });
+
+        queueMicrotask(() => runTimer(timerId));
 
         return timerId;
     }
 
+    function runTimer(timerId) {
+        const timer = timers.get(timerId);
+        if (!timer || typeof timer.callback !== "function") {
+            return;
+        }
+
+        if (timer.delay > 0) {
+            g.__rom_sleep_ms(timer.delay);
+        }
+
+        if (timers.get(timerId) !== timer) {
+            return;
+        }
+
+        timer.callback(...timer.args);
+
+        if (!timer.interval) {
+            timers.delete(timerId);
+            return;
+        }
+
+        if (timers.get(timerId) === timer) {
+            queueMicrotask(() => runTimer(timerId));
+        }
+    }
+
     function clearTimer(timerId) {
         timers.delete(timerId);
+    }
+
+    function normalizeTimerDelay(delay) {
+        const numeric = Number(delay);
+        if (!Number.isFinite(numeric) || numeric <= 0) {
+            return 0;
+        }
+
+        return Math.min(2147483647, Math.trunc(numeric));
     }
 
     const performance = {
@@ -260,9 +289,9 @@
     g.matchMedia = mediaQueryList;
     g.TextEncoder = textEncoderFactory;
     g.TextDecoder = textDecoderFactory;
-    g.setTimeout = (callback, _delay, ...args) => registerTimer(callback, false, args);
+    g.setTimeout = (callback, delay = 0, ...args) => registerTimer(callback, false, delay, args);
     g.clearTimeout = clearTimer;
-    g.setInterval = (callback, _delay, ...args) => registerTimer(callback, true, args);
+    g.setInterval = (callback, delay = 0, ...args) => registerTimer(callback, true, delay, args);
     g.clearInterval = clearTimer;
     g.queueMicrotask = (callback) =>
         Promise.resolve().then(() => {
