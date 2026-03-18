@@ -312,7 +312,7 @@
     g.PluginArray = PluginArray;
     g.MimeType = MimeType;
     g.MimeTypeArray = MimeTypeArray;
-    g.MutationObserver = class MutationObserver extends ObserverBase {};
+    g.MutationObserver = MutationObserver;
     g.ResizeObserver = class ResizeObserver extends ObserverBase {};
     g.IntersectionObserver = class IntersectionObserver extends ObserverBase {};
     g.PerformanceObserver = class PerformanceObserver extends ObserverBase {};
