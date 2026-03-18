@@ -55,6 +55,8 @@ The browser surface now also includes an initial web data stack:
 - `navigator.userAgentData` with `brands`, `mobile`, `platform`, and `getHighEntropyValues()`
 - `mediaDevices.ondevicechange` and `devicechange` listeners
 - `navigator.plugins`, `navigator.mimeTypes`, and `navigator.pdfViewerEnabled`
+- viewport globals: `innerWidth`, `innerHeight`, `outerWidth`, `outerHeight`, `devicePixelRatio`
+- `visualViewport`, `screen.orientation`, and browser-like `matchMedia()`
 
 There is also an optional real-browser reference runner:
 
