@@ -282,3 +282,100 @@ fn validates_webcrypto_kdf_params() {
     assert_eq!(value["hkdfMissingHash"]["name"], "TypeError");
     assert_eq!(value["invalidLength"]["name"], "OperationError");
 }
+
+#[test]
+fn validates_webcrypto_import_export_edge_cases() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const encoder = new TextEncoder();
+                const nonExtractableKey = await crypto.subtle.importKey(
+                    "raw",
+                    encoder.encode("secret"),
+                    { name: "HMAC", hash: "SHA-256" },
+                    false,
+                    ["sign", "verify"],
+                );
+                const extractableKey = await crypto.subtle.importKey(
+                    "raw",
+                    encoder.encode("secret"),
+                    { name: "HMAC", hash: "SHA-256" },
+                    true,
+                    ["sign", "verify"],
+                );
+                const wrappingKey = await crypto.subtle.generateKey(
+                    { name: "AES-GCM", length: 128 },
+                    true,
+                    ["wrapKey", "unwrapKey"],
+                );
+                const pbkdf2Key = await crypto.subtle.importKey(
+                    "raw",
+                    encoder.encode("password"),
+                    "PBKDF2",
+                    true,
+                    ["deriveBits", "deriveKey"],
+                );
+                const iv = new Uint8Array(12);
+
+                async function captureError(action) {
+                    try {
+                        await action();
+                        return null;
+                    } catch (error) {
+                        return { name: String(error.name), message: String(error.message) };
+                    }
+                }
+
+                return {
+                    exportNonExtractable: await captureError(() =>
+                        crypto.subtle.exportKey("raw", nonExtractableKey),
+                    ),
+                    wrapNonExtractable: await captureError(() =>
+                        crypto.subtle.wrapKey(
+                            "raw",
+                            nonExtractableKey,
+                            wrappingKey,
+                            { name: "AES-GCM", iv },
+                        ),
+                    ),
+                    exportUnsupportedFormat: await captureError(() =>
+                        crypto.subtle.exportKey("spki", extractableKey),
+                    ),
+                    importUnsupportedFormat: await captureError(() =>
+                        crypto.subtle.importKey(
+                            "pkcs8",
+                            new Uint8Array([1, 2, 3]),
+                            { name: "HMAC", hash: "SHA-256" },
+                            true,
+                            ["sign"],
+                        ),
+                    ),
+                    importInvalidJwkData: await captureError(() =>
+                        crypto.subtle.importKey(
+                            "jwk",
+                            "not-an-object",
+                            { name: "HMAC", hash: "SHA-256" },
+                            true,
+                            ["sign"],
+                        ),
+                    ),
+                    exportUnsupportedJwk: await captureError(() =>
+                        crypto.subtle.exportKey("jwk", pbkdf2Key),
+                    ),
+                };
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+
+    assert_eq!(value["exportNonExtractable"]["name"], "InvalidAccessError");
+    assert_eq!(value["wrapNonExtractable"]["name"], "InvalidAccessError");
+    assert_eq!(value["exportUnsupportedFormat"]["name"], "NotSupportedError");
+    assert_eq!(value["importUnsupportedFormat"]["name"], "NotSupportedError");
+    assert_eq!(value["importInvalidJwkData"]["name"], "TypeError");
+    assert_eq!(value["exportUnsupportedJwk"]["name"], "NotSupportedError");
+}
