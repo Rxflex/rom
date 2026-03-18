@@ -240,6 +240,7 @@
         scope.TextDecoder = TextDecoder;
         scope.Permissions = Permissions;
         scope.PermissionStatus = PermissionStatus;
+        scope.NavigatorUAData = NavigatorUAData;
         scope.MediaDevices = MediaDevices;
         scope.MediaDeviceInfo = MediaDeviceInfo;
         scope.InputDeviceInfo = InputDeviceInfo;

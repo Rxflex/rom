@@ -311,6 +311,7 @@
     g.DOMParser = DOMParser;
     g.Permissions = Permissions;
     g.PermissionStatus = PermissionStatus;
+    g.NavigatorUAData = NavigatorUAData;
     g.MediaDevices = MediaDevices;
     g.MediaDeviceInfo = MediaDeviceInfo;
     g.InputDeviceInfo = InputDeviceInfo;

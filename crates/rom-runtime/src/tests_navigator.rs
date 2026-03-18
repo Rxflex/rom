@@ -9,8 +9,25 @@ fn supports_navigator_permissions_media_and_plugin_surfaces() {
             (async () => {
                 const permission = await navigator.permissions.query({ name: "camera" });
                 const notification = await navigator.permissions.query({ name: "notifications" });
+                const userAgentData = navigator.userAgentData;
+                const highEntropyValues = await userAgentData.getHighEntropyValues([
+                    "architecture",
+                    "bitness",
+                    "platformVersion",
+                    "uaFullVersion",
+                    "fullVersionList",
+                    "wow64",
+                ]);
                 const devices = await navigator.mediaDevices.enumerateDevices();
+                const deviceEvents = [];
+                navigator.mediaDevices.addEventListener("devicechange", (event) => {
+                    deviceEvents.push(`listener:${event.type}`);
+                });
+                navigator.mediaDevices.ondevicechange = (event) => {
+                    deviceEvents.push(`handler:${event.type}`);
+                };
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                await new Promise((resolve) => setTimeout(resolve, 0));
                 const audioTrack = stream.getAudioTracks()[0];
                 const videoTrack = stream.getVideoTracks()[0];
                 const mimeType = navigator.mimeTypes.namedItem("application/pdf");
@@ -21,11 +38,17 @@ fn supports_navigator_permissions_media_and_plugin_surfaces() {
                     permissionName: permission.name,
                     permissionIsStatus: permission instanceof PermissionStatus,
                     notificationState: notification.state,
+                    uaDataIsPresent: userAgentData instanceof NavigatorUAData,
+                    uaDataBrands: userAgentData.brands,
+                    uaDataPlatform: userAgentData.platform,
+                    uaDataMobile: userAgentData.mobile,
+                    highEntropyValues,
                     devices: devices.map((device) => ({
                         kind: device.kind,
                         label: device.label,
                         isInput: device instanceof InputDeviceInfo,
                     })),
+                    deviceEvents,
                     supportedConstraints: navigator.mediaDevices.getSupportedConstraints(),
                     streamIsMediaStream: stream instanceof MediaStream,
                     trackKinds: stream.getTracks().map((track) => track.kind).join(","),
@@ -50,6 +73,28 @@ fn supports_navigator_permissions_media_and_plugin_surfaces() {
     assert_eq!(value["permissionName"], "camera");
     assert_eq!(value["permissionIsStatus"], true);
     assert_eq!(value["notificationState"], "default");
+    assert_eq!(value["uaDataIsPresent"], true);
+    assert_eq!(
+        value["uaDataBrands"],
+        serde_json::json!([
+            { "brand": "ROM", "version": "0" },
+            { "brand": "Not=A?Brand", "version": "99" }
+        ])
+    );
+    assert_eq!(value["uaDataPlatform"], "Windows");
+    assert_eq!(value["uaDataMobile"], false);
+    assert_eq!(value["highEntropyValues"]["architecture"], "x86");
+    assert_eq!(value["highEntropyValues"]["bitness"], "64");
+    assert_eq!(value["highEntropyValues"]["platformVersion"], "15.0.0");
+    assert_eq!(value["highEntropyValues"]["uaFullVersion"], "0.1.0");
+    assert_eq!(value["highEntropyValues"]["wow64"], false);
+    assert_eq!(
+        value["highEntropyValues"]["fullVersionList"],
+        serde_json::json!([
+            { "brand": "ROM", "version": "0" },
+            { "brand": "Not=A?Brand", "version": "99" }
+        ])
+    );
     assert_eq!(
         value["devices"],
         serde_json::json!([
@@ -57,6 +102,10 @@ fn supports_navigator_permissions_media_and_plugin_surfaces() {
             { "kind": "videoinput", "label": "Default Video Input", "isInput": true },
             { "kind": "audiooutput", "label": "Default Audio Output", "isInput": false }
         ])
+    );
+    assert_eq!(
+        value["deviceEvents"],
+        serde_json::json!(["handler:devicechange", "listener:devicechange"])
     );
     assert_eq!(value["supportedConstraints"]["audio"], true);
     assert_eq!(value["supportedConstraints"]["video"], true);
