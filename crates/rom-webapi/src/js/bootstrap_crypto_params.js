@@ -10,6 +10,12 @@ function serializeDeriveOperationAlgorithm(algorithm) {
     return serializeNormalizedAlgorithmDescriptor(source);
 }
 
+function normalizeCryptoKeyUsages(algorithm, keyUsages) {
+    const usages = Array.from(keyUsages ?? [], String);
+    validateCryptoKeyUsages(algorithm, usages);
+    return usages;
+}
+
 function validateDataOperationAlgorithm(algorithm, dataLength) {
     switch (String(algorithm.name ?? "").toUpperCase()) {
         case "AES-CTR":
@@ -31,6 +37,26 @@ function validateDeriveOperationAlgorithm(algorithm) {
             break;
         case "HKDF":
             validateHkdfParams(algorithm);
+            break;
+    }
+}
+
+function validateCryptoKeyUsages(algorithm, usages) {
+    switch (String(algorithm.name ?? "").toUpperCase()) {
+        case "HMAC":
+            validateSecretKeyUsages("HMAC", usages, ["sign", "verify"]);
+            break;
+        case "AES-CTR":
+        case "AES-CBC":
+        case "AES-GCM":
+            validateSecretKeyUsages(algorithm.name, usages, ["encrypt", "decrypt", "wrapKey", "unwrapKey"]);
+            break;
+        case "AES-KW":
+            validateSecretKeyUsages("AES-KW", usages, ["wrapKey", "unwrapKey"]);
+            break;
+        case "PBKDF2":
+        case "HKDF":
+            validateSecretKeyUsages(algorithm.name, usages, ["deriveBits", "deriveKey"]);
             break;
     }
 }
@@ -104,6 +130,21 @@ function validateHkdfParams(algorithm) {
     requireAlgorithmBytes(algorithm, "salt", "HKDF");
     requireAlgorithmBytes(algorithm, "info", "HKDF");
     requireAlgorithmHash(algorithm, "HKDF");
+}
+
+function validateSecretKeyUsages(algorithmName, usages, allowedUsages) {
+    if (usages.length === 0) {
+        throw createCryptoDomException("SyntaxError", `${algorithmName} keys require at least one usage.`);
+    }
+
+    for (const usage of usages) {
+        if (!allowedUsages.includes(usage)) {
+            throw createCryptoDomException(
+                "SyntaxError",
+                `Invalid key usage for ${algorithmName}: ${usage}.`,
+            );
+        }
+    }
 }
 
 function normalizeDeriveBitsLength(length) {

@@ -379,3 +379,115 @@ fn validates_webcrypto_import_export_edge_cases() {
     assert_eq!(value["importInvalidJwkData"]["name"], "TypeError");
     assert_eq!(value["exportUnsupportedJwk"]["name"], "NotSupportedError");
 }
+
+#[test]
+fn validates_webcrypto_key_usages() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const encoder = new TextEncoder();
+                const baseKey = await crypto.subtle.importKey(
+                    "raw",
+                    encoder.encode("password"),
+                    "PBKDF2",
+                    false,
+                    ["deriveBits", "deriveKey"],
+                );
+                const wrappingKey = await crypto.subtle.generateKey(
+                    { name: "AES-GCM", length: 128 },
+                    true,
+                    ["wrapKey", "unwrapKey"],
+                );
+                const sourceKey = await crypto.subtle.importKey(
+                    "raw",
+                    encoder.encode("secret"),
+                    { name: "HMAC", hash: "SHA-256" },
+                    true,
+                    ["sign", "verify"],
+                );
+                const wrapped = await crypto.subtle.wrapKey(
+                    "raw",
+                    sourceKey,
+                    wrappingKey,
+                    { name: "AES-GCM", iv: new Uint8Array(12) },
+                );
+
+                async function captureError(action) {
+                    try {
+                        await action();
+                        return null;
+                    } catch (error) {
+                        return { name: String(error.name), message: String(error.message) };
+                    }
+                }
+
+                return {
+                    generateEmptyUsages: await captureError(() =>
+                        crypto.subtle.generateKey(
+                            { name: "AES-GCM", length: 128 },
+                            true,
+                            [],
+                        ),
+                    ),
+                    generateInvalidUsage: await captureError(() =>
+                        crypto.subtle.generateKey(
+                            { name: "AES-KW", length: 128 },
+                            true,
+                            ["encrypt"],
+                        ),
+                    ),
+                    importEmptyUsages: await captureError(() =>
+                        crypto.subtle.importKey(
+                            "raw",
+                            encoder.encode("secret"),
+                            { name: "HMAC", hash: "SHA-256" },
+                            true,
+                            [],
+                        ),
+                    ),
+                    importInvalidUsage: await captureError(() =>
+                        crypto.subtle.importKey(
+                            "raw",
+                            encoder.encode("password"),
+                            "PBKDF2",
+                            false,
+                            ["sign"],
+                        ),
+                    ),
+                    deriveKeyEmptyUsages: await captureError(() =>
+                        crypto.subtle.deriveKey(
+                            { name: "PBKDF2", salt: encoder.encode("salt"), iterations: 1000, hash: "SHA-256" },
+                            baseKey,
+                            { name: "AES-GCM", length: 128 },
+                            true,
+                            [],
+                        ),
+                    ),
+                    unwrapKeyEmptyUsages: await captureError(() =>
+                        crypto.subtle.unwrapKey(
+                            "raw",
+                            wrapped,
+                            wrappingKey,
+                            { name: "AES-GCM", iv: new Uint8Array(12) },
+                            { name: "HMAC", hash: "SHA-256" },
+                            true,
+                            [],
+                        ),
+                    ),
+                };
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+
+    assert_eq!(value["generateEmptyUsages"]["name"], "SyntaxError");
+    assert_eq!(value["generateInvalidUsage"]["name"], "SyntaxError");
+    assert_eq!(value["importEmptyUsages"]["name"], "SyntaxError");
+    assert_eq!(value["importInvalidUsage"]["name"], "SyntaxError");
+    assert_eq!(value["deriveKeyEmptyUsages"]["name"], "SyntaxError");
+    assert_eq!(value["unwrapKeyEmptyUsages"]["name"], "SyntaxError");
+}

@@ -23,12 +23,14 @@
         }
 
         async generateKey(algorithm, extractable, keyUsages) {
+            const normalizedAlgorithm = normalizeAlgorithmObject(algorithm);
+            const usages = normalizeCryptoKeyUsages(normalizedAlgorithm, keyUsages);
             const response = JSON.parse(
                 g.__rom_subtle_generate_key(
                     JSON.stringify({
-                        algorithm: serializeAlgorithmDescriptor(algorithm),
+                        algorithm: serializeNormalizedAlgorithmDescriptor(normalizedAlgorithm),
                         extractable: Boolean(extractable),
-                        usages: Array.from(keyUsages ?? [], String),
+                        usages,
                     }),
                 ),
             );
@@ -39,14 +41,16 @@
         async importKey(format, keyData, algorithm, extractable, keyUsages) {
             const normalizedFormat = normalizeCryptoKeyFormat(format);
             validateImportKeyData(normalizedFormat, keyData);
+            const normalizedAlgorithm = normalizeAlgorithmObject(algorithm);
+            const usages = normalizeCryptoKeyUsages(normalizedAlgorithm, keyUsages);
             const response = JSON.parse(
                 g.__rom_subtle_import_key(
                     JSON.stringify({
                         format: normalizedFormat,
                         key_data: serializeKeyData(normalizedFormat, keyData),
-                        algorithm: serializeAlgorithmDescriptor(algorithm),
+                        algorithm: serializeNormalizedAlgorithmDescriptor(normalizedAlgorithm),
                         extractable: Boolean(extractable),
-                        usages: Array.from(keyUsages ?? [], String),
+                        usages,
                     }),
                 ),
             );
@@ -307,10 +311,7 @@
     }
 
     function assertExtractableCryptoKey(key) {
-        if (key.extractable) {
-            return;
-        }
-        throw createCryptoDomException("InvalidAccessError", "The key is not extractable.");
+        if (!key.extractable) throw createCryptoDomException("InvalidAccessError", "The key is not extractable.");
     }
 
     function assertIntegerTypedArray(target) {
@@ -405,10 +406,7 @@
         if (normalized === "raw" || normalized === "jwk") {
             return normalized;
         }
-        throw createCryptoDomException(
-            "NotSupportedError",
-            `Unsupported key format: ${normalized}`,
-        );
+        throw createCryptoDomException("NotSupportedError", `Unsupported key format: ${normalized}`);
     }
 
     function validateImportKeyData(format, keyData) {
@@ -422,15 +420,12 @@
     }
 
     function validateExportKeyFormat(format, key) {
+        const algorithmName = String(key.algorithm?.name ?? "").toUpperCase();
         if (
             format === "jwk" &&
-            (String(key.algorithm?.name ?? "").toUpperCase() === "PBKDF2" ||
-                String(key.algorithm?.name ?? "").toUpperCase() === "HKDF")
+            (algorithmName === "PBKDF2" || algorithmName === "HKDF")
         ) {
-            throw createCryptoDomException(
-                "NotSupportedError",
-                `Unsupported key export format: ${format}`,
-            );
+            throw createCryptoDomException("NotSupportedError", `Unsupported key export format: ${format}`);
         }
     }
 
