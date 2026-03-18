@@ -346,3 +346,77 @@ fn supports_webcrypto_wrap_and_unwrap_key() {
     assert_eq!(value["unwrappedHash"], "SHA-256");
     assert_eq!(value["verified"], true);
 }
+
+#[test]
+fn supports_webcrypto_hkdf_derivation() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const encoder = new TextEncoder();
+                const baseKey = await crypto.subtle.importKey(
+                    "raw",
+                    encoder.encode("input key"),
+                    "HKDF",
+                    false,
+                    ["deriveBits", "deriveKey"],
+                );
+                const salt = encoder.encode("salt value");
+                const info = encoder.encode("context");
+                const bits = await crypto.subtle.deriveBits(
+                    { name: "HKDF", hash: "SHA-256", salt, info },
+                    baseKey,
+                    256,
+                );
+                const derivedKey = await crypto.subtle.deriveKey(
+                    { name: "HKDF", hash: "SHA-256", salt, info },
+                    baseKey,
+                    { name: "HMAC", hash: "SHA-256", length: 256 },
+                    true,
+                    ["sign", "verify"],
+                );
+                const signature = await crypto.subtle.sign(
+                    "HMAC",
+                    derivedKey,
+                    encoder.encode("payload"),
+                );
+                const verified = await crypto.subtle.verify(
+                    "HMAC",
+                    derivedKey,
+                    signature,
+                    encoder.encode("payload"),
+                );
+
+                return {
+                    baseAlgorithm: baseKey.algorithm.name,
+                    baseUsages: baseKey.usages.join(","),
+                    bitsHex: Array.from(
+                        new Uint8Array(bits),
+                        (byte) => byte.toString(16).padStart(2, "0"),
+                    ).join(""),
+                    derivedAlgorithm: derivedKey.algorithm.name,
+                    derivedHash: derivedKey.algorithm.hash.name,
+                    derivedLength: derivedKey.algorithm.length,
+                    derivedUsages: derivedKey.usages.join(","),
+                    verified,
+                };
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+
+    assert_eq!(value["baseAlgorithm"], "HKDF");
+    assert_eq!(value["baseUsages"], "deriveBits,deriveKey");
+    assert_eq!(
+        value["bitsHex"],
+        "41b5586358525875c07164667c11acf1e71439386d1eb03c894a8af9fdfd0d31"
+    );
+    assert_eq!(value["derivedAlgorithm"], "HMAC");
+    assert_eq!(value["derivedHash"], "SHA-256");
+    assert_eq!(value["derivedLength"], 256);
+    assert_eq!(value["derivedUsages"], "sign,verify");
+    assert_eq!(value["verified"], true);
+}

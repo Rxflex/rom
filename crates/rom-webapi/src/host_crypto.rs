@@ -13,11 +13,12 @@ use serde_json::Value;
 
 use self::{
     ops::{
-        build_aes_algorithm, build_hmac_algorithm, build_pbkdf2_algorithm, default_hmac_key_length,
-        derive_pbkdf2_bits, digest_bytes, encrypt_aes_gcm, ensure_algorithm_name, export_aes_jwk,
-        export_hmac_jwk, import_aes_jwk, import_hmac_jwk, normalize_aes_length,
-        parse_hash_algorithm, parse_hash_from_descriptor, sign_hmac, validate_aes_usages,
-        validate_hmac_usages, validate_pbkdf2_usages, verify_hmac,
+        build_aes_algorithm, build_hkdf_algorithm, build_hmac_algorithm, build_pbkdf2_algorithm,
+        default_hmac_key_length, derive_hkdf_bits, derive_pbkdf2_bits, digest_bytes,
+        encrypt_aes_gcm, ensure_algorithm_name, export_aes_jwk, export_hmac_jwk, import_aes_jwk,
+        import_hmac_jwk, normalize_aes_length, parse_hash_algorithm, parse_hash_from_descriptor,
+        sign_hmac, validate_aes_usages, validate_hkdf_usages, validate_hmac_usages,
+        validate_pbkdf2_usages, verify_hmac,
     },
     types::{
         BytesPayload, CryptoKeyRecord, DecryptPayload, DeriveBitsPayload, DigestPayload,
@@ -151,6 +152,24 @@ impl CryptoHost {
                     material: KeyMaterial::Pbkdf2 { secret },
                 })
             }
+            "HKDF" => {
+                validate_hkdf_usages(&payload.usages)?;
+                if payload.format != "raw" {
+                    return Err(format!(
+                        "Unsupported key import format for HKDF: {}",
+                        payload.format
+                    ));
+                }
+                let secret = deserialize_raw_bytes(payload.key_data)?;
+
+                self.store_key(CryptoKeyRecord {
+                    extractable: payload.extractable,
+                    key_type: "secret".to_owned(),
+                    algorithm: build_hkdf_algorithm(),
+                    usages: payload.usages,
+                    material: KeyMaterial::Hkdf { secret },
+                })
+            }
             other => Err(format!("Unsupported algorithm: {other}")),
         }
     }
@@ -169,7 +188,8 @@ impl CryptoHost {
                 let bytes = match &record.material {
                     KeyMaterial::Hmac { secret, .. }
                     | KeyMaterial::Aes { secret }
-                    | KeyMaterial::Pbkdf2 { secret } => secret.clone(),
+                    | KeyMaterial::Pbkdf2 { secret }
+                    | KeyMaterial::Hkdf { secret } => secret.clone(),
                 };
                 serde_json::to_string(&BytesPayload { bytes }).map_err(|error| error.to_string())
             }
@@ -190,6 +210,9 @@ impl CryptoHost {
                     .map_err(|error| error.to_string())?,
                     KeyMaterial::Pbkdf2 { .. } => {
                         return Err("Unsupported key export format for PBKDF2: jwk".to_owned());
+                    }
+                    KeyMaterial::Hkdf { .. } => {
+                        return Err("Unsupported key export format for HKDF: jwk".to_owned());
                     }
                 };
                 serde_json::to_string(&exported).map_err(|error| error.to_string())
@@ -295,7 +318,6 @@ impl CryptoHost {
     pub fn subtle_derive_bits(&self, payload: &str) -> Result<String, String> {
         let payload: DeriveBitsPayload =
             serde_json::from_str(payload).map_err(|error| error.to_string())?;
-        ensure_algorithm_name(&payload.algorithm.name, "PBKDF2")?;
         let record = self.get_key(&payload.key_id)?;
 
         if !record
@@ -306,22 +328,39 @@ impl CryptoHost {
             return Err("InvalidAccessError: key does not allow deriveBits".to_owned());
         }
 
-        let bytes = match &record.material {
-            KeyMaterial::Pbkdf2 { secret } => derive_pbkdf2_bits(
-                secret,
-                payload
-                    .algorithm
-                    .salt
-                    .as_deref()
-                    .ok_or_else(|| "Missing algorithm.salt".to_owned())?,
-                payload
-                    .algorithm
-                    .iterations
-                    .ok_or_else(|| "Missing algorithm.iterations".to_owned())?,
-                parse_hash_from_descriptor(&payload.algorithm)?,
-                payload.length,
-            )?,
-            _ => return Err("InvalidAccessError: key does not support deriveBits".to_owned()),
+        let bytes = match payload.algorithm.name.to_ascii_uppercase().as_str() {
+            "PBKDF2" => match &record.material {
+                KeyMaterial::Pbkdf2 { secret } => derive_pbkdf2_bits(
+                    secret,
+                    payload
+                        .algorithm
+                        .salt
+                        .as_deref()
+                        .ok_or_else(|| "Missing algorithm.salt".to_owned())?,
+                    payload
+                        .algorithm
+                        .iterations
+                        .ok_or_else(|| "Missing algorithm.iterations".to_owned())?,
+                    parse_hash_from_descriptor(&payload.algorithm)?,
+                    payload.length,
+                )?,
+                _ => return Err("InvalidAccessError: key does not support deriveBits".to_owned()),
+            },
+            "HKDF" => match &record.material {
+                KeyMaterial::Hkdf { secret } => derive_hkdf_bits(
+                    secret,
+                    payload
+                        .algorithm
+                        .salt
+                        .as_deref()
+                        .ok_or_else(|| "Missing algorithm.salt".to_owned())?,
+                    payload.algorithm.info.as_deref().unwrap_or(&[]),
+                    parse_hash_from_descriptor(&payload.algorithm)?,
+                    payload.length,
+                )?,
+                _ => return Err("InvalidAccessError: key does not support deriveBits".to_owned()),
+            },
+            other => return Err(format!("Unsupported algorithm: {other}")),
         };
 
         serde_json::to_string(&BytesPayload { bytes }).map_err(|error| error.to_string())
