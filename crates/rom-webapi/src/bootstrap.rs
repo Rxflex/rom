@@ -1,4 +1,5 @@
 use rquickjs::{Ctx, Function, Object, Result};
+use std::{thread, time::Duration};
 
 use crate::config::WebRuntimeConfig;
 use crate::host_crypto::CryptoHost;
@@ -106,6 +107,7 @@ pub fn install_browser_api(ctx: Ctx<'_>, config: &WebRuntimeConfig) -> Result<()
         "__rom_websocket_close",
         make_websocket_close_fn(ctx.clone(), websocket_host)?,
     )?;
+    globals.set("__rom_sleep_ms", make_sleep_fn(ctx.clone())?)?;
     globals.set("__rom_config", make_config_object(ctx.clone(), config)?)?;
 
     ctx.eval::<(), _>(WEB_BOOTSTRAP)?;
@@ -262,6 +264,14 @@ fn make_websocket_close_fn<'js>(
         websocket_host.close(&payload).map_err(|error| {
             rquickjs::Error::new_from_js_message("WebSocketCloseInput", "WebSocket", error)
         })
+    })
+}
+
+fn make_sleep_fn<'js>(ctx: Ctx<'js>) -> Result<Function<'js>> {
+    Function::new(ctx, move |milliseconds: u64| {
+        if milliseconds > 0 {
+            thread::sleep(Duration::from_millis(milliseconds));
+        }
     })
 }
 
