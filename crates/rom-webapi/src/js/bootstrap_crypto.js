@@ -74,6 +74,7 @@
 
         async sign(algorithm, key, data) {
             assertCryptoKey(key);
+            assertCryptoKeyUsage(key, "sign");
             const response = JSON.parse(
                 g.__rom_subtle_sign(
                     JSON.stringify({
@@ -89,6 +90,7 @@
 
         async verify(algorithm, key, signature, data) {
             assertCryptoKey(key);
+            assertCryptoKeyUsage(key, "verify");
             const response = JSON.parse(
                 g.__rom_subtle_verify(
                     JSON.stringify({
@@ -105,6 +107,7 @@
 
         async encrypt(algorithm, key, data) {
             assertCryptoKey(key);
+            assertCryptoKeyUsage(key, "encrypt");
             const response = JSON.parse(
                 g.__rom_subtle_encrypt(
                     JSON.stringify({
@@ -120,6 +123,7 @@
 
         async decrypt(algorithm, key, data) {
             assertCryptoKey(key);
+            assertCryptoKeyUsage(key, "decrypt");
             const response = JSON.parse(
                 g.__rom_subtle_decrypt(
                     JSON.stringify({
@@ -135,6 +139,7 @@
 
         async deriveBits(algorithm, baseKey, length) {
             assertCryptoKey(baseKey);
+            assertCryptoKeyUsage(baseKey, "deriveBits");
             const response = JSON.parse(
                 g.__rom_subtle_derive_bits(
                     JSON.stringify({
@@ -149,9 +154,20 @@
         }
 
         async deriveKey(algorithm, baseKey, derivedKeyAlgorithm, extractable, keyUsages) {
+            assertCryptoKey(baseKey);
+            assertCryptoKeyUsage(baseKey, "deriveKey");
             const normalizedAlgorithm = normalizeAlgorithmObject(derivedKeyAlgorithm);
             const lengthBits = getDerivedKeyLengthBits(normalizedAlgorithm);
-            const bits = await this.deriveBits(algorithm, baseKey, lengthBits);
+            const response = JSON.parse(
+                g.__rom_subtle_derive_bits(
+                    JSON.stringify({
+                        algorithm: serializeAlgorithmDescriptor(algorithm),
+                        key_id: baseKey.__id,
+                        length: Number(lengthBits),
+                    }),
+                ),
+            );
+            const bits = toArrayBuffer(response.bytes ?? []);
 
             return this.importKey(
                 "raw",
@@ -164,6 +180,8 @@
 
         async wrapKey(format, key, wrappingKey, wrapAlgorithm) {
             assertCryptoKey(key);
+            assertCryptoKey(wrappingKey);
+            assertCryptoKeyUsage(wrappingKey, "wrapKey");
             const normalizedFormat = String(format);
             const exported = await this.exportKey(normalizedFormat, key);
             const payload =
@@ -171,7 +189,17 @@
                     ? new TextEncoder().encode(JSON.stringify(exported))
                     : exported;
 
-            return this.encrypt(wrapAlgorithm, wrappingKey, payload);
+            const response = JSON.parse(
+                g.__rom_subtle_encrypt(
+                    JSON.stringify({
+                        algorithm: serializeAlgorithmDescriptor(wrapAlgorithm),
+                        key_id: wrappingKey.__id,
+                        data: toByteArray(payload),
+                    }),
+                ),
+            );
+
+            return toArrayBuffer(response.bytes ?? []);
         }
 
         async unwrapKey(
@@ -183,8 +211,19 @@
             extractable,
             keyUsages,
         ) {
+            assertCryptoKey(unwrappingKey);
+            assertCryptoKeyUsage(unwrappingKey, "unwrapKey");
             const normalizedFormat = String(format);
-            const decrypted = await this.decrypt(unwrapAlgorithm, unwrappingKey, wrappedKey);
+            const response = JSON.parse(
+                g.__rom_subtle_decrypt(
+                    JSON.stringify({
+                        algorithm: serializeAlgorithmDescriptor(unwrapAlgorithm),
+                        key_id: unwrappingKey.__id,
+                        data: toByteArray(wrappedKey),
+                    }),
+                ),
+            );
+            const decrypted = toArrayBuffer(response.bytes ?? []);
             const keyData =
                 normalizedFormat === "jwk"
                     ? JSON.parse(new TextDecoder().decode(new Uint8Array(decrypted)))
@@ -242,6 +281,17 @@
         if (!(value instanceof CryptoKey)) {
             throw new TypeError("Expected CryptoKey");
         }
+    }
+
+    function assertCryptoKeyUsage(key, usage) {
+        if (key.usages.includes(usage)) {
+            return;
+        }
+
+        throw createCryptoDomException(
+            "InvalidAccessError",
+            `The key does not support ${usage}.`,
+        );
     }
 
     function assertIntegerTypedArray(target) {
@@ -399,4 +449,10 @@
             default:
                 throw new TypeError(`Unsupported HMAC hash: ${hash}`);
         }
+    }
+
+    function createCryptoDomException(name, message) {
+        const error = new Error(message);
+        error.name = name;
+        return error;
     }
