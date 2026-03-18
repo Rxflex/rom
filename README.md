@@ -46,6 +46,7 @@ The browser surface now also includes an initial web data stack:
 - `Worker` with `Blob` URL scripts, `postMessage()`, and `importScripts()`
 - `ReadableStream`-based `Request.body` / `Response.body`
 - redirect policy for `fetch`: `follow`, `error`, `manual`
+- `EventSource` for `text/event-stream` response parsing, custom events, `lastEventId`, and `close()`
 - `BroadcastChannel`
 - `FileReader` with `readAsText()`, `readAsArrayBuffer()`, `readAsDataURL()`
 

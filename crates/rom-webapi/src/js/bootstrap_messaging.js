@@ -219,6 +219,7 @@
         scope.MessagePort = MessagePort;
         scope.MessageChannel = MessageChannel;
         scope.BroadcastChannel = BroadcastChannel;
+        scope.EventSource = EventSource;
         scope.URL = URL;
         scope.URLSearchParams = URLSearchParams;
         scope.URLPattern = URLPattern;

@@ -283,6 +283,7 @@
     g.MessageEvent = MessageEvent;
     g.BroadcastChannel = BroadcastChannel;
     g.Worker = Worker;
+    g.EventSource = EventSource;
     g.structuredClone = structuredClone;
     g.matchMedia = mediaQueryList;
     g.TextEncoder = textEncoderFactory;

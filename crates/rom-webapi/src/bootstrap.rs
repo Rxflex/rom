@@ -26,6 +26,8 @@ const WEB_BOOTSTRAP: &str = concat!(
     "\n",
     include_str!("js/bootstrap_messaging.js"),
     "\n",
+    include_str!("js/bootstrap_eventsource.js"),
+    "\n",
     include_str!("js/bootstrap_globals.js"),
 );
 

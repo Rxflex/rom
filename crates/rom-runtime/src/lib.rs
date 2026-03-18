@@ -8,6 +8,8 @@ mod tests_cookies;
 #[cfg(test)]
 mod tests_cors;
 #[cfg(test)]
+mod tests_eventsource;
+#[cfg(test)]
 mod tests_fetch_semantics;
 #[cfg(test)]
 mod tests_file_reader;
