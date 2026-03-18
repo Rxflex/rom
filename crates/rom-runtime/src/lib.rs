@@ -23,6 +23,8 @@ mod tests_parsing;
 mod tests_webcrypto;
 #[cfg(test)]
 mod tests_websocket;
+#[cfg(test)]
+mod tests_viewport;
 
 pub use compat::{
     CanvasSurface, FingerprintCanvas, FingerprintMedia, FingerprintObservers, FingerprintProbe,

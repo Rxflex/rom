@@ -225,6 +225,11 @@
         frameWindow.top = g.top ?? g;
         frameWindow.document = frameDocument;
         frameWindow.devicePixelRatio = 1;
+        frameWindow.innerWidth = g.innerWidth;
+        frameWindow.innerHeight = g.innerHeight;
+        frameWindow.outerWidth = g.outerWidth;
+        frameWindow.outerHeight = g.outerHeight;
+        frameWindow.visualViewport = g.visualViewport;
         frameWindow.screen = screen;
         frameWindow.navigator = navigator;
         frameWindow.location = {

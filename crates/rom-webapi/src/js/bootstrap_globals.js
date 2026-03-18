@@ -53,16 +53,8 @@
         },
     };
 
-    const screen = {
-        width: 1920,
-        height: 1080,
-        availWidth: 1920,
-        availHeight: 1040,
-        availTop: 0,
-        availLeft: 0,
-        colorDepth: 24,
-        pixelDepth: 24,
-    };
+    const viewport = createViewportState();
+    const screen = createScreen(viewport);
 
     let nextTimerId = 1;
     const timers = new Map();
@@ -105,18 +97,8 @@
 
     const crypto = createCrypto();
 
-    const mediaQueryList = (query) => ({
-        matches: false,
-        media: String(query),
-        onchange: null,
-        addListener() {},
-        removeListener() {},
-        addEventListener() {},
-        removeEventListener() {},
-        dispatchEvent() {
-            return true;
-        },
-    });
+    const visualViewport = createVisualViewport(viewport);
+    const mediaQueryList = createMatchMedia(viewport);
 
     const audioContextFactory = function AudioContext() {
         return {
@@ -248,6 +230,12 @@
     g.location = location;
     g.history = history;
     g.screen = screen;
+    g.innerWidth = viewport.innerWidth;
+    g.innerHeight = viewport.innerHeight;
+    g.outerWidth = viewport.outerWidth;
+    g.outerHeight = viewport.outerHeight;
+    g.devicePixelRatio = viewport.devicePixelRatio;
+    g.visualViewport = visualViewport;
     g.localStorage = new Storage();
     g.sessionStorage = new Storage();
     g.performance = performance;
@@ -315,6 +303,9 @@
     g.MediaDevices = MediaDevices;
     g.MediaDeviceInfo = MediaDeviceInfo;
     g.InputDeviceInfo = InputDeviceInfo;
+    g.ScreenOrientation = ScreenOrientation;
+    g.VisualViewport = VisualViewport;
+    g.MediaQueryList = MediaQueryList;
     g.MediaStream = MediaStream;
     g.MediaStreamTrack = MediaStreamTrack;
     g.Plugin = Plugin;
