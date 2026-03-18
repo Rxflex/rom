@@ -32,6 +32,8 @@
             this.onclose = null;
             defineReadOnly(this, "__socketId", String(response.socket_id ?? ""));
             defineReadOnly(this, "__closeDispatched", false);
+            this.__pollTimer = null;
+            this.__pollPending = false;
             this.readyState = WebSocket.OPEN;
             dispatchWebSocketEvent(this, "open", new Event("open"));
             this.__schedulePoll();
@@ -72,16 +74,23 @@
             this.__applyClose(result);
         }
 
-        __schedulePoll(attempts = 8) {
-            if (this.readyState !== WebSocket.OPEN || attempts <= 0) {
+        __schedulePoll(delay = 0) {
+            if (
+                this.readyState !== WebSocket.OPEN ||
+                this.__pollPending ||
+                this.__pollTimer !== null
+            ) {
                 return;
             }
 
-            setTimeout(() => {
+            this.__pollTimer = setTimeout(() => {
+                this.__pollTimer = null;
+
                 if (this.readyState !== WebSocket.OPEN) {
                     return;
                 }
 
+                this.__pollPending = true;
                 const result = JSON.parse(
                     g.__rom_websocket_poll(
                         JSON.stringify({
@@ -89,6 +98,7 @@
                         }),
                     ),
                 );
+                this.__pollPending = false;
 
                 for (const frame of result.messages ?? []) {
                     dispatchWebSocketEvent(
@@ -108,10 +118,8 @@
                     return;
                 }
 
-                if ((result.messages ?? []).length === 0) {
-                    this.__schedulePoll(attempts - 1);
-                }
-            }, 0);
+                this.__schedulePoll((result.messages ?? []).length === 0 ? 10 : 0);
+            }, delay);
         }
 
         __applyClose(closeEvent) {
@@ -119,6 +127,11 @@
                 return;
             }
 
+            if (this.__pollTimer !== null) {
+                clearTimeout(this.__pollTimer);
+                this.__pollTimer = null;
+            }
+            this.__pollPending = false;
             this.readyState = WebSocket.CLOSED;
             dispatchWebSocketEvent(
                 this,
@@ -159,7 +172,7 @@
         }
 
         if (data instanceof Blob) {
-            throw new TypeError("Blob WebSocket payloads are not supported yet");
+            return { kind: "binary", bytes: data.__bytes.slice() };
         }
 
         if (data instanceof ArrayBuffer || ArrayBuffer.isView(data)) {
