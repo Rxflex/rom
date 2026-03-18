@@ -4,13 +4,9 @@ use aes::{
         BlockEncrypt, BlockSizeUser, KeyInit as BlockKeyInit,
         generic_array::{
             GenericArray,
-            typenum::{U12, U16},
+            typenum::U16,
         },
     },
-};
-use aes_gcm::{
-    Aes128Gcm, Aes256Gcm,
-    aead::{Aead, Payload},
 };
 use aes_kw::{KekAes128, KekAes192, KekAes256};
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
@@ -200,92 +196,6 @@ pub(crate) fn decrypt_aes_cbc(secret: &[u8], iv: &[u8], data: &[u8]) -> Result<V
     Ok(plaintext.to_vec())
 }
 
-pub(crate) fn encrypt_aes_gcm(
-    secret: &[u8],
-    iv: &[u8],
-    additional_data: &[u8],
-    data: &[u8],
-    tag_length: Option<usize>,
-) -> Result<Vec<u8>, String> {
-    let nonce = prepare_nonce(iv)?;
-    let tag_length = normalize_tag_length(tag_length)?;
-
-    match secret.len() {
-        16 if tag_length == 128 => {
-            let cipher = Aes128Gcm::new_from_slice(secret).map_err(|error| error.to_string())?;
-            cipher
-                .encrypt(
-                    nonce,
-                    Payload {
-                        msg: data,
-                        aad: additional_data,
-                    },
-                )
-                .map_err(|_| "OperationError: AES-GCM encryption failed".to_owned())
-        }
-        32 if tag_length == 128 => {
-            let cipher = Aes256Gcm::new_from_slice(secret).map_err(|error| error.to_string())?;
-            cipher
-                .encrypt(
-                    nonce,
-                    Payload {
-                        msg: data,
-                        aad: additional_data,
-                    },
-                )
-                .map_err(|_| "OperationError: AES-GCM encryption failed".to_owned())
-        }
-        16 | 32 => Err(format!("Unsupported AES-GCM tagLength: {tag_length}")),
-        other => Err(format!(
-            "Unsupported AES-GCM raw key length: {} bits",
-            other * 8
-        )),
-    }
-}
-
-pub(crate) fn decrypt_aes_gcm(
-    secret: &[u8],
-    iv: &[u8],
-    additional_data: &[u8],
-    data: &[u8],
-    tag_length: Option<usize>,
-) -> Result<Vec<u8>, String> {
-    let nonce = prepare_nonce(iv)?;
-    let tag_length = normalize_tag_length(tag_length)?;
-
-    match secret.len() {
-        16 if tag_length == 128 => {
-            let cipher = Aes128Gcm::new_from_slice(secret).map_err(|error| error.to_string())?;
-            cipher
-                .decrypt(
-                    nonce,
-                    Payload {
-                        msg: data,
-                        aad: additional_data,
-                    },
-                )
-                .map_err(|_| "OperationError: AES-GCM decryption failed".to_owned())
-        }
-        32 if tag_length == 128 => {
-            let cipher = Aes256Gcm::new_from_slice(secret).map_err(|error| error.to_string())?;
-            cipher
-                .decrypt(
-                    nonce,
-                    Payload {
-                        msg: data,
-                        aad: additional_data,
-                    },
-                )
-                .map_err(|_| "OperationError: AES-GCM decryption failed".to_owned())
-        }
-        16 | 32 => Err(format!("Unsupported AES-GCM tagLength: {tag_length}")),
-        other => Err(format!(
-            "Unsupported AES-GCM raw key length: {} bits",
-            other * 8
-        )),
-    }
-}
-
 pub(crate) fn encrypt_aes_kw(secret: &[u8], data: &[u8]) -> Result<Vec<u8>, String> {
     match secret.len() {
         16 => {
@@ -390,28 +300,11 @@ where
     Ok(output)
 }
 
-fn normalize_tag_length(tag_length: Option<usize>) -> Result<usize, String> {
-    match tag_length.unwrap_or(128) {
-        128 => Ok(128),
-        other => Err(format!("Unsupported AES-GCM tagLength: {other}")),
-    }
-}
-
 fn normalize_ctr_length(counter_length: usize) -> Result<usize, String> {
     match counter_length {
         1..=128 => Ok(counter_length),
         other => Err(format!("Unsupported AES-CTR length: {other}")),
     }
-}
-
-fn prepare_nonce(iv: &[u8]) -> Result<&GenericArray<u8, U12>, String> {
-    if iv.len() != 12 {
-        return Err(format!(
-            "Unsupported AES-GCM iv length: expected 12 bytes, got {}",
-            iv.len()
-        ));
-    }
-    Ok(GenericArray::from_slice(iv))
 }
 
 fn prepare_cbc_iv(iv: &[u8]) -> Result<(), String> {

@@ -59,9 +59,20 @@ function validateAesGcmParams(algorithm) {
         return;
     }
 
-    if (Number(algorithm.tagLength) !== 128 || !Number.isInteger(Number(algorithm.tagLength))) {
+    const tagLength = Number(algorithm.tagLength);
+    if (!Number.isInteger(tagLength) || !isSupportedAesGcmTagLength(tagLength)) {
         throwInvalidAlgorithmParams("AES-GCM");
     }
+}
+
+function isSupportedAesGcmTagLength(tagLength) {
+    return (
+        tagLength === 96 ||
+        tagLength === 104 ||
+        tagLength === 112 ||
+        tagLength === 120 ||
+        tagLength === 128
+    );
 }
 
 function requireAlgorithmBytes(algorithm, field, algorithmName) {

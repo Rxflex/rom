@@ -1,5 +1,6 @@
 mod aes;
 mod core;
+mod gcm;
 mod ops;
 mod types;
 
@@ -13,12 +14,13 @@ use std::{
 
 use self::{
     aes::{
-        build_aes_algorithm, decrypt_aes_cbc, decrypt_aes_ctr, decrypt_aes_gcm, decrypt_aes_kw,
-        encrypt_aes_cbc, encrypt_aes_ctr, encrypt_aes_gcm, encrypt_aes_kw, export_aes_jwk,
-        import_aes_jwk, normalize_aes_length, validate_aes_cbc_usages, validate_aes_ctr_usages,
-        validate_aes_gcm_usages, validate_aes_kw_usages,
+        build_aes_algorithm, decrypt_aes_cbc, decrypt_aes_ctr, decrypt_aes_kw, encrypt_aes_cbc,
+        encrypt_aes_ctr, encrypt_aes_kw, export_aes_jwk, import_aes_jwk, normalize_aes_length,
+        validate_aes_cbc_usages, validate_aes_ctr_usages, validate_aes_gcm_usages,
+        validate_aes_kw_usages,
     },
     core::deserialize_raw_bytes,
+    gcm::{decrypt_aes_gcm, encrypt_aes_gcm},
     ops::{
         build_hkdf_algorithm, build_hmac_algorithm, build_pbkdf2_algorithm,
         default_hmac_key_length, derive_hkdf_bits, derive_pbkdf2_bits, digest_bytes,
