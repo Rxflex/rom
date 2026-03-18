@@ -279,6 +279,7 @@
             name: source.name,
             hash: source.hash === null ? null : normalizeHashName(source.hash),
             length: source.length === undefined ? null : Number(source.length),
+            counter: toOptionalByteArray(source.counter),
             iv: toOptionalByteArray(source.iv),
             additional_data: toOptionalByteArray(source.additionalData),
             tag_length: source.tagLength === undefined ? null : Number(source.tagLength),
@@ -312,6 +313,7 @@
             name: String(algorithm.name ?? ""),
             hash: algorithm.hash ?? null,
             length: algorithm.length,
+            counter: algorithm.counter,
             iv: algorithm.iv,
             additionalData: algorithm.additionalData,
             tagLength: algorithm.tagLength,
@@ -365,6 +367,7 @@
     function getDerivedKeyLengthBits(algorithm) {
         const normalizedName = String(algorithm.name ?? "").toUpperCase();
         if (
+            normalizedName === "AES-CTR" ||
             normalizedName === "AES-CBC" ||
             normalizedName === "AES-GCM" ||
             normalizedName === "AES-KW"

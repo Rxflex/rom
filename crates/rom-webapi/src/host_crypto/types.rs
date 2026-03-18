@@ -120,6 +120,8 @@ pub struct AlgorithmDescriptor {
     #[serde(default)]
     pub length: Option<usize>,
     #[serde(default)]
+    pub counter: Option<Vec<u8>>,
+    #[serde(default)]
     pub iv: Option<Vec<u8>>,
     #[serde(default)]
     pub additional_data: Option<Vec<u8>>,
