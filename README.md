@@ -57,6 +57,7 @@ The browser surface now also includes an initial web data stack:
 - `navigator.plugins`, `navigator.mimeTypes`, and `navigator.pdfViewerEnabled`
 - viewport globals: `innerWidth`, `innerHeight`, `outerWidth`, `outerHeight`, `devicePixelRatio`
 - `visualViewport`, `screen.orientation`, and browser-like `matchMedia()`
+- initial working `MutationObserver` for `childList`, `attributes`, `characterData`, `subtree`, and `oldValue`
 
 There is also an optional real-browser reference runner:
 
