@@ -279,3 +279,70 @@ fn supports_webcrypto_pbkdf2_derivation() {
     assert_eq!(value["derivedLength"], 256);
     assert_eq!(value["plaintext"], "payload");
 }
+
+#[test]
+fn supports_webcrypto_wrap_and_unwrap_key() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const encoder = new TextEncoder();
+                const iv = new Uint8Array(12);
+                const wrappingKey = await crypto.subtle.generateKey(
+                    { name: "AES-GCM", length: 256 },
+                    true,
+                    ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
+                );
+                const sourceKey = await crypto.subtle.importKey(
+                    "raw",
+                    encoder.encode("secret"),
+                    { name: "HMAC", hash: "SHA-256" },
+                    true,
+                    ["sign", "verify"],
+                );
+                const wrapped = await crypto.subtle.wrapKey(
+                    "raw",
+                    sourceKey,
+                    wrappingKey,
+                    { name: "AES-GCM", iv },
+                );
+                const unwrapped = await crypto.subtle.unwrapKey(
+                    "raw",
+                    wrapped,
+                    wrappingKey,
+                    { name: "AES-GCM", iv },
+                    { name: "HMAC", hash: "SHA-256" },
+                    true,
+                    ["sign", "verify"],
+                );
+                const signature = await crypto.subtle.sign(
+                    "HMAC",
+                    unwrapped,
+                    encoder.encode("payload"),
+                );
+                const verified = await crypto.subtle.verify(
+                    "HMAC",
+                    unwrapped,
+                    signature,
+                    encoder.encode("payload"),
+                );
+
+                return {
+                    wrappedLength: new Uint8Array(wrapped).length,
+                    unwrappedAlgorithm: unwrapped.algorithm.name,
+                    unwrappedHash: unwrapped.algorithm.hash.name,
+                    verified,
+                };
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+
+    assert_eq!(value["wrappedLength"], 22);
+    assert_eq!(value["unwrappedAlgorithm"], "HMAC");
+    assert_eq!(value["unwrappedHash"], "SHA-256");
+    assert_eq!(value["verified"], true);
+}

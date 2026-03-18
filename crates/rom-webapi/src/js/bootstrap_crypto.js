@@ -161,6 +161,43 @@
                 keyUsages,
             );
         }
+
+        async wrapKey(format, key, wrappingKey, wrapAlgorithm) {
+            assertCryptoKey(key);
+            const normalizedFormat = String(format);
+            const exported = await this.exportKey(normalizedFormat, key);
+            const payload =
+                normalizedFormat === "jwk"
+                    ? new TextEncoder().encode(JSON.stringify(exported))
+                    : exported;
+
+            return this.encrypt(wrapAlgorithm, wrappingKey, payload);
+        }
+
+        async unwrapKey(
+            format,
+            wrappedKey,
+            unwrappingKey,
+            unwrapAlgorithm,
+            unwrappedKeyAlgorithm,
+            extractable,
+            keyUsages,
+        ) {
+            const normalizedFormat = String(format);
+            const decrypted = await this.decrypt(unwrapAlgorithm, unwrappingKey, wrappedKey);
+            const keyData =
+                normalizedFormat === "jwk"
+                    ? JSON.parse(new TextDecoder().decode(new Uint8Array(decrypted)))
+                    : decrypted;
+
+            return this.importKey(
+                normalizedFormat,
+                keyData,
+                unwrappedKeyAlgorithm,
+                extractable,
+                keyUsages,
+            );
+        }
     }
 
     function createCrypto() {
