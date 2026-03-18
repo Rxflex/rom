@@ -34,7 +34,7 @@ The browser surface now also includes an initial web data stack:
 - `crypto.getRandomValues()`, `crypto.randomUUID()`
 - `crypto.subtle.digest()` for `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512`
 - HMAC `generateKey()`, `importKey()`, `exportKey()`, `sign()`, `verify()`
-- `AES-CTR` `generateKey()`, `importKey()`, `exportKey()`, `encrypt()`, `decrypt()`
+- `AES-CTR` `generateKey()`, `importKey()`, `exportKey()`, `encrypt()`, `decrypt()`, and browser-like counter parameter validation
 - `AES-CBC` `generateKey()`, `importKey()`, `exportKey()`, `encrypt()`, `decrypt()`
 - `AES-GCM` `generateKey()`, `importKey()`, `exportKey()`, `encrypt()`, `decrypt()`
 - `AES-KW` `generateKey()`, `importKey()`, `exportKey()`, and `deriveKey()` for wrapping flows
