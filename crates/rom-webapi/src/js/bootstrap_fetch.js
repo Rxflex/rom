@@ -1,0 +1,486 @@
+    class Request {
+        constructor(input, init = {}) {
+            if (input instanceof Request) {
+                this.url = init.url ?? input.url;
+                this.method = String(init.method ?? input.method ?? "GET").toUpperCase();
+                this.headers = new Headers(init.headers ?? input.headers);
+                this.signal = init.signal ?? input.signal ?? null;
+                this.credentials = init.credentials ?? input.credentials ?? "same-origin";
+                this.mode = init.mode ?? input.mode ?? "cors";
+                this.redirect = init.redirect ?? input.redirect ?? "follow";
+                this.__bodyBytes = init.body === undefined
+                    ? input.__bodyBytes.slice()
+                    : normalizeBody(init.body, this.headers);
+                this.bodyUsed = false;
+                attachBodyState(this, this.__bodyBytes);
+                return;
+            }
+
+            this.url = new URL(String(input), location.href).href;
+            this.method = String(init.method ?? "GET").toUpperCase();
+            this.headers = new Headers(init.headers);
+            this.signal = init.signal ?? null;
+            this.credentials = init.credentials ?? "same-origin";
+            this.mode = init.mode ?? "cors";
+            this.redirect = init.redirect ?? "follow";
+            this.__bodyBytes = normalizeBody(init.body, this.headers);
+            this.bodyUsed = false;
+            attachBodyState(this, this.__bodyBytes);
+        }
+
+        clone() {
+            if (this.bodyUsed || this.__bodyState.readerLocked) {
+                throw new TypeError("Failed to execute 'clone' on 'Request': body has already been used.");
+            }
+
+            return new Request(this);
+        }
+
+        async text() {
+            return consumeBody(this, (bytes) => decodeBytes(bytes));
+        }
+
+        async arrayBuffer() {
+            return consumeBody(this, (bytes) => Uint8Array.from(bytes).buffer);
+        }
+
+        async json() {
+            return JSON.parse(await this.text());
+        }
+
+        async blob() {
+            return consumeBody(this, (bytes) => makeBlobFromBody(bytes, this.headers));
+        }
+
+        async formData() {
+            return consumeBody(this, (bytes) => parseBodyAsFormData(bytes, this.headers));
+        }
+    }
+
+    class Response {
+        constructor(body = [], init = {}) {
+            this.status = Number(init.status ?? 200);
+            this.statusText = String(init.statusText ?? "");
+            this.ok = this.status >= 200 && this.status < 300;
+            this.redirected = Boolean(init.redirected);
+            this.url = String(init.url ?? "");
+            this.type = String(init.type ?? "basic");
+            this.headers = new Headers(init.headers);
+            this.__bodyBytes = normalizeBody(body, this.headers);
+            this.bodyUsed = false;
+            attachBodyState(this, this.__bodyBytes);
+        }
+
+        clone() {
+            if (this.bodyUsed || this.__bodyState.readerLocked) {
+                throw new TypeError("Failed to execute 'clone' on 'Response': body has already been used.");
+            }
+
+            return new Response(this.__bodyBytes.slice(), {
+                status: this.status,
+                statusText: this.statusText,
+                headers: this.headers,
+                redirected: this.redirected,
+                url: this.url,
+                type: this.type,
+            });
+        }
+
+        async text() {
+            return consumeBody(this, (bytes) => decodeBytes(bytes));
+        }
+
+        async arrayBuffer() {
+            return consumeBody(this, (bytes) => Uint8Array.from(bytes).buffer);
+        }
+
+        async json() {
+            return JSON.parse(await this.text());
+        }
+
+        async blob() {
+            return consumeBody(this, (bytes) => makeBlobFromBody(bytes, this.headers));
+        }
+
+        async formData() {
+            return consumeBody(this, (bytes) => parseBodyAsFormData(bytes, this.headers));
+        }
+    }
+
+    async function fetch(input, init = {}) {
+        const request = input instanceof Request ? new Request(input, init) : new Request(input, init);
+        const callerOrigin = location.origin;
+        const targetOrigin = new URL(request.url).origin;
+        const isCrossOrigin = targetOrigin !== callerOrigin;
+
+        if (request.signal?.aborted) {
+            return Promise.reject(request.signal.reason ?? new Error("The operation was aborted."));
+        }
+
+        if (request.url.startsWith("blob:")) {
+            return Promise.resolve().then(() => {
+                const entry = objectUrlRegistry.get(request.url);
+
+                if (!entry) {
+                    throw new TypeError("Failed to fetch");
+                }
+
+                return new Response(entry.bytes.slice(), {
+                    status: 200,
+                    headers: entry.type ? [["content-type", entry.type]] : [],
+                    url: request.url,
+                });
+            });
+        }
+
+        return Promise.resolve().then(() => {
+            if (isCrossOrigin) {
+                if (request.mode === "same-origin") {
+                    throw new TypeError("Failed to fetch");
+                }
+
+                if (request.mode === "no-cors") {
+                    performNetworkFetch(request, callerOrigin, {
+                        includeCookies: request.credentials !== "omit",
+                    });
+                    return createOpaqueResponse();
+                }
+
+                if (request.mode !== "cors") {
+                    throw new TypeError(`Unsupported Request.mode: ${request.mode}`);
+                }
+
+                if (requiresCorsPreflight(request)) {
+                    performCorsPreflight(request, callerOrigin);
+                }
+
+                const response = performNetworkFetch(request, callerOrigin, {
+                    includeCookies: true,
+                });
+                if (handleRedirectMode(response, request)) {
+                    return createOpaqueRedirectResponse();
+                }
+                validateCorsActualResponse(response, request, callerOrigin);
+
+                cookieJar.storeResponseCookies(
+                    response.headers,
+                    response.url,
+                    request.credentials,
+                    callerOrigin,
+                );
+
+                return buildCorsResponse(response);
+            }
+
+            const response = performNetworkFetch(request, callerOrigin, {
+                includeCookies: true,
+            });
+            if (handleRedirectMode(response, request)) {
+                return createOpaqueRedirectResponse();
+            }
+            cookieJar.storeResponseCookies(
+                response.headers,
+                response.url,
+                request.credentials,
+                callerOrigin,
+            );
+            return buildBasicResponse(response);
+        });
+    }
+
+    function performNetworkFetch(request, callerOrigin, options = {}) {
+        const headers = new Headers(request.headers);
+        if (new URL(request.url).origin !== callerOrigin) {
+            headers.set("origin", callerOrigin);
+        }
+        if (options.includeCookies) {
+            cookieJar.appendRequestCookies(
+                headers,
+                request.url,
+                request.credentials,
+                callerOrigin,
+            );
+        }
+
+        return JSON.parse(
+            g.__rom_fetch_sync(
+                JSON.stringify({
+                    url: request.url,
+                    method: request.method,
+                    redirect_mode: request.redirect,
+                    headers: headers.entries().map(([name, value]) => ({ name, value })),
+                    body: request.__bodyBytes,
+                }),
+            ),
+        );
+    }
+
+    function handleRedirectMode(response, request) {
+        if (!response.is_redirect_response) {
+            return false;
+        }
+
+        if (request.redirect === "error") {
+            throw new TypeError("Failed to fetch");
+        }
+
+        return request.redirect === "manual";
+    }
+
+    function performCorsPreflight(request, callerOrigin) {
+        const headers = new Headers({
+            origin: callerOrigin,
+            "access-control-request-method": request.method,
+        });
+        const unsafeHeaders = getCorsUnsafeHeaderNames(request.headers);
+
+        if (unsafeHeaders.length > 0) {
+            headers.set("access-control-request-headers", unsafeHeaders.join(", "));
+        }
+
+        const response = JSON.parse(
+            g.__rom_fetch_sync(
+                JSON.stringify({
+                    url: request.url,
+                    method: "OPTIONS",
+                    headers: headers.entries().map(([name, value]) => ({ name, value })),
+                    body: [],
+                }),
+            ),
+        );
+
+        if (response.status < 200 || response.status >= 300) {
+            throw new TypeError("Failed to fetch");
+        }
+
+        validateCorsPreflightResponse(response, request, callerOrigin, unsafeHeaders);
+    }
+
+    function validateCorsPreflightResponse(response, request, callerOrigin, unsafeHeaders) {
+        const headerMap = createHeaderMap(response.headers);
+
+        if (!isCorsOriginAllowed(headerMap.get("access-control-allow-origin"), callerOrigin, request.credentials)) {
+            throw new TypeError("Failed to fetch");
+        }
+
+        if (!isCorsCredentialsAllowed(headerMap, request.credentials, callerOrigin)) {
+            throw new TypeError("Failed to fetch");
+        }
+
+        const allowedMethods = splitHeaderTokens(headerMap.get("access-control-allow-methods"));
+        if (
+            allowedMethods.length > 0 &&
+            !allowedMethods.includes(request.method.toLowerCase())
+        ) {
+            throw new TypeError("Failed to fetch");
+        }
+
+        if (unsafeHeaders.length > 0) {
+            const allowedHeaders = splitHeaderTokens(headerMap.get("access-control-allow-headers"));
+            if (allowedHeaders.length === 0) {
+                throw new TypeError("Failed to fetch");
+            }
+
+            for (const headerName of unsafeHeaders) {
+                if (!allowedHeaders.includes(headerName)) {
+                    throw new TypeError("Failed to fetch");
+                }
+            }
+        }
+    }
+
+    function validateCorsActualResponse(response, request, callerOrigin) {
+        const headerMap = createHeaderMap(response.headers);
+
+        if (!isCorsOriginAllowed(headerMap.get("access-control-allow-origin"), callerOrigin, request.credentials)) {
+            throw new TypeError("Failed to fetch");
+        }
+
+        if (!isCorsCredentialsAllowed(headerMap, request.credentials, callerOrigin)) {
+            throw new TypeError("Failed to fetch");
+        }
+    }
+
+    function isCorsOriginAllowed(allowOrigin, callerOrigin, credentialsMode) {
+        if (!allowOrigin) {
+            return false;
+        }
+
+        if (allowOrigin === "*") {
+            return credentialsMode !== "include";
+        }
+
+        return allowOrigin === callerOrigin;
+    }
+
+    function isCorsCredentialsAllowed(headerMap, credentialsMode, callerOrigin) {
+        if (credentialsMode !== "include") {
+            return true;
+        }
+
+        return (
+            headerMap.get("access-control-allow-origin") === callerOrigin &&
+            headerMap.get("access-control-allow-credentials") === "true"
+        );
+    }
+
+    function requiresCorsPreflight(request) {
+        if (!isCorsSafelistedMethod(request.method)) {
+            return true;
+        }
+
+        return getCorsUnsafeHeaderNames(request.headers).length > 0;
+    }
+
+    function getCorsUnsafeHeaderNames(headers) {
+        const names = [];
+
+        for (const [name, value] of headers) {
+            const normalized = String(name).toLowerCase();
+
+            if (normalized === "origin" || normalized === "cookie") {
+                continue;
+            }
+
+            if (!isCorsSafelistedHeader(normalized, value)) {
+                names.push(normalized);
+            }
+        }
+
+        return Array.from(new Set(names)).sort();
+    }
+
+    function isCorsSafelistedMethod(method) {
+        return method === "GET" || method === "HEAD" || method === "POST";
+    }
+
+    function isCorsSafelistedHeader(name, value) {
+        if (name === "accept" || name === "accept-language" || name === "content-language") {
+            return true;
+        }
+
+        if (name === "content-type") {
+            const mimeType = String(value).split(";")[0].trim().toLowerCase();
+            return (
+                mimeType === "application/x-www-form-urlencoded" ||
+                mimeType === "multipart/form-data" ||
+                mimeType === "text/plain"
+            );
+        }
+
+        return false;
+    }
+
+    function buildBasicResponse(response) {
+        return new Response(response.body, {
+            status: response.status,
+            statusText: response.status_text,
+            headers: response.headers.map((entry) => [entry.name, entry.value]),
+            redirected: response.redirected,
+            url: response.url,
+            type: "basic",
+        });
+    }
+
+    function buildCorsResponse(response) {
+        const headerMap = createHeaderMap(response.headers);
+        const exposedHeaders = new Set(splitHeaderTokens(headerMap.get("access-control-expose-headers")));
+        const headers = response.headers.filter((entry) =>
+            isCorsExposedHeader(entry.name, exposedHeaders),
+        );
+
+        return new Response(response.body, {
+            status: response.status,
+            statusText: response.status_text,
+            headers: headers.map((entry) => [entry.name, entry.value]),
+            redirected: response.redirected,
+            url: response.url,
+            type: "cors",
+        });
+    }
+
+    function createOpaqueResponse() {
+        return new Response([], {
+            status: 0,
+            statusText: "",
+            headers: [],
+            redirected: false,
+            url: "",
+            type: "opaque",
+        });
+    }
+
+    function createOpaqueRedirectResponse() {
+        return new Response([], {
+            status: 0,
+            statusText: "",
+            headers: [],
+            redirected: false,
+            url: "",
+            type: "opaqueredirect",
+        });
+    }
+
+    function createHeaderMap(headers) {
+        const headerMap = new Map();
+
+        for (const entry of headers) {
+            const name = String(entry.name).toLowerCase();
+            const current = headerMap.get(name);
+            if (current === undefined) {
+                headerMap.set(name, String(entry.value));
+                continue;
+            }
+            headerMap.set(name, `${current}, ${entry.value}`);
+        }
+
+        return headerMap;
+    }
+
+    function splitHeaderTokens(value) {
+        if (!value) {
+            return [];
+        }
+
+        return String(value)
+            .split(",")
+            .map((token) => token.trim().toLowerCase())
+            .filter(Boolean);
+    }
+
+    function isCorsExposedHeader(name, exposedHeaders) {
+        const normalized = String(name).toLowerCase();
+        if (normalized === "set-cookie" || normalized === "set-cookie2") {
+            return false;
+        }
+
+        return (
+            normalized === "cache-control" ||
+            normalized === "content-language" ||
+            normalized === "content-length" ||
+            normalized === "content-type" ||
+            normalized === "expires" ||
+            normalized === "last-modified" ||
+            normalized === "pragma" ||
+            exposedHeaders.has(normalized)
+        );
+    }
+
+    URL.createObjectURL = (object) => {
+        if (!(object instanceof Blob)) {
+            throw new TypeError(
+                "Failed to execute 'createObjectURL' on 'URL': parameter 1 is not of type 'Blob'.",
+            );
+        }
+
+        const objectUrl = `blob:${location.origin}/${createObjectUrlId()}`;
+        objectUrlRegistry.set(objectUrl, {
+            bytes: object.__bytes.slice(),
+            type: object.type,
+        });
+        return objectUrl;
+    };
+
+    URL.revokeObjectURL = (objectUrl) => {
+        objectUrlRegistry.delete(String(objectUrl));
+    };
