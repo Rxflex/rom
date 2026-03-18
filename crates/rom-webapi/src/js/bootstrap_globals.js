@@ -284,6 +284,8 @@
     g.BroadcastChannel = BroadcastChannel;
     g.Worker = Worker;
     g.EventSource = EventSource;
+    g.WebSocket = WebSocket;
+    g.CloseEvent = CloseEvent;
     g.structuredClone = structuredClone;
     g.matchMedia = mediaQueryList;
     g.TextEncoder = textEncoderFactory;

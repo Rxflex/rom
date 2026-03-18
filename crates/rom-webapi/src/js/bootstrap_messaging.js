@@ -220,6 +220,8 @@
         scope.MessageChannel = MessageChannel;
         scope.BroadcastChannel = BroadcastChannel;
         scope.EventSource = EventSource;
+        scope.WebSocket = WebSocket;
+        scope.CloseEvent = CloseEvent;
         scope.URL = URL;
         scope.URLSearchParams = URLSearchParams;
         scope.URLPattern = URLPattern;
