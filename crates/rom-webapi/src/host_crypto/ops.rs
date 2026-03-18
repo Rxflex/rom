@@ -1,23 +1,12 @@
-use aes::{Aes128, Aes192, Aes256};
-use aes_gcm::{
-    Aes128Gcm, Aes256Gcm, KeyInit,
-    aead::{Aead, Payload, generic_array::GenericArray},
-};
-use aes_kw::{KekAes128, KekAes192, KekAes256};
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
-use cbc::{
-    Decryptor as CbcDecryptor, Encryptor as CbcEncryptor,
-    cipher::{BlockDecryptMut, BlockEncryptMut, KeyIvInit, block_padding::Pkcs7},
-};
 use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
 use pbkdf2::pbkdf2_hmac;
 use sha1::Sha1;
 use sha2::{Digest, Sha256, Sha384, Sha512};
-use typenum::U12;
 
 use super::types::{
-    AlgorithmDescriptor, ExportedJwk, HashAlgorithm, JsonWebKey, KeyAlgorithm, KeyHashAlgorithm,
+    AlgorithmDescriptor, ExportedJwk, HashAlgorithm, KeyAlgorithm, KeyHashAlgorithm,
 };
 
 pub(crate) fn parse_hash_from_descriptor(
@@ -52,26 +41,6 @@ pub(crate) fn validate_hmac_usages(usages: &[String]) -> Result<(), String> {
     validate_usages(usages, &["sign", "verify"], "HMAC")
 }
 
-pub(crate) fn validate_aes_gcm_usages(usages: &[String]) -> Result<(), String> {
-    validate_usages(
-        usages,
-        &["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-        "AES-GCM",
-    )
-}
-
-pub(crate) fn validate_aes_cbc_usages(usages: &[String]) -> Result<(), String> {
-    validate_usages(
-        usages,
-        &["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-        "AES-CBC",
-    )
-}
-
-pub(crate) fn validate_aes_kw_usages(usages: &[String]) -> Result<(), String> {
-    validate_usages(usages, &["wrapKey", "unwrapKey"], "AES-KW")
-}
-
 pub(crate) fn validate_pbkdf2_usages(usages: &[String]) -> Result<(), String> {
     validate_usages(usages, &["deriveBits", "deriveKey"], "PBKDF2")
 }
@@ -95,14 +64,6 @@ pub(crate) fn build_hmac_algorithm(hash: HashAlgorithm, secret_len: usize) -> Ke
         hash: Some(KeyHashAlgorithm {
             name: hash.web_name().to_owned(),
         }),
-        length: Some(secret_len * 8),
-    }
-}
-
-pub(crate) fn build_aes_algorithm(name: &str, secret_len: usize) -> KeyAlgorithm {
-    KeyAlgorithm {
-        name: name.to_owned(),
-        hash: None,
         length: Some(secret_len * 8),
     }
 }
@@ -132,47 +93,11 @@ pub(crate) fn default_hmac_key_length(hash: HashAlgorithm) -> usize {
     }
 }
 
-pub(crate) fn normalize_aes_length(length: usize, algorithm: &str) -> Result<usize, String> {
-    match (algorithm.to_ascii_uppercase().as_str(), length) {
-        ("AES-GCM", 128 | 256) | ("AES-CBC", 128 | 192 | 256) | ("AES-KW", 128 | 192 | 256) => {
-            Ok(length / 8)
-        }
-        (_, other) => Err(format!("Unsupported {algorithm} length: {other}")),
-    }
-}
-
 pub(crate) fn import_hmac_jwk(
     value: serde_json::Value,
     hash: HashAlgorithm,
 ) -> Result<Vec<u8>, String> {
     import_jwk_oct_secret(value, Some(hash.jwk_alg_name()), "HMAC")
-}
-
-pub(crate) fn import_aes_jwk(value: serde_json::Value, algorithm: &str) -> Result<Vec<u8>, String> {
-    let jwk: JsonWebKey = serde_json::from_value(value).map_err(|error| error.to_string())?;
-    if jwk.kty != "oct" {
-        return Err(format!("Unsupported JWK kty for {algorithm}"));
-    }
-
-    let secret = URL_SAFE_NO_PAD
-        .decode(jwk.k.as_bytes())
-        .map_err(|error| error.to_string())?;
-    let expected_alg = jwk_alg_for_aes(algorithm, secret.len()).ok_or_else(|| {
-        format!(
-            "Unsupported {algorithm} raw key length: {} bits",
-            secret.len() * 8
-        )
-    })?;
-
-    if let Some(actual_alg) = jwk.alg.as_deref() {
-        if actual_alg != expected_alg {
-            return Err(format!(
-                "JWK alg mismatch: expected {expected_alg}, got {actual_alg}"
-            ));
-        }
-    }
-
-    Ok(secret)
 }
 
 pub(crate) fn sign_hmac(
@@ -239,220 +164,6 @@ pub(crate) fn verify_hmac(
             mac.update(data);
             Ok(mac.verify_slice(signature).is_ok())
         }
-    }
-}
-
-pub(crate) fn encrypt_aes_gcm(
-    secret: &[u8],
-    iv: &[u8],
-    additional_data: &[u8],
-    data: &[u8],
-    tag_length: Option<usize>,
-) -> Result<Vec<u8>, String> {
-    let nonce = prepare_nonce(iv)?;
-    let tag_length = normalize_tag_length(tag_length)?;
-
-    match secret.len() {
-        16 if tag_length == 128 => {
-            let cipher = Aes128Gcm::new_from_slice(secret).map_err(|error| error.to_string())?;
-            cipher
-                .encrypt(
-                    nonce,
-                    Payload {
-                        msg: data,
-                        aad: additional_data,
-                    },
-                )
-                .map_err(|_| "OperationError: AES-GCM encryption failed".to_owned())
-        }
-        32 if tag_length == 128 => {
-            let cipher = Aes256Gcm::new_from_slice(secret).map_err(|error| error.to_string())?;
-            cipher
-                .encrypt(
-                    nonce,
-                    Payload {
-                        msg: data,
-                        aad: additional_data,
-                    },
-                )
-                .map_err(|_| "OperationError: AES-GCM encryption failed".to_owned())
-        }
-        16 | 32 => Err(format!("Unsupported AES-GCM tagLength: {tag_length}")),
-        other => Err(format!(
-            "Unsupported AES-GCM raw key length: {} bits",
-            other * 8
-        )),
-    }
-}
-
-pub(crate) fn encrypt_aes_cbc(secret: &[u8], iv: &[u8], data: &[u8]) -> Result<Vec<u8>, String> {
-    prepare_cbc_iv(iv)?;
-    let mut out = vec![0_u8; data.len() + 16];
-
-    let ciphertext = match secret.len() {
-        16 => CbcEncryptor::<Aes128>::new_from_slices(secret, iv)
-            .map_err(|error| error.to_string())?
-            .encrypt_padded_b2b_mut::<Pkcs7>(data, &mut out)
-            .map_err(|_| "OperationError: AES-CBC encryption failed".to_owned())?,
-        24 => CbcEncryptor::<Aes192>::new_from_slices(secret, iv)
-            .map_err(|error| error.to_string())?
-            .encrypt_padded_b2b_mut::<Pkcs7>(data, &mut out)
-            .map_err(|_| "OperationError: AES-CBC encryption failed".to_owned())?,
-        32 => CbcEncryptor::<Aes256>::new_from_slices(secret, iv)
-            .map_err(|error| error.to_string())?
-            .encrypt_padded_b2b_mut::<Pkcs7>(data, &mut out)
-            .map_err(|_| "OperationError: AES-CBC encryption failed".to_owned())?,
-        other => {
-            return Err(format!(
-                "Unsupported AES-CBC raw key length: {} bits",
-                other * 8
-            ));
-        }
-    };
-
-    Ok(ciphertext.to_vec())
-}
-
-pub(crate) fn decrypt_aes_gcm(
-    secret: &[u8],
-    iv: &[u8],
-    additional_data: &[u8],
-    data: &[u8],
-    tag_length: Option<usize>,
-) -> Result<Vec<u8>, String> {
-    let nonce = prepare_nonce(iv)?;
-    let tag_length = normalize_tag_length(tag_length)?;
-
-    match secret.len() {
-        16 if tag_length == 128 => {
-            let cipher = Aes128Gcm::new_from_slice(secret).map_err(|error| error.to_string())?;
-            cipher
-                .decrypt(
-                    nonce,
-                    Payload {
-                        msg: data,
-                        aad: additional_data,
-                    },
-                )
-                .map_err(|_| "OperationError: AES-GCM decryption failed".to_owned())
-        }
-        32 if tag_length == 128 => {
-            let cipher = Aes256Gcm::new_from_slice(secret).map_err(|error| error.to_string())?;
-            cipher
-                .decrypt(
-                    nonce,
-                    Payload {
-                        msg: data,
-                        aad: additional_data,
-                    },
-                )
-                .map_err(|_| "OperationError: AES-GCM decryption failed".to_owned())
-        }
-        16 | 32 => Err(format!("Unsupported AES-GCM tagLength: {tag_length}")),
-        other => Err(format!(
-            "Unsupported AES-GCM raw key length: {} bits",
-            other * 8
-        )),
-    }
-}
-
-pub(crate) fn decrypt_aes_cbc(secret: &[u8], iv: &[u8], data: &[u8]) -> Result<Vec<u8>, String> {
-    prepare_cbc_iv(iv)?;
-    let mut out = vec![0_u8; data.len()];
-
-    let plaintext = match secret.len() {
-        16 => CbcDecryptor::<Aes128>::new_from_slices(secret, iv)
-            .map_err(|error| error.to_string())?
-            .decrypt_padded_b2b_mut::<Pkcs7>(data, &mut out)
-            .map_err(|_| "OperationError: AES-CBC decryption failed".to_owned())?,
-        24 => CbcDecryptor::<Aes192>::new_from_slices(secret, iv)
-            .map_err(|error| error.to_string())?
-            .decrypt_padded_b2b_mut::<Pkcs7>(data, &mut out)
-            .map_err(|_| "OperationError: AES-CBC decryption failed".to_owned())?,
-        32 => CbcDecryptor::<Aes256>::new_from_slices(secret, iv)
-            .map_err(|error| error.to_string())?
-            .decrypt_padded_b2b_mut::<Pkcs7>(data, &mut out)
-            .map_err(|_| "OperationError: AES-CBC decryption failed".to_owned())?,
-        other => {
-            return Err(format!(
-                "Unsupported AES-CBC raw key length: {} bits",
-                other * 8
-            ));
-        }
-    };
-
-    Ok(plaintext.to_vec())
-}
-
-pub(crate) fn encrypt_aes_kw(secret: &[u8], data: &[u8]) -> Result<Vec<u8>, String> {
-    match secret.len() {
-        16 => {
-            let kek = KekAes128::try_from(secret).map_err(|error| error.to_string())?;
-            let mut out = vec![0_u8; data.len() + aes_kw::IV_LEN];
-            kek.wrap(data, &mut out)
-                .map_err(|_| "OperationError: AES-KW wrap failed".to_owned())?;
-            Ok(out)
-        }
-        24 => {
-            let kek = KekAes192::try_from(secret).map_err(|error| error.to_string())?;
-            let mut out = vec![0_u8; data.len() + aes_kw::IV_LEN];
-            kek.wrap(data, &mut out)
-                .map_err(|_| "OperationError: AES-KW wrap failed".to_owned())?;
-            Ok(out)
-        }
-        32 => {
-            let kek = KekAes256::try_from(secret).map_err(|error| error.to_string())?;
-            let mut out = vec![0_u8; data.len() + aes_kw::IV_LEN];
-            kek.wrap(data, &mut out)
-                .map_err(|_| "OperationError: AES-KW wrap failed".to_owned())?;
-            Ok(out)
-        }
-        other => Err(format!(
-            "Unsupported AES-KW raw key length: {} bits",
-            other * 8
-        )),
-    }
-}
-
-pub(crate) fn decrypt_aes_kw(secret: &[u8], data: &[u8]) -> Result<Vec<u8>, String> {
-    match secret.len() {
-        16 => {
-            let kek = KekAes128::try_from(secret).map_err(|error| error.to_string())?;
-            let out_len = data
-                .len()
-                .checked_sub(aes_kw::IV_LEN)
-                .ok_or_else(|| "OperationError: AES-KW unwrap failed".to_owned())?;
-            let mut out = vec![0_u8; out_len];
-            kek.unwrap(data, &mut out)
-                .map_err(|_| "OperationError: AES-KW unwrap failed".to_owned())?;
-            Ok(out)
-        }
-        24 => {
-            let kek = KekAes192::try_from(secret).map_err(|error| error.to_string())?;
-            let out_len = data
-                .len()
-                .checked_sub(aes_kw::IV_LEN)
-                .ok_or_else(|| "OperationError: AES-KW unwrap failed".to_owned())?;
-            let mut out = vec![0_u8; out_len];
-            kek.unwrap(data, &mut out)
-                .map_err(|_| "OperationError: AES-KW unwrap failed".to_owned())?;
-            Ok(out)
-        }
-        32 => {
-            let kek = KekAes256::try_from(secret).map_err(|error| error.to_string())?;
-            let out_len = data
-                .len()
-                .checked_sub(aes_kw::IV_LEN)
-                .ok_or_else(|| "OperationError: AES-KW unwrap failed".to_owned())?;
-            let mut out = vec![0_u8; out_len];
-            kek.unwrap(data, &mut out)
-                .map_err(|_| "OperationError: AES-KW unwrap failed".to_owned())?;
-            Ok(out)
-        }
-        other => Err(format!(
-            "Unsupported AES-KW raw key length: {} bits",
-            other * 8
-        )),
     }
 }
 
@@ -524,28 +235,11 @@ pub(crate) fn export_hmac_jwk(
     }
 }
 
-pub(crate) fn export_aes_jwk(
-    secret: &[u8],
+pub(crate) fn validate_usages(
+    usages: &[String],
+    allowed: &[&str],
     algorithm: &str,
-    extractable: bool,
-    usages: Vec<String>,
-) -> Result<ExportedJwk, String> {
-    let alg = jwk_alg_for_aes(algorithm, secret.len()).ok_or_else(|| {
-        format!(
-            "Unsupported {algorithm} raw key length: {} bits",
-            secret.len() * 8
-        )
-    })?;
-    Ok(ExportedJwk {
-        kty: "oct",
-        k: URL_SAFE_NO_PAD.encode(secret),
-        alg: Some(alg),
-        ext: extractable,
-        key_ops: usages,
-    })
-}
-
-fn validate_usages(usages: &[String], allowed: &[&str], algorithm: &str) -> Result<(), String> {
+) -> Result<(), String> {
     if usages.is_empty() {
         return Err(format!(
             "SyntaxError: {algorithm} keys require at least one usage"
@@ -565,7 +259,8 @@ fn import_jwk_oct_secret(
     expected_alg: Option<&str>,
     label: &str,
 ) -> Result<Vec<u8>, String> {
-    let jwk: JsonWebKey = serde_json::from_value(value).map_err(|error| error.to_string())?;
+    let jwk: super::types::JsonWebKey =
+        serde_json::from_value(value).map_err(|error| error.to_string())?;
     if jwk.kty != "oct" {
         return Err(format!("Unsupported JWK kty for {label}"));
     }
@@ -579,45 +274,4 @@ fn import_jwk_oct_secret(
     URL_SAFE_NO_PAD
         .decode(jwk.k.as_bytes())
         .map_err(|error| error.to_string())
-}
-
-fn normalize_tag_length(tag_length: Option<usize>) -> Result<usize, String> {
-    match tag_length.unwrap_or(128) {
-        128 => Ok(128),
-        other => Err(format!("Unsupported AES-GCM tagLength: {other}")),
-    }
-}
-
-fn prepare_nonce(iv: &[u8]) -> Result<&GenericArray<u8, U12>, String> {
-    if iv.len() != 12 {
-        return Err(format!(
-            "Unsupported AES-GCM iv length: expected 12 bytes, got {}",
-            iv.len()
-        ));
-    }
-    Ok(GenericArray::from_slice(iv))
-}
-
-fn prepare_cbc_iv(iv: &[u8]) -> Result<(), String> {
-    if iv.len() != 16 {
-        return Err(format!(
-            "Unsupported AES-CBC iv length: expected 16 bytes, got {}",
-            iv.len()
-        ));
-    }
-    Ok(())
-}
-
-fn jwk_alg_for_aes(algorithm: &str, secret_len: usize) -> Option<&'static str> {
-    match (algorithm.to_ascii_uppercase().as_str(), secret_len) {
-        ("AES-CBC", 16) => Some("A128CBC"),
-        ("AES-CBC", 24) => Some("A192CBC"),
-        ("AES-CBC", 32) => Some("A256CBC"),
-        ("AES-GCM", 16) => Some("A128GCM"),
-        ("AES-GCM", 32) => Some("A256GCM"),
-        ("AES-KW", 16) => Some("A128KW"),
-        ("AES-KW", 24) => Some("A192KW"),
-        ("AES-KW", 32) => Some("A256KW"),
-        _ => None,
-    }
 }
