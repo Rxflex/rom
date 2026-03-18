@@ -7,8 +7,10 @@
             this.onopen = null;
             this.onmessage = null;
             this.onerror = null;
-            this.__controller = new AbortController();
             this.__lastEventId = "";
+            this.__retry = 3000;
+            this.__controller = null;
+            this.__reconnectTimer = null;
             this.__connect();
         }
 
@@ -18,15 +20,30 @@
             }
 
             this.readyState = EventSource.CLOSED;
-            this.__controller.abort(new Error("EventSource closed"));
+            if (this.__reconnectTimer !== null) {
+                clearTimeout(this.__reconnectTimer);
+                this.__reconnectTimer = null;
+            }
+            if (this.__controller) {
+                this.__controller.abort(new Error("EventSource closed"));
+                this.__controller = null;
+            }
         }
 
         async __connect() {
+            const controller = new AbortController();
+            this.__controller = controller;
+
             try {
+                const headers = { accept: "text/event-stream" };
+                if (this.__lastEventId) {
+                    headers["last-event-id"] = this.__lastEventId;
+                }
+
                 const response = await fetch(this.url, {
-                    headers: { accept: "text/event-stream" },
+                    headers,
                     credentials: this.withCredentials ? "include" : "same-origin",
-                    signal: this.__controller.signal,
+                    signal: controller.signal,
                 });
 
                 if (!response.ok) {
@@ -38,7 +55,7 @@
                     throw new TypeError("Invalid EventSource content-type");
                 }
 
-                if (this.readyState === EventSource.CLOSED) {
+                if (this.readyState === EventSource.CLOSED || this.__controller !== controller) {
                     return;
                 }
 
@@ -50,7 +67,7 @@
                 const entries = parseEventStream(text);
 
                 for (const entry of entries) {
-                    if (this.readyState === EventSource.CLOSED) {
+                    if (this.readyState === EventSource.CLOSED || this.__controller !== controller) {
                         return;
                     }
 
@@ -80,19 +97,48 @@
                     );
                 }
 
-                queueMicrotask(() => {
-                    if (this.readyState !== EventSource.CLOSED) {
-                        this.readyState = EventSource.CLOSED;
-                    }
-                });
+                this.__scheduleReconnect(controller);
             } catch (error) {
+                if (this.readyState === EventSource.CLOSED || this.__controller !== controller) {
+                    return;
+                }
+
+                this.__scheduleReconnect(controller);
+            } finally {
+                if (this.__controller === controller && this.readyState !== EventSource.CONNECTING) {
+                    this.__controller = null;
+                }
+            }
+        }
+
+        __scheduleReconnect(controller) {
+            if (this.readyState === EventSource.CLOSED || this.__controller !== controller) {
+                return;
+            }
+
+            this.__controller = null;
+
+            queueMicrotask(() => {
                 if (this.readyState === EventSource.CLOSED) {
                     return;
                 }
 
-                this.readyState = EventSource.CLOSED;
+                this.readyState = EventSource.CONNECTING;
                 emitEventSourceEvent(this, "error", new Event("error"));
-            }
+
+                if (this.__reconnectTimer !== null) {
+                    clearTimeout(this.__reconnectTimer);
+                }
+
+                this.__reconnectTimer = setTimeout(() => {
+                    this.__reconnectTimer = null;
+                    if (this.readyState === EventSource.CLOSED) {
+                        return;
+                    }
+
+                    this.__connect();
+                }, this.__retry);
+            });
         }
     }
 
@@ -176,6 +222,6 @@
             data: entry.data.slice(),
             event: entry.event,
             id: entry.id,
-            retry: Number.isFinite(entry.retry) ? entry.retry : null,
+            retry: Number.isFinite(entry.retry) && entry.retry >= 0 ? entry.retry : null,
         });
     }

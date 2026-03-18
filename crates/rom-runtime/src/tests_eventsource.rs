@@ -120,3 +120,115 @@ fn supports_eventsource_stream_events() {
     assert_eq!(value["url"], format!("http://{address}/events"));
     assert_eq!(value["withCredentials"], false);
 }
+
+#[test]
+fn supports_eventsource_reconnect_retry_and_last_event_id() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+
+    let server = thread::spawn(move || {
+        let (mut first_stream, _) = listener.accept().unwrap();
+        let mut first_buffer = [0_u8; 2048];
+        let first_read = first_stream.read(&mut first_buffer).unwrap();
+        let first_request = String::from_utf8_lossy(&first_buffer[..first_read]);
+
+        assert!(first_request.contains("GET /events HTTP/1.1"));
+        assert!(first_request.contains("accept: text/event-stream"));
+        assert!(!first_request.contains("last-event-id:"));
+
+        let first_body = concat!("retry: 25\n", "id: 1\n", "data: first\n", "\n");
+        let first_response = format!(
+            concat!(
+                "HTTP/1.1 200 OK\r\n",
+                "Content-Type: text/event-stream\r\n",
+                "Cache-Control: no-cache\r\n",
+                "Content-Length: {}\r\n",
+                "\r\n",
+                "{}"
+            ),
+            first_body.len(),
+            first_body,
+        );
+        first_stream.write_all(first_response.as_bytes()).unwrap();
+        first_stream.flush().unwrap();
+
+        let (mut second_stream, _) = listener.accept().unwrap();
+        let mut second_buffer = [0_u8; 2048];
+        let second_read = second_stream.read(&mut second_buffer).unwrap();
+        let second_request = String::from_utf8_lossy(&second_buffer[..second_read]);
+
+        assert!(second_request.contains("GET /events HTTP/1.1"));
+        assert!(second_request.contains("last-event-id: 1"));
+
+        let second_body = concat!("data: second\n", "\n");
+        let second_response = format!(
+            concat!(
+                "HTTP/1.1 200 OK\r\n",
+                "Content-Type: text/event-stream\r\n",
+                "Cache-Control: no-cache\r\n",
+                "Content-Length: {}\r\n",
+                "\r\n",
+                "{}"
+            ),
+            second_body.len(),
+            second_body,
+        );
+        second_stream.write_all(second_response.as_bytes()).unwrap();
+        second_stream.flush().unwrap();
+    });
+
+    let runtime = RomRuntime::new(RuntimeConfig {
+        href: format!("http://{address}/"),
+        ..RuntimeConfig::default()
+    })
+    .unwrap();
+    let script = r#"
+        (async () => {
+            const events = [];
+            const source = new EventSource("/events");
+
+            return await new Promise((resolve, reject) => {
+                source.onopen = () => {
+                    events.push({ type: "open", readyState: source.readyState });
+                };
+
+                source.onmessage = (event) => {
+                    events.push({
+                        type: event.type,
+                        data: event.data,
+                        lastEventId: event.lastEventId,
+                    });
+
+                    if (event.data === "second") {
+                        source.close();
+                        resolve({
+                            events,
+                            readyState: source.readyState,
+                        });
+                    }
+                };
+
+                source.onerror = () => {
+                    events.push({ type: "error", readyState: source.readyState });
+                };
+            });
+        })()
+    "#;
+
+    let result = runtime.eval_async_as_string(script).unwrap();
+
+    server.join().unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(
+        value["events"],
+        serde_json::json!([
+            { "type": "open", "readyState": 1 },
+            { "type": "message", "data": "first", "lastEventId": "1" },
+            { "type": "error", "readyState": 0 },
+            { "type": "open", "readyState": 1 },
+            { "type": "message", "data": "second", "lastEventId": "1" }
+        ])
+    );
+    assert_eq!(value["readyState"], 2);
+}
