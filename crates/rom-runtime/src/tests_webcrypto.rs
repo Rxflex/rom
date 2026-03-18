@@ -211,6 +211,107 @@ fn supports_webcrypto_aes_gcm_lifecycle() {
 }
 
 #[test]
+fn supports_webcrypto_aes_cbc_lifecycle_and_derivation() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const encoder = new TextEncoder();
+                const iv = new Uint8Array(16);
+                const payload = encoder.encode("payload");
+                const key = await crypto.subtle.generateKey(
+                    { name: "AES-CBC", length: 192 },
+                    true,
+                    ["encrypt", "decrypt"],
+                );
+                const ciphertext = await crypto.subtle.encrypt(
+                    { name: "AES-CBC", iv },
+                    key,
+                    payload,
+                );
+                const plaintext = await crypto.subtle.decrypt(
+                    { name: "AES-CBC", iv },
+                    key,
+                    ciphertext,
+                );
+                const raw = await crypto.subtle.exportKey("raw", key);
+                const jwk = await crypto.subtle.exportKey("jwk", key);
+                const imported = await crypto.subtle.importKey(
+                    "jwk",
+                    jwk,
+                    { name: "AES-CBC" },
+                    true,
+                    ["encrypt", "decrypt"],
+                );
+                const importedPlaintext = await crypto.subtle.decrypt(
+                    { name: "AES-CBC", iv },
+                    imported,
+                    ciphertext,
+                );
+                const baseKey = await crypto.subtle.importKey(
+                    "raw",
+                    encoder.encode("password"),
+                    "PBKDF2",
+                    false,
+                    ["deriveBits", "deriveKey"],
+                );
+                const derivedKey = await crypto.subtle.deriveKey(
+                    { name: "PBKDF2", salt: encoder.encode("salt"), iterations: 1000, hash: "SHA-256" },
+                    baseKey,
+                    { name: "AES-CBC", length: 128 },
+                    true,
+                    ["encrypt", "decrypt"],
+                );
+                const derivedCiphertext = await crypto.subtle.encrypt(
+                    { name: "AES-CBC", iv },
+                    derivedKey,
+                    payload,
+                );
+                const derivedPlaintext = await crypto.subtle.decrypt(
+                    { name: "AES-CBC", iv },
+                    derivedKey,
+                    derivedCiphertext,
+                );
+
+                return {
+                    keyType: key.type,
+                    keyAlgorithm: key.algorithm.name,
+                    keyLength: key.algorithm.length,
+                    keyUsages: key.usages.join(","),
+                    cipherLength: new Uint8Array(ciphertext).length,
+                    plaintext: new TextDecoder().decode(new Uint8Array(plaintext)),
+                    importedPlaintext: new TextDecoder().decode(new Uint8Array(importedPlaintext)),
+                    rawLength: new Uint8Array(raw).length,
+                    jwkAlg: jwk.alg,
+                    jwkKty: jwk.kty,
+                    derivedAlgorithm: derivedKey.algorithm.name,
+                    derivedLength: derivedKey.algorithm.length,
+                    derivedPlaintext: new TextDecoder().decode(new Uint8Array(derivedPlaintext)),
+                };
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+
+    assert_eq!(value["keyType"], "secret");
+    assert_eq!(value["keyAlgorithm"], "AES-CBC");
+    assert_eq!(value["keyLength"], 192);
+    assert_eq!(value["keyUsages"], "encrypt,decrypt");
+    assert_eq!(value["cipherLength"], 16);
+    assert_eq!(value["plaintext"], "payload");
+    assert_eq!(value["importedPlaintext"], "payload");
+    assert_eq!(value["rawLength"], 24);
+    assert_eq!(value["jwkAlg"], "A192CBC");
+    assert_eq!(value["jwkKty"], "oct");
+    assert_eq!(value["derivedAlgorithm"], "AES-CBC");
+    assert_eq!(value["derivedLength"], 128);
+    assert_eq!(value["derivedPlaintext"], "payload");
+}
+
+#[test]
 fn supports_webcrypto_pbkdf2_derivation() {
     let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
     let result = runtime
