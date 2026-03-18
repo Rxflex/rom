@@ -204,6 +204,7 @@ function expectedJwkAlgorithm(algorithmName, algorithm, secretLength) {
             return expectedAesJwkAlgorithm(algorithmName, secretLength);
         case "AES-GCM":
             if (secretLength === 16) return "A128GCM";
+            if (secretLength === 24) return "A192GCM";
             if (secretLength === 32) return "A256GCM";
             return invalidJwkSecretLength(algorithmName, secretLength);
         default:

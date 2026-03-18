@@ -1,5 +1,5 @@
 use aes::{
-    Aes128, Aes256,
+    Aes128, Aes192, Aes256,
     cipher::{
         BlockCipher, BlockEncrypt, BlockSizeUser, KeyInit,
         generic_array::{
@@ -35,6 +35,19 @@ pub(crate) fn encrypt_aes_gcm(
         (16, 128) => {
             encrypt_aes_gcm_with_tag::<Aes128, U16>(secret, nonce, additional_data, data)
         }
+        (24, 96) => encrypt_aes_gcm_with_tag::<Aes192, U12>(secret, nonce, additional_data, data),
+        (24, 104) => {
+            encrypt_aes_gcm_with_tag::<Aes192, U13>(secret, nonce, additional_data, data)
+        }
+        (24, 112) => {
+            encrypt_aes_gcm_with_tag::<Aes192, U14>(secret, nonce, additional_data, data)
+        }
+        (24, 120) => {
+            encrypt_aes_gcm_with_tag::<Aes192, U15>(secret, nonce, additional_data, data)
+        }
+        (24, 128) => {
+            encrypt_aes_gcm_with_tag::<Aes192, U16>(secret, nonce, additional_data, data)
+        }
         (32, 96) => encrypt_aes_gcm_with_tag::<Aes256, U12>(secret, nonce, additional_data, data),
         (32, 104) => {
             encrypt_aes_gcm_with_tag::<Aes256, U13>(secret, nonce, additional_data, data)
@@ -48,7 +61,7 @@ pub(crate) fn encrypt_aes_gcm(
         (32, 128) => {
             encrypt_aes_gcm_with_tag::<Aes256, U16>(secret, nonce, additional_data, data)
         }
-        (16 | 32, other) => Err(format!("Unsupported AES-GCM tagLength: {other}")),
+        (16 | 24 | 32, other) => Err(format!("Unsupported AES-GCM tagLength: {other}")),
         (other, _) => Err(format!(
             "Unsupported AES-GCM raw key length: {} bits",
             other * 8
@@ -78,6 +91,19 @@ pub(crate) fn decrypt_aes_gcm(
         (16, 128) => {
             decrypt_aes_gcm_with_tag::<Aes128, U16>(secret, nonce, additional_data, data)
         }
+        (24, 96) => decrypt_aes_gcm_with_tag::<Aes192, U12>(secret, nonce, additional_data, data),
+        (24, 104) => {
+            decrypt_aes_gcm_with_tag::<Aes192, U13>(secret, nonce, additional_data, data)
+        }
+        (24, 112) => {
+            decrypt_aes_gcm_with_tag::<Aes192, U14>(secret, nonce, additional_data, data)
+        }
+        (24, 120) => {
+            decrypt_aes_gcm_with_tag::<Aes192, U15>(secret, nonce, additional_data, data)
+        }
+        (24, 128) => {
+            decrypt_aes_gcm_with_tag::<Aes192, U16>(secret, nonce, additional_data, data)
+        }
         (32, 96) => decrypt_aes_gcm_with_tag::<Aes256, U12>(secret, nonce, additional_data, data),
         (32, 104) => {
             decrypt_aes_gcm_with_tag::<Aes256, U13>(secret, nonce, additional_data, data)
@@ -91,7 +117,7 @@ pub(crate) fn decrypt_aes_gcm(
         (32, 128) => {
             decrypt_aes_gcm_with_tag::<Aes256, U16>(secret, nonce, additional_data, data)
         }
-        (16 | 32, other) => Err(format!("Unsupported AES-GCM tagLength: {other}")),
+        (16 | 24 | 32, other) => Err(format!("Unsupported AES-GCM tagLength: {other}")),
         (other, _) => Err(format!(
             "Unsupported AES-GCM raw key length: {} bits",
             other * 8
