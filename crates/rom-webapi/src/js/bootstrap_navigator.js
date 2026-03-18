@@ -14,6 +14,42 @@
         }
     }
 
+    class NavigatorUAData {
+        constructor(init) {
+            this.brands = Array.from(init.brands ?? [], cloneBrandEntry);
+            this.mobile = Boolean(init.mobile);
+            this.platform = String(init.platform ?? "Unknown");
+            this.__highEntropyValues = {
+                architecture: String(init.architecture ?? "x86"),
+                bitness: String(init.bitness ?? "64"),
+                formFactors: Array.from(init.formFactors ?? []),
+                model: String(init.model ?? ""),
+                platformVersion: String(init.platformVersion ?? "0.0.0"),
+                uaFullVersion: String(init.uaFullVersion ?? "0.1.0"),
+                fullVersionList: Array.from(init.fullVersionList ?? this.brands, cloneBrandEntry),
+                wow64: Boolean(init.wow64),
+            };
+        }
+
+        toJSON() {
+            return {
+                brands: this.brands.map(cloneBrandEntry),
+                mobile: this.mobile,
+                platform: this.platform,
+            };
+        }
+
+        getHighEntropyValues(hints = []) {
+            const result = this.toJSON();
+            for (const hint of Array.from(hints, String)) {
+                if (this.__highEntropyValues[hint] !== undefined) {
+                    result[hint] = cloneHighEntropyValue(this.__highEntropyValues[hint]);
+                }
+            }
+            return Promise.resolve(result);
+        }
+    }
+
     class MediaTrackSettings {
         constructor(kind) {
             this.deviceId = `${kind}-default`;
@@ -166,6 +202,7 @@
                 return Promise.reject(new TypeError("At least one media constraint must be requested."));
             }
 
+            this.__queueDeviceChange();
             return Promise.resolve(new MediaStream(tracks));
         }
 
@@ -175,9 +212,20 @@
                 return Promise.reject(new TypeError("Display capture requires video."));
             }
 
+            this.__queueDeviceChange();
             return Promise.resolve(
                 new MediaStream([new MediaStreamTrack("video", "ROM Display Capture")]),
             );
+        }
+
+        __queueDeviceChange() {
+            queueMicrotask(() => {
+                const event = new Event("devicechange");
+                if (typeof this.ondevicechange === "function") {
+                    this.ondevicechange(event);
+                }
+                this.dispatchEvent(event);
+            });
         }
     }
 
@@ -259,6 +307,7 @@
         const mimeTypes = createDefaultMimeTypes();
         const plugins = createDefaultPlugins(mimeTypes);
         const mediaDevices = createDefaultMediaDevices();
+        const userAgentData = createNavigatorUAData(navigatorConfig);
 
         return {
             userAgent: navigatorConfig.userAgent ?? "ROM/0.1",
@@ -275,7 +324,7 @@
             vendor: "ROM",
             product: "Gecko",
             productSub: "20030107",
-            userAgentData: null,
+            userAgentData,
             plugins,
             mimeTypes,
             permissions: new Permissions(),
@@ -306,6 +355,28 @@
         ]);
     }
 
+    function createNavigatorUAData(navigatorConfig) {
+        const platform = normalizeUaPlatform(navigatorConfig.platform);
+        const brands = [
+            { brand: "ROM", version: "0" },
+            { brand: "Not=A?Brand", version: "99" },
+        ];
+
+        return new NavigatorUAData({
+            brands,
+            mobile: false,
+            platform,
+            architecture: "x86",
+            bitness: "64",
+            formFactors: ["Desktop"],
+            model: "",
+            platformVersion: "15.0.0",
+            uaFullVersion: "0.1.0",
+            fullVersionList: brands,
+            wow64: false,
+        });
+    }
+
     function normalizeMediaConstraints(constraints) {
         return {
             audio: normalizeMediaConstraintValue(constraints.audio),
@@ -331,6 +402,37 @@
             return new InputDeviceInfo(device.kind, device.label, device.deviceId, device.groupId);
         }
         return new MediaDeviceInfo(device.kind, device.label, device.deviceId, device.groupId);
+    }
+
+    function cloneBrandEntry(entry) {
+        return {
+            brand: String(entry?.brand ?? ""),
+            version: String(entry?.version ?? ""),
+        };
+    }
+
+    function cloneHighEntropyValue(value) {
+        if (Array.isArray(value)) {
+            return value.slice();
+        }
+        if (value && typeof value === "object") {
+            return { ...value };
+        }
+        return value;
+    }
+
+    function normalizeUaPlatform(platform) {
+        const value = String(platform ?? "").toLowerCase();
+        if (value.includes("win")) {
+            return "Windows";
+        }
+        if (value.includes("mac")) {
+            return "macOS";
+        }
+        if (value.includes("linux")) {
+            return "Linux";
+        }
+        return "Unknown";
     }
 
     function permissionStateFor(name) {

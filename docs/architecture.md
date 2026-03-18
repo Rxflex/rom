@@ -66,7 +66,7 @@ Status:
 - `EventSource` is present in an initial finite-response SSE form with `open`, custom/message events, `lastEventId`, and `close()`
 - `WebSocket` is present in an initial host-backed `ws:` form with text/binary messages, `binaryType = "arraybuffer"`, and close events
 - `BroadcastChannel` and `FileReader` are present in an initial but usable form
-- `navigator.permissions`, `navigator.mediaDevices`, `navigator.plugins`, and `navigator.mimeTypes` are present in compatibility-oriented form
+- `navigator.permissions`, `navigator.mediaDevices`, `navigator.userAgentData`, `navigator.plugins`, and `navigator.mimeTypes` are present in compatibility-oriented form
 - deeper networking and worker semantics still need work: fuller stream semantics, live SSE reconnect semantics, `wss:` and longer-lived `WebSocket` behavior, richer URL/file semantics, `no-cors`/opaque details, worker isolation fidelity, richer permission/device behavior, and broader `SubtleCrypto` coverage beyond the current digest/HMAC/AES-GCM/PBKDF2 slice
 
 ### Phase 3

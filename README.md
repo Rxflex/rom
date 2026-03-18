@@ -52,6 +52,8 @@ The browser surface now also includes an initial web data stack:
 - `FileReader` with `readAsText()`, `readAsArrayBuffer()`, `readAsDataURL()`
 - `navigator.permissions.query()`
 - `navigator.mediaDevices` with `enumerateDevices()`, `getSupportedConstraints()`, `getUserMedia()`, and `getDisplayMedia()`
+- `navigator.userAgentData` with `brands`, `mobile`, `platform`, and `getHighEntropyValues()`
+- `mediaDevices.ondevicechange` and `devicechange` listeners
 - `navigator.plugins`, `navigator.mimeTypes`, and `navigator.pdfViewerEnabled`
 
 There is also an optional real-browser reference runner:
