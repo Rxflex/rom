@@ -17,9 +17,11 @@ license = "MIT"
 version = "0.1.0"
 
 [workspace.dependencies]
+aes = "0.8.4"
 aes-kw = "0.2.1"
 aes-gcm = "0.10.3"
 base64 = "0.22.1"
+cbc = "0.1.2"
 hkdf = "0.12.4"
 hmac = "0.12.1"
 getrandom = "0.3.3"

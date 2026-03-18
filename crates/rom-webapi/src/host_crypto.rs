@@ -14,12 +14,12 @@ use serde_json::Value;
 use self::{
     ops::{
         build_aes_algorithm, build_hkdf_algorithm, build_hmac_algorithm, build_pbkdf2_algorithm,
-        decrypt_aes_kw, default_hmac_key_length, derive_hkdf_bits, derive_pbkdf2_bits,
-        digest_bytes, encrypt_aes_gcm, encrypt_aes_kw, ensure_algorithm_name, export_aes_jwk,
-        export_hmac_jwk, import_aes_jwk, import_hmac_jwk, normalize_aes_length,
-        parse_hash_algorithm, parse_hash_from_descriptor, sign_hmac, validate_aes_gcm_usages,
-        validate_aes_kw_usages, validate_hkdf_usages, validate_hmac_usages, validate_pbkdf2_usages,
-        verify_hmac,
+        decrypt_aes_cbc, decrypt_aes_kw, default_hmac_key_length, derive_hkdf_bits,
+        derive_pbkdf2_bits, digest_bytes, encrypt_aes_cbc, encrypt_aes_gcm, encrypt_aes_kw,
+        ensure_algorithm_name, export_aes_jwk, export_hmac_jwk, import_aes_jwk, import_hmac_jwk,
+        normalize_aes_length, parse_hash_algorithm, parse_hash_from_descriptor, sign_hmac,
+        validate_aes_cbc_usages, validate_aes_gcm_usages, validate_aes_kw_usages,
+        validate_hkdf_usages, validate_hmac_usages, validate_pbkdf2_usages, verify_hmac,
     },
     types::{
         BytesPayload, CryptoKeyRecord, DecryptPayload, DeriveBitsPayload, DigestPayload,
@@ -93,6 +93,26 @@ impl CryptoHost {
                     material: KeyMaterial::Aes { secret },
                 })
             }
+            "AES-CBC" => {
+                validate_aes_cbc_usages(&payload.usages)?;
+                let byte_length = normalize_aes_length(
+                    payload
+                        .algorithm
+                        .length
+                        .ok_or_else(|| "Missing algorithm.length".to_owned())?,
+                    "AES-CBC",
+                )?;
+                let mut secret = vec![0_u8; byte_length];
+                getrandom::fill(&mut secret).map_err(|error| error.to_string())?;
+
+                self.store_key(CryptoKeyRecord {
+                    extractable: payload.extractable,
+                    key_type: "secret".to_owned(),
+                    algorithm: build_aes_algorithm("AES-CBC", secret.len()),
+                    usages: payload.usages,
+                    material: KeyMaterial::Aes { secret },
+                })
+            }
             "AES-KW" => {
                 validate_aes_kw_usages(&payload.usages)?;
                 let byte_length = normalize_aes_length(
@@ -152,6 +172,23 @@ impl CryptoHost {
                     extractable: payload.extractable,
                     key_type: "secret".to_owned(),
                     algorithm: build_aes_algorithm("AES-GCM", secret.len()),
+                    usages: payload.usages,
+                    material: KeyMaterial::Aes { secret },
+                })
+            }
+            "AES-CBC" => {
+                validate_aes_cbc_usages(&payload.usages)?;
+                let secret = match payload.format.as_str() {
+                    "raw" => deserialize_raw_bytes(payload.key_data)?,
+                    "jwk" => import_aes_jwk(payload.key_data, "AES-CBC")?,
+                    other => return Err(format!("Unsupported key import format: {other}")),
+                };
+                let _ = normalize_aes_length(secret.len() * 8, "AES-CBC")?;
+
+                self.store_key(CryptoKeyRecord {
+                    extractable: payload.extractable,
+                    key_type: "secret".to_owned(),
+                    algorithm: build_aes_algorithm("AES-CBC", secret.len()),
                     usages: payload.usages,
                     material: KeyMaterial::Aes { secret },
                 })
@@ -315,6 +352,23 @@ impl CryptoHost {
         }
 
         let bytes = match payload.algorithm.name.to_ascii_uppercase().as_str() {
+            "AES-CBC" => {
+                if !record.usages.iter().any(|usage| usage == "encrypt") {
+                    return Err("InvalidAccessError: key does not allow encrypt".to_owned());
+                }
+                match &record.material {
+                    KeyMaterial::Aes { secret } => encrypt_aes_cbc(
+                        secret,
+                        payload
+                            .algorithm
+                            .iv
+                            .as_deref()
+                            .ok_or_else(|| "Missing algorithm.iv".to_owned())?,
+                        &payload.data,
+                    )?,
+                    _ => return Err("InvalidAccessError: key does not support encrypt".to_owned()),
+                }
+            }
             "AES-GCM" => {
                 if !record.usages.iter().any(|usage| usage == "encrypt") {
                     return Err("InvalidAccessError: key does not allow encrypt".to_owned());
@@ -365,6 +419,23 @@ impl CryptoHost {
         }
 
         let bytes = match payload.algorithm.name.to_ascii_uppercase().as_str() {
+            "AES-CBC" => {
+                if !record.usages.iter().any(|usage| usage == "decrypt") {
+                    return Err("InvalidAccessError: key does not allow decrypt".to_owned());
+                }
+                match &record.material {
+                    KeyMaterial::Aes { secret } => decrypt_aes_cbc(
+                        secret,
+                        payload
+                            .algorithm
+                            .iv
+                            .as_deref()
+                            .ok_or_else(|| "Missing algorithm.iv".to_owned())?,
+                        &payload.data,
+                    )?,
+                    _ => return Err("InvalidAccessError: key does not support decrypt".to_owned()),
+                }
+            }
             "AES-GCM" => {
                 if !record.usages.iter().any(|usage| usage == "decrypt") {
                     return Err("InvalidAccessError: key does not allow decrypt".to_owned());
