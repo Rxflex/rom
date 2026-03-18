@@ -108,12 +108,13 @@
         async encrypt(algorithm, key, data) {
             assertCryptoKey(key);
             assertCryptoKeyUsage(key, "encrypt");
+            const bytes = toByteArray(data);
             const response = JSON.parse(
                 g.__rom_subtle_encrypt(
                     JSON.stringify({
-                        algorithm: serializeAlgorithmDescriptor(algorithm),
+                        algorithm: serializeDataOperationAlgorithm(algorithm, bytes.length),
                         key_id: key.__id,
-                        data: toByteArray(data),
+                        data: bytes,
                     }),
                 ),
             );
@@ -124,12 +125,13 @@
         async decrypt(algorithm, key, data) {
             assertCryptoKey(key);
             assertCryptoKeyUsage(key, "decrypt");
+            const bytes = toByteArray(data);
             const response = JSON.parse(
                 g.__rom_subtle_decrypt(
                     JSON.stringify({
-                        algorithm: serializeAlgorithmDescriptor(algorithm),
+                        algorithm: serializeDataOperationAlgorithm(algorithm, bytes.length),
                         key_id: key.__id,
-                        data: toByteArray(data),
+                        data: bytes,
                     }),
                 ),
             );
@@ -188,13 +190,17 @@
                 normalizedFormat === "jwk"
                     ? new TextEncoder().encode(JSON.stringify(exported))
                     : exported;
+            const payloadBytes = toByteArray(payload);
 
             const response = JSON.parse(
                 g.__rom_subtle_encrypt(
                     JSON.stringify({
-                        algorithm: serializeAlgorithmDescriptor(wrapAlgorithm),
+                        algorithm: serializeDataOperationAlgorithm(
+                            wrapAlgorithm,
+                            payloadBytes.length,
+                        ),
                         key_id: wrappingKey.__id,
-                        data: toByteArray(payload),
+                        data: payloadBytes,
                     }),
                 ),
             );
@@ -214,12 +220,16 @@
             assertCryptoKey(unwrappingKey);
             assertCryptoKeyUsage(unwrappingKey, "unwrapKey");
             const normalizedFormat = String(format);
+            const wrappedBytes = toByteArray(wrappedKey);
             const response = JSON.parse(
                 g.__rom_subtle_decrypt(
                     JSON.stringify({
-                        algorithm: serializeAlgorithmDescriptor(unwrapAlgorithm),
+                        algorithm: serializeDataOperationAlgorithm(
+                            unwrapAlgorithm,
+                            wrappedBytes.length,
+                        ),
                         key_id: unwrappingKey.__id,
-                        data: toByteArray(wrappedKey),
+                        data: wrappedBytes,
                     }),
                 ),
             );
@@ -287,11 +297,7 @@
         if (key.usages.includes(usage)) {
             return;
         }
-
-        throw createCryptoDomException(
-            "InvalidAccessError",
-            `The key does not support ${usage}.`,
-        );
+        throw createCryptoDomException("InvalidAccessError", `The key does not support ${usage}.`);
     }
 
     function assertIntegerTypedArray(target) {
@@ -314,17 +320,23 @@
         if (typeof algorithm === "string") {
             return algorithm;
         }
-
         if (algorithm && typeof algorithm === "object" && algorithm.name !== undefined) {
             return String(algorithm.name);
         }
-
         throw new TypeError("Invalid algorithm identifier");
     }
 
     function serializeAlgorithmDescriptor(algorithm) {
-        const source = normalizeAlgorithmObject(algorithm);
+        return serializeNormalizedAlgorithmDescriptor(normalizeAlgorithmObject(algorithm));
+    }
 
+    function serializeDataOperationAlgorithm(algorithm, dataLength) {
+        const source = normalizeAlgorithmObject(algorithm);
+        validateDataOperationAlgorithm(source, dataLength);
+        return serializeNormalizedAlgorithmDescriptor(source);
+    }
+
+    function serializeNormalizedAlgorithmDescriptor(source) {
         return {
             name: source.name,
             hash: source.hash === null ? null : normalizeHashName(source.hash),
@@ -337,6 +349,10 @@
             info: toOptionalByteArray(source.info),
             iterations: source.iterations === undefined ? null : Number(source.iterations),
         };
+    }
+
+    function validateDataOperationAlgorithm(algorithm, dataLength) {
+        if (String(algorithm.name ?? "").toUpperCase() === "AES-CTR") validateAesCtrParams(algorithm, dataLength);
     }
 
     function normalizeCryptoKeyAlgorithm(algorithm) {
@@ -354,11 +370,9 @@
         if (typeof algorithm === "string") {
             return { name: algorithm, hash: null };
         }
-
         if (!algorithm || typeof algorithm !== "object") {
             throw new TypeError("Invalid algorithm identifier");
         }
-
         return {
             name: String(algorithm.name ?? ""),
             hash: algorithm.hash ?? null,
@@ -377,11 +391,9 @@
         if (format === "raw") {
             return toByteArray(keyData);
         }
-
         if (format === "jwk") {
             return keyData;
         }
-
         throw new TypeError(`Unsupported key format: ${format}`);
     }
 
@@ -389,15 +401,12 @@
         if (value instanceof ArrayBuffer) {
             return Array.from(new Uint8Array(value));
         }
-
         if (ArrayBuffer.isView(value)) {
             return Array.from(new Uint8Array(value.buffer, value.byteOffset, value.byteLength));
         }
-
         if (Array.isArray(value)) {
             return value.map((entry) => Number(entry) & 0xff);
         }
-
         throw new TypeError("Expected ArrayBuffer or TypedArray input");
     }
 
@@ -407,11 +416,44 @@
     }
 
     function toOptionalByteArray(value) {
-        if (value === undefined || value === null) {
-            return null;
-        }
+        return value === undefined || value === null ? null : toByteArray(value);
+    }
 
-        return toByteArray(value);
+    function validateAesCtrParams(algorithm, dataLength) {
+        if (algorithm.counter === undefined) {
+            throw new TypeError("AES-CTR requires algorithm.counter");
+        }
+        if (algorithm.length === undefined) {
+            throw new TypeError("AES-CTR requires algorithm.length");
+        }
+        const counter = toByteArray(algorithm.counter);
+        const length = Number(algorithm.length);
+        if (counter.length !== 16 || !Number.isInteger(length) || length < 1 || length > 128) {
+            throw createCryptoDomException("OperationError", "Invalid AES-CTR parameters.");
+        }
+        const blocks = BigInt(Math.ceil(Number(dataLength) / 16));
+        if (blocks === 0n) {
+            return;
+        }
+        const counterValue = bytesToBigInt(counter);
+        if (length === 128) {
+            if ((blocks - 1n) > ((1n << 128n) - 1n - counterValue)) {
+                throw createCryptoDomException("OperationError", "AES-CTR counter would wrap.");
+            }
+            return;
+        }
+        const space = 1n << BigInt(length);
+        if (blocks > (space - (counterValue & (space - 1n)))) {
+            throw createCryptoDomException("OperationError", "AES-CTR counter would wrap.");
+        }
+    }
+
+    function bytesToBigInt(bytes) {
+        let value = 0n;
+        for (const byte of bytes) {
+            value = (value << 8n) | BigInt(byte);
+        }
+        return value;
     }
 
     function getDerivedKeyLengthBits(algorithm) {
