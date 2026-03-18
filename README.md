@@ -47,7 +47,7 @@ The browser surface now also includes an initial web data stack:
 - `ReadableStream`-based `Request.body` / `Response.body`
 - redirect policy for `fetch`: `follow`, `error`, `manual`
 - `EventSource` for `text/event-stream` response parsing, custom events, `lastEventId`, and `close()`
-- initial `WebSocket` support for local `ws:` connections, text/binary frames, `binaryType = "arraybuffer"`, and close events
+- initial `WebSocket` support for `ws:` and `wss:` connections, text/binary frames, `binaryType = "arraybuffer"`, `Blob` payloads, and close events
 - `BroadcastChannel`
 - `FileReader` with `readAsText()`, `readAsArrayBuffer()`, `readAsDataURL()`
 - `navigator.permissions.query()`

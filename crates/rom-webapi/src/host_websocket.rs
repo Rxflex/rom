@@ -9,7 +9,8 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 use tungstenite::{
-    Message, WebSocket, client, client::IntoClientRequest, handshake::client::Response,
+    Connector, Message, WebSocket, client::IntoClientRequest, client_tls_with_config,
+    handshake::client::Response,
     stream::MaybeTlsStream,
 };
 use url::Url;
@@ -93,7 +94,7 @@ impl WebSocketHost {
             serde_json::from_str(payload).map_err(|error| error.to_string())?;
         let request = build_request(&payload)?;
         let (mut socket, response) =
-            client(request, connect_stream(&payload.url)?).map_err(|error| error.to_string())?;
+            connect_socket(request, connect_stream(&payload.url)?, None)?;
         set_nonblocking(socket.get_mut())?;
 
         let socket_id = format!(
@@ -260,7 +261,7 @@ fn build_request(payload: &WebSocketConnectPayload) -> Result<tungstenite::http:
     Ok(request)
 }
 
-fn connect_stream(url: &str) -> Result<MaybeTlsStream<TcpStream>, String> {
+fn connect_stream(url: &str) -> Result<TcpStream, String> {
     let parsed = Url::parse(url).map_err(|error| error.to_string())?;
     let host = parsed
         .host_str()
@@ -268,14 +269,27 @@ fn connect_stream(url: &str) -> Result<MaybeTlsStream<TcpStream>, String> {
     let port = parsed
         .port_or_known_default()
         .ok_or_else(|| "WebSocket URL must include a known port".to_owned())?;
-    let stream = TcpStream::connect((host, port)).map_err(|error| error.to_string())?;
-    Ok(MaybeTlsStream::Plain(stream))
+    TcpStream::connect((host, port)).map_err(|error| error.to_string())
+}
+
+fn connect_socket(
+    request: tungstenite::http::Request<()>,
+    stream: TcpStream,
+    connector: Option<Connector>,
+) -> Result<(WebSocket<MaybeTlsStream<TcpStream>>, Response), String> {
+    client_tls_with_config(request, stream, None, connector).map_err(|error| error.to_string())
 }
 
 fn set_nonblocking(stream: &mut MaybeTlsStream<TcpStream>) -> Result<(), String> {
     match stream {
-        MaybeTlsStream::Plain(stream) => stream.set_nonblocking(true).map_err(|error| error.to_string()),
-        _ => Err("wss is not supported yet".to_owned()),
+        MaybeTlsStream::Plain(stream) => stream
+            .set_nonblocking(true)
+            .map_err(|error| error.to_string()),
+        MaybeTlsStream::Rustls(stream) => stream
+            .sock
+            .set_nonblocking(true)
+            .map_err(|error| error.to_string()),
+        _ => Err("Unsupported WebSocket transport stream".to_owned()),
     }
 }
 
@@ -298,4 +312,92 @@ fn extract_protocol(response: &Response) -> String {
         .and_then(|value| value.to_str().ok())
         .unwrap_or_default()
         .to_owned()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Connector, WebSocketConnectPayload, build_request, connect_socket, connect_stream, set_nonblocking};
+    use rcgen::generate_simple_self_signed;
+    use rustls::{
+        ClientConfig, RootCertStore, ServerConfig, ServerConnection, StreamOwned,
+        pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer},
+    };
+    use std::{
+        io::ErrorKind,
+        net::TcpListener,
+        sync::Once,
+        sync::Arc,
+        thread,
+    };
+    use tungstenite::{Message, accept};
+
+    fn install_rustls_provider() {
+        static INIT: Once = Once::new();
+
+        INIT.call_once(|| {
+            let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+        });
+    }
+
+    #[test]
+    fn supports_wss_connections_with_rustls_streams() {
+        install_rustls_provider();
+
+        let certified = generate_simple_self_signed(vec!["localhost".to_owned()]).unwrap();
+        let certificate = CertificateDer::from(certified.cert.der().clone());
+        let private_key = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(
+            certified.signing_key.serialize_der(),
+        ));
+
+        let server_config = Arc::new(
+            ServerConfig::builder()
+                .with_no_client_auth()
+                .with_single_cert(vec![certificate.clone()], private_key)
+                .unwrap(),
+        );
+
+        let mut roots = RootCertStore::empty();
+        roots.add(certificate).unwrap();
+        let client_config = Arc::new(
+            ClientConfig::builder()
+                .with_root_certificates(roots)
+                .with_no_client_auth(),
+        );
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+
+        let server = thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            let connection = ServerConnection::new(server_config).unwrap();
+            let tls_stream = StreamOwned::new(connection, stream);
+            let mut websocket = accept(tls_stream).unwrap();
+
+            websocket.send(Message::Text("secure".into())).unwrap();
+            websocket.close(None).unwrap();
+        });
+
+        let request = build_request(&WebSocketConnectPayload {
+            url: format!("wss://localhost:{}/socket", address.port()),
+            protocols: Vec::new(),
+        })
+        .unwrap();
+        let stream = connect_stream(&format!("wss://localhost:{}/socket", address.port())).unwrap();
+        let (mut socket, _) = connect_socket(request, stream, Some(Connector::Rustls(client_config))).unwrap();
+
+        set_nonblocking(socket.get_mut()).unwrap();
+
+        let message = loop {
+            match socket.read() {
+                Ok(Message::Text(text)) => break text.to_string(),
+                Err(tungstenite::Error::Io(error)) if error.kind() == ErrorKind::WouldBlock => {
+                    thread::yield_now();
+                }
+                other => panic!("unexpected websocket read result: {other:?}"),
+            }
+        };
+
+        server.join().unwrap();
+        assert_eq!(message, "secure");
+    }
 }

@@ -64,14 +64,14 @@ Status:
 - `structuredClone()`, `MessageEvent`, `MessagePort`, `MessageChannel`, and a first `Worker` model are present
 - `ReadableStream`-based `Request.body` / `Response.body` and `fetch` redirect modes are present
 - `EventSource` is present in an initial finite-response SSE form with `open`, custom/message events, `lastEventId`, and `close()`
-- `WebSocket` is present in an initial host-backed `ws:` form with text/binary messages, `binaryType = "arraybuffer"`, and close events
+- `WebSocket` is present in an initial host-backed `ws:` / `wss:` form with text/binary messages, `Blob` and `ArrayBuffer` payloads, `binaryType = "arraybuffer"`, and close events
 - `BroadcastChannel` and `FileReader` are present in an initial but usable form
 - `MutationObserver` is present in an initial usable form for `childList`, `attributes`, `characterData`, `subtree`, and `oldValue`
 - `ResizeObserver` and `IntersectionObserver` are present in initial usable form
 - DOM event propagation is present in an initial usable form with capture/bubble phases, `once`, propagation stopping, and `composedPath()`
 - `navigator.permissions`, `navigator.mediaDevices`, `navigator.userAgentData`, `navigator.plugins`, and `navigator.mimeTypes` are present in compatibility-oriented form
 - viewport and media-query globals are present in compatibility-oriented form: `innerWidth/Height`, `outerWidth/Height`, `devicePixelRatio`, `visualViewport`, `screen.orientation`, `matchMedia`
-- deeper networking and worker semantics still need work: fuller stream semantics, live SSE reconnect semantics, `wss:` and longer-lived `WebSocket` behavior, richer URL/file semantics, `no-cors`/opaque details, worker isolation fidelity, richer permission/device behavior, and broader `SubtleCrypto` coverage beyond the current digest/HMAC/AES-GCM/PBKDF2 slice
+- deeper networking and worker semantics still need work: fuller stream semantics, live SSE reconnect semantics, longer-lived `WebSocket` behavior, richer URL/file semantics, `no-cors`/opaque details, worker isolation fidelity, richer permission/device behavior, and broader `SubtleCrypto` coverage beyond the current digest/HMAC/AES-GCM/PBKDF2 slice
 
 ### Phase 3
 
