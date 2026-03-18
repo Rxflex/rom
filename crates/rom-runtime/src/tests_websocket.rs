@@ -355,3 +355,67 @@ fn validates_websocket_constructor_and_close_arguments() {
     assert_eq!(value["closeReason"], "done");
     assert_eq!(value["finalReadyState"], 3);
 }
+
+#[test]
+fn validates_websocket_binary_type_values() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().unwrap();
+        let mut websocket = accept(stream).unwrap();
+        websocket.send(Message::Binary(b"abc".to_vec().into())).unwrap();
+        websocket.close(None).unwrap();
+    });
+
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let script = format!(
+        r#"
+        (async () => {{
+            const socket = new WebSocket("ws://{address}/binary-type");
+            const result = {{
+                defaultType: socket.binaryType,
+                invalidName: "",
+                typeAfterInvalid: "",
+                finalType: "",
+                isBlob: false,
+                text: "",
+            }};
+
+            return await new Promise((resolve, reject) => {{
+                socket.onopen = () => {{
+                    try {{
+                        socket.binaryType = "bytes";
+                    }} catch (error) {{
+                        result.invalidName = error.name;
+                    }}
+
+                    result.typeAfterInvalid = socket.binaryType;
+                    socket.binaryType = "blob";
+                    result.finalType = socket.binaryType;
+                }};
+
+                socket.onmessage = async (event) => {{
+                    result.isBlob = event.data instanceof Blob;
+                    result.text = await event.data.text();
+                }};
+
+                socket.onclose = () => resolve(result);
+                socket.onerror = () => reject(new Error("unexpected websocket error"));
+            }});
+        }})()
+        "#
+    );
+
+    let result = runtime.eval_async_as_string(&script).unwrap();
+
+    server.join().unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(value["defaultType"], "blob");
+    assert_eq!(value["invalidName"], "TypeError");
+    assert_eq!(value["typeAfterInvalid"], "blob");
+    assert_eq!(value["finalType"], "blob");
+    assert_eq!(value["isBlob"], true);
+    assert_eq!(value["text"], "abc");
+}

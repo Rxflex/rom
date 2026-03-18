@@ -25,7 +25,7 @@
             this.readyState = WebSocket.CONNECTING;
             this.protocol = String(response.protocol ?? "");
             this.extensions = "";
-            this.binaryType = "blob";
+            this.__binaryType = "blob";
             this.bufferedAmount = 0;
             this.onopen = null;
             this.onmessage = null;
@@ -38,6 +38,21 @@
             this.readyState = WebSocket.OPEN;
             dispatchWebSocketEvent(this, "open", new Event("open"));
             this.__schedulePoll();
+        }
+
+        get binaryType() {
+            return this.__binaryType;
+        }
+
+        set binaryType(value) {
+            const normalized = String(value);
+            if (normalized !== "blob" && normalized !== "arraybuffer") {
+                throw new TypeError(
+                    "Failed to set the 'binaryType' property on 'WebSocket': The provided value is not a valid enum value of type BinaryType.",
+                );
+            }
+
+            this.__binaryType = normalized;
         }
 
         send(data) {
