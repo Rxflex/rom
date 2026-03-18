@@ -1,0 +1,346 @@
+    class PermissionStatus extends EventTarget {
+        constructor(name, state) {
+            super();
+            this.name = String(name);
+            this.state = String(state);
+            this.onchange = null;
+        }
+    }
+
+    class Permissions {
+        query(descriptor = {}) {
+            const name = String(descriptor.name ?? "");
+            return Promise.resolve(new PermissionStatus(name, permissionStateFor(name)));
+        }
+    }
+
+    class MediaTrackSettings {
+        constructor(kind) {
+            this.deviceId = `${kind}-default`;
+            this.groupId = `${kind}-group`;
+        }
+    }
+
+    class MediaStreamTrack extends EventTarget {
+        constructor(kind, label) {
+            super();
+            this.kind = kind;
+            this.label = label;
+            this.enabled = true;
+            this.id = `${kind}-${Math.random().toString(16).slice(2, 10)}`;
+            this.muted = false;
+            this.readyState = "live";
+            this.onended = null;
+            this.__settings = new MediaTrackSettings(kind);
+        }
+
+        stop() {
+            if (this.readyState === "ended") {
+                return;
+            }
+
+            this.readyState = "ended";
+            queueMicrotask(() => {
+                const event = new Event("ended");
+                if (typeof this.onended === "function") {
+                    this.onended(event);
+                }
+                this.dispatchEvent(event);
+            });
+        }
+
+        clone() {
+            return new MediaStreamTrack(this.kind, this.label);
+        }
+
+        getCapabilities() {
+            return {};
+        }
+
+        getConstraints() {
+            return {};
+        }
+
+        getSettings() {
+            return { ...this.__settings };
+        }
+
+        applyConstraints() {
+            return Promise.resolve();
+        }
+    }
+
+    class MediaStream extends EventTarget {
+        constructor(tracks = []) {
+            super();
+            this.id = `stream-${Math.random().toString(16).slice(2, 10)}`;
+            this.active = true;
+            this.onaddtrack = null;
+            this.onremovetrack = null;
+            this.__tracks = Array.from(tracks);
+        }
+
+        getTracks() {
+            return this.__tracks.slice();
+        }
+
+        getAudioTracks() {
+            return this.__tracks.filter((track) => track.kind === "audio");
+        }
+
+        getVideoTracks() {
+            return this.__tracks.filter((track) => track.kind === "video");
+        }
+
+        getTrackById(trackId) {
+            return this.__tracks.find((track) => track.id === String(trackId)) ?? null;
+        }
+
+        addTrack(track) {
+            this.__tracks.push(track);
+        }
+
+        removeTrack(track) {
+            this.__tracks = this.__tracks.filter((entry) => entry !== track);
+        }
+
+        clone() {
+            return new MediaStream(this.__tracks.map((track) => track.clone()));
+        }
+    }
+
+    class MediaDeviceInfo {
+        constructor(kind, label, deviceId, groupId) {
+            this.kind = kind;
+            this.label = label;
+            this.deviceId = deviceId;
+            this.groupId = groupId;
+        }
+
+        toJSON() {
+            return {
+                kind: this.kind,
+                label: this.label,
+                deviceId: this.deviceId,
+                groupId: this.groupId,
+            };
+        }
+    }
+
+    class InputDeviceInfo extends MediaDeviceInfo {}
+
+    class MediaDevices extends EventTarget {
+        constructor(devices) {
+            super();
+            this.ondevicechange = null;
+            this.__devices = devices;
+        }
+
+        enumerateDevices() {
+            return Promise.resolve(this.__devices.map(cloneMediaDevice));
+        }
+
+        getSupportedConstraints() {
+            return {
+                audio: true,
+                video: true,
+                deviceId: true,
+                facingMode: true,
+                frameRate: true,
+                height: true,
+                width: true,
+            };
+        }
+
+        getUserMedia(constraints = {}) {
+            const normalized = normalizeMediaConstraints(constraints);
+            const tracks = [];
+
+            if (normalized.audio) {
+                tracks.push(new MediaStreamTrack("audio", "Default Audio Input"));
+            }
+            if (normalized.video) {
+                tracks.push(new MediaStreamTrack("video", "Default Video Input"));
+            }
+            if (!tracks.length) {
+                return Promise.reject(new TypeError("At least one media constraint must be requested."));
+            }
+
+            return Promise.resolve(new MediaStream(tracks));
+        }
+
+        getDisplayMedia(constraints = {}) {
+            const normalized = normalizeMediaConstraints(constraints);
+            if (!normalized.video) {
+                return Promise.reject(new TypeError("Display capture requires video."));
+            }
+
+            return Promise.resolve(
+                new MediaStream([new MediaStreamTrack("video", "ROM Display Capture")]),
+            );
+        }
+    }
+
+    class Plugin {
+        constructor(name, filename, description) {
+            this.name = name;
+            this.filename = filename;
+            this.description = description;
+            this.length = 0;
+        }
+
+        item(index) {
+            return this[index] ?? null;
+        }
+
+        namedItem(name) {
+            return this[String(name)] ?? null;
+        }
+    }
+
+    class MimeType {
+        constructor(type, suffixes, description, enabledPlugin = null) {
+            this.type = type;
+            this.suffixes = suffixes;
+            this.description = description;
+            this.enabledPlugin = enabledPlugin;
+        }
+    }
+
+    class PluginArray {
+        constructor(entries) {
+            this.length = 0;
+            for (const [index, entry] of entries.entries()) {
+                this[index] = entry;
+                this[entry.name] = entry;
+                this.length += 1;
+            }
+        }
+
+        item(index) {
+            return this[index] ?? null;
+        }
+
+        namedItem(name) {
+            return this[String(name)] ?? null;
+        }
+
+        refresh() {}
+
+        [Symbol.iterator]() {
+            return Array.from({ length: this.length }, (_, index) => this[index])[Symbol.iterator]();
+        }
+    }
+
+    class MimeTypeArray {
+        constructor(entries) {
+            this.length = 0;
+            for (const [index, entry] of entries.entries()) {
+                this[index] = entry;
+                this[entry.type] = entry;
+                this.length += 1;
+            }
+        }
+
+        item(index) {
+            return this[index] ?? null;
+        }
+
+        namedItem(name) {
+            return this[String(name)] ?? null;
+        }
+
+        [Symbol.iterator]() {
+            return Array.from({ length: this.length }, (_, index) => this[index])[Symbol.iterator]();
+        }
+    }
+
+    function createNavigator(navigatorConfig) {
+        const mimeTypes = createDefaultMimeTypes();
+        const plugins = createDefaultPlugins(mimeTypes);
+        const mediaDevices = createDefaultMediaDevices();
+
+        return {
+            userAgent: navigatorConfig.userAgent ?? "ROM/0.1",
+            appVersion: navigatorConfig.userAgent ?? "ROM/0.1",
+            appName: navigatorConfig.appName ?? "Netscape",
+            platform: navigatorConfig.platform ?? "unknown",
+            language: navigatorConfig.language ?? "en-US",
+            languages: navigatorConfig.languages ?? ["en-US"],
+            hardwareConcurrency: navigatorConfig.hardwareConcurrency ?? 4,
+            deviceMemory: navigatorConfig.deviceMemory ?? 8,
+            cookieEnabled: true,
+            webdriver: Boolean(navigatorConfig.webdriver),
+            maxTouchPoints: 0,
+            vendor: "ROM",
+            product: "Gecko",
+            productSub: "20030107",
+            userAgentData: null,
+            plugins,
+            mimeTypes,
+            permissions: new Permissions(),
+            mediaDevices,
+            pdfViewerEnabled: true,
+        };
+    }
+
+    function createDefaultPlugins(mimeTypes) {
+        const pdfPlugin = new Plugin("PDF Viewer", "internal-pdf-viewer", "Portable Document Format");
+        pdfPlugin[0] = mimeTypes[0];
+        pdfPlugin.length = 1;
+        mimeTypes[0].enabledPlugin = pdfPlugin;
+        return new PluginArray([pdfPlugin]);
+    }
+
+    function createDefaultMimeTypes() {
+        return new MimeTypeArray([
+            new MimeType("application/pdf", "pdf", "Portable Document Format"),
+        ]);
+    }
+
+    function createDefaultMediaDevices() {
+        return new MediaDevices([
+            new InputDeviceInfo("audioinput", "Default Audio Input", "audioinput-default", "media-group"),
+            new InputDeviceInfo("videoinput", "Default Video Input", "videoinput-default", "media-group"),
+            new MediaDeviceInfo("audiooutput", "Default Audio Output", "audiooutput-default", "media-group"),
+        ]);
+    }
+
+    function normalizeMediaConstraints(constraints) {
+        return {
+            audio: normalizeMediaConstraintValue(constraints.audio),
+            video: normalizeMediaConstraintValue(constraints.video),
+        };
+    }
+
+    function normalizeMediaConstraintValue(value) {
+        if (value === undefined || value === null) {
+            return false;
+        }
+        if (typeof value === "boolean") {
+            return value;
+        }
+        if (typeof value === "object") {
+            return true;
+        }
+        return Boolean(value);
+    }
+
+    function cloneMediaDevice(device) {
+        if (device instanceof InputDeviceInfo) {
+            return new InputDeviceInfo(device.kind, device.label, device.deviceId, device.groupId);
+        }
+        return new MediaDeviceInfo(device.kind, device.label, device.deviceId, device.groupId);
+    }
+
+    function permissionStateFor(name) {
+        switch (name) {
+            case "notifications":
+                return "default";
+            case "camera":
+            case "microphone":
+                return "granted";
+            default:
+                return "prompt";
+        }
+    }
