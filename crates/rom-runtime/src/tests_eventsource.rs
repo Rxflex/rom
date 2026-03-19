@@ -379,3 +379,68 @@ fn normalizes_eventsource_init_dictionary() {
     assert_eq!(value["url"], "http://example.test/events");
     assert_eq!(value["primitive"]["name"], "TypeError");
 }
+
+#[test]
+fn ignores_eventsource_ids_with_null_characters() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        let mut buffer = [0_u8; 2048];
+        let read = stream.read(&mut buffer).unwrap();
+        let request = String::from_utf8_lossy(&buffer[..read]);
+
+        assert!(request.contains("GET /events HTTP/1.1"));
+        assert!(request.contains("accept: text/event-stream"));
+
+        let body = "id: bad\0id\ndata: hello\n\n";
+        let response = format!(
+            concat!(
+                "HTTP/1.1 200 OK\r\n",
+                "Content-Type: text/event-stream\r\n",
+                "Cache-Control: no-cache\r\n",
+                "Content-Length: {}\r\n",
+                "\r\n",
+                "{}"
+            ),
+            body.len(),
+            body,
+        );
+
+        stream.write_all(response.as_bytes()).unwrap();
+        stream.flush().unwrap();
+    });
+
+    let runtime = RomRuntime::new(RuntimeConfig {
+        href: format!("http://{address}/"),
+        ..RuntimeConfig::default()
+    })
+    .unwrap();
+    let script = r#"
+        (async () => {
+            const source = new EventSource("/events");
+
+            return await new Promise((resolve, reject) => {
+                source.onmessage = (event) => {
+                    source.close();
+                    resolve({
+                        data: event.data,
+                        lastEventId: event.lastEventId,
+                    });
+                };
+
+                source.onerror = () => reject(new Error("unexpected EventSource error"));
+            });
+        })()
+    "#;
+
+    let result = runtime.eval_async_as_string(script).unwrap();
+
+    server.join().unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+
+    assert_eq!(value["data"], "hello");
+    assert_eq!(value["lastEventId"], "");
+}

@@ -210,7 +210,9 @@
                     current.event = value;
                     break;
                 case "id":
-                    current.id = value;
+                    if (!value.includes("\u0000")) {
+                        current.id = value;
+                    }
                     break;
                 case "retry":
                     current.retry = Number.parseInt(value, 10);
