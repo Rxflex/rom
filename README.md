@@ -15,6 +15,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/Rxflex/rom/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Rxflex/rom/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://github.com/Rxflex/rom/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/Rxflex/rom?style=for-the-badge&logo=github&color=111827&labelColor=0f172a"></a>
   <a href="https://github.com/Rxflex/rom/network/members"><img alt="GitHub forks" src="https://img.shields.io/github/forks/Rxflex/rom?style=for-the-badge&logo=github&color=111827&labelColor=0f172a"></a>
   <a href="https://github.com/Rxflex/rom/issues"><img alt="GitHub issues" src="https://img.shields.io/github/issues/Rxflex/rom?style=for-the-badge&logo=github&color=111827&labelColor=0f172a"></a>
