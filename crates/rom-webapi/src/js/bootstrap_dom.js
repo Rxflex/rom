@@ -16,6 +16,51 @@
         }
     }
 
+    function escapeHtmlText(value) {
+        return String(value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+    }
+
+    function escapeHtmlAttribute(value) {
+        return escapeHtmlText(value).replace(/"/g, "&quot;");
+    }
+
+    function serializeNodeToHtml(node) {
+        if (!node) {
+            return "";
+        }
+
+        if (node.nodeType === 3) {
+            return escapeHtmlText(node.textContent ?? "");
+        }
+
+        if (node.nodeType === 11 || node.nodeType === 9) {
+            return node.childNodes.map((child) => serializeNodeToHtml(child)).join("");
+        }
+
+        if (node.nodeType !== 1) {
+            return "";
+        }
+
+        const tagName = node.tagName.toLowerCase();
+        const attributes = Array.from(node.attributes.entries())
+            .map(([name, value]) => ` ${name}="${escapeHtmlAttribute(value)}"`)
+            .join("");
+        const content = node.childNodes.map((child) => serializeNodeToHtml(child)).join("");
+        return `<${tagName}${attributes}>${content}</${tagName}>`;
+    }
+
+    function parseHtmlFragment(source) {
+        const fragmentDocument = new Document();
+        const parsed = parseMarkup(fragmentDocument, String(source ?? ""), false);
+        if (parsed.error) {
+            return [fragmentDocument.createTextNode(String(source ?? "").replace(/<[^>]*>/g, ""))];
+        }
+        return parsed.nodes;
+    }
+
     class Node extends EventTarget {
         constructor(nodeType, nodeName) {
             super();
@@ -242,11 +287,17 @@
         }
 
         get innerHTML() {
-            return this.textContent;
+            return this.childNodes.map((child) => serializeNodeToHtml(child)).join("");
         }
 
         set innerHTML(value) {
-            this.textContent = value;
+            while (this.childNodes.length > 0) {
+                this.removeChild(this.childNodes[this.childNodes.length - 1]);
+            }
+
+            for (const node of parseHtmlFragment(value)) {
+                this.appendChild(node);
+            }
         }
 
         querySelector(selector) {
