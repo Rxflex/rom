@@ -336,11 +336,13 @@ function normalizeAesKeyLength(algorithmName, length, errorName) {
 function defaultHmacLengthBits(hash) {
     switch (normalizeHashName(hash).toUpperCase()) {
         case "SHA-1":
+            return 160;
         case "SHA-256":
-            return 512;
+            return 256;
         case "SHA-384":
+            return 384;
         case "SHA-512":
-            return 1024;
+            return 512;
         default:
             throw new TypeError(`Unsupported HMAC hash: ${hash}`);
     }
