@@ -125,6 +125,38 @@
         mutateChildList(parent, index, replacementNodes, [node]);
     }
 
+    function insertAdjacentNodes(target, position, nodes) {
+        const normalizedPosition = String(position).toLowerCase();
+
+        if (normalizedPosition === "beforebegin") {
+            if (!target.parentNode) {
+                return [];
+            }
+            const index = target.parentNode.childNodes.indexOf(target);
+            return mutateChildList(target.parentNode, index, nodes, []);
+        }
+
+        if (normalizedPosition === "afterend") {
+            if (!target.parentNode) {
+                return [];
+            }
+            const index = target.parentNode.childNodes.indexOf(target);
+            return mutateChildList(target.parentNode, index + 1, nodes, []);
+        }
+
+        if (normalizedPosition === "afterbegin") {
+            return mutateChildList(target, 0, nodes, []);
+        }
+
+        if (normalizedPosition === "beforeend") {
+            return mutateChildList(target, target.childNodes.length, nodes, []);
+        }
+
+        throw new SyntaxError(
+            "Failed to execute 'insertAdjacentHTML': invalid position.",
+        );
+    }
+
     class Node extends EventTarget {
         constructor(nodeType, nodeName) {
             super();
@@ -366,6 +398,19 @@
 
         set outerHTML(value) {
             replaceNodeWithNodes(this, parseHtmlFragment(value));
+        }
+
+        insertAdjacentHTML(position, html) {
+            insertAdjacentNodes(this, position, parseHtmlFragment(html));
+        }
+
+        insertAdjacentText(position, text) {
+            insertAdjacentNodes(this, position, [new Text(text)]);
+        }
+
+        insertAdjacentElement(position, element) {
+            const inserted = insertAdjacentNodes(this, position, [element]);
+            return inserted[0] ?? null;
         }
 
         querySelector(selector) {
