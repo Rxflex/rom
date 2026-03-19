@@ -257,6 +257,104 @@ fn rejects_reusing_consumed_request_bodies_without_override() {
 }
 
 #[test]
+fn validates_request_method_and_enum_values() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const standardMethod = new Request("https://rom.local/standard", {
+                    method: "post",
+                }).method;
+                const customMethod = new Request("https://rom.local/custom", {
+                    method: "patch",
+                }).method;
+
+                let invalidMethodError = "";
+                try {
+                    new Request("https://rom.local/invalid-method", {
+                        method: "bad method",
+                    });
+                } catch (error) {
+                    invalidMethodError = String(error.message ?? error);
+                }
+
+                let forbiddenMethodError = "";
+                try {
+                    new Request("https://rom.local/trace", {
+                        method: "TRACE",
+                    });
+                } catch (error) {
+                    forbiddenMethodError = String(error.message ?? error);
+                }
+
+                let invalidCredentialsError = "";
+                try {
+                    new Request("https://rom.local/credentials", {
+                        credentials: "always",
+                    });
+                } catch (error) {
+                    invalidCredentialsError = String(error.message ?? error);
+                }
+
+                let invalidModeError = "";
+                try {
+                    new Request("https://rom.local/mode", {
+                        mode: "navigate",
+                    });
+                } catch (error) {
+                    invalidModeError = String(error.message ?? error);
+                }
+
+                let invalidRedirectError = "";
+                try {
+                    new Request("https://rom.local/redirect", {
+                        redirect: "follow-manual",
+                    });
+                } catch (error) {
+                    invalidRedirectError = String(error.message ?? error);
+                }
+
+                return {
+                    standardMethod,
+                    customMethod,
+                    invalidMethodError,
+                    forbiddenMethodError,
+                    invalidCredentialsError,
+                    invalidModeError,
+                    invalidRedirectError,
+                };
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(value["standardMethod"], "POST");
+    assert_eq!(value["customMethod"], "patch");
+    assert_eq!(
+        value["invalidMethodError"],
+        "Failed to construct 'Request': 'bad method' is not a valid HTTP method."
+    );
+    assert_eq!(
+        value["forbiddenMethodError"],
+        "Failed to construct 'Request': 'TRACE' HTTP method is unsupported."
+    );
+    assert_eq!(
+        value["invalidCredentialsError"],
+        "Failed to construct 'Request': 'always' is not a valid enum value of type RequestCredentials."
+    );
+    assert_eq!(
+        value["invalidModeError"],
+        "Failed to construct 'Request': 'navigate' is not a valid enum value of type RequestMode."
+    );
+    assert_eq!(
+        value["invalidRedirectError"],
+        "Failed to construct 'Request': 'follow-manual' is not a valid enum value of type RequestRedirect."
+    );
+}
+
+#[test]
 fn supports_redirect_modes() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();

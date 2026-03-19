@@ -3,12 +3,14 @@
             if (input instanceof Request) {
                 validateRequestSourceBodyReuse(input, init);
                 this.url = init.url ?? input.url;
-                this.method = String(init.method ?? input.method ?? "GET").toUpperCase();
+                this.method = normalizeRequestMethod(init.method ?? input.method ?? "GET");
                 this.headers = new Headers(init.headers ?? input.headers);
                 this.signal = init.signal ?? input.signal ?? null;
-                this.credentials = init.credentials ?? input.credentials ?? "same-origin";
-                this.mode = init.mode ?? input.mode ?? "cors";
-                this.redirect = init.redirect ?? input.redirect ?? "follow";
+                this.credentials = normalizeRequestCredentials(
+                    init.credentials ?? input.credentials ?? "same-origin",
+                );
+                this.mode = normalizeRequestMode(init.mode ?? input.mode ?? "cors");
+                this.redirect = normalizeRequestRedirect(init.redirect ?? input.redirect ?? "follow");
                 this.__bodyIsNull = init.body === undefined
                     ? Boolean(input.__bodyIsNull)
                     : !hasBodyValue(init.body);
@@ -22,12 +24,12 @@
             }
 
             this.url = new URL(String(input), location.href).href;
-            this.method = String(init.method ?? "GET").toUpperCase();
+            this.method = normalizeRequestMethod(init.method ?? "GET");
             this.headers = new Headers(init.headers);
             this.signal = init.signal ?? null;
-            this.credentials = init.credentials ?? "same-origin";
-            this.mode = init.mode ?? "cors";
-            this.redirect = init.redirect ?? "follow";
+            this.credentials = normalizeRequestCredentials(init.credentials ?? "same-origin");
+            this.mode = normalizeRequestMode(init.mode ?? "cors");
+            this.redirect = normalizeRequestRedirect(init.redirect ?? "follow");
             this.__bodyIsNull = !hasBodyValue(init.body);
             this.__bodyBytes = normalizeBody(init.body, this.headers);
             validateRequestBody(this.method, this.__bodyIsNull);
@@ -516,6 +518,70 @@
                 "Failed to construct 'Request': Cannot construct a Request from a Request with a used body.",
             );
         }
+    }
+
+    function normalizeRequestMethod(method) {
+        const value = String(method ?? "GET");
+        if (!/^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/.test(value)) {
+            throw new TypeError(`Failed to construct 'Request': '${value}' is not a valid HTTP method.`);
+        }
+
+        const normalizedUppercase = value.toUpperCase();
+        if (
+            normalizedUppercase === "CONNECT" ||
+            normalizedUppercase === "TRACE" ||
+            normalizedUppercase === "TRACK"
+        ) {
+            throw new TypeError(
+                `Failed to construct 'Request': '${value}' HTTP method is unsupported.`,
+            );
+        }
+
+        if (
+            normalizedUppercase === "DELETE" ||
+            normalizedUppercase === "GET" ||
+            normalizedUppercase === "HEAD" ||
+            normalizedUppercase === "OPTIONS" ||
+            normalizedUppercase === "POST" ||
+            normalizedUppercase === "PUT"
+        ) {
+            return normalizedUppercase;
+        }
+
+        return value;
+    }
+
+    function normalizeRequestCredentials(credentials) {
+        const value = String(credentials ?? "same-origin");
+        if (value === "omit" || value === "same-origin" || value === "include") {
+            return value;
+        }
+
+        throw new TypeError(
+            `Failed to construct 'Request': '${value}' is not a valid enum value of type RequestCredentials.`,
+        );
+    }
+
+    function normalizeRequestMode(mode) {
+        const value = String(mode ?? "cors");
+        if (value === "cors" || value === "no-cors" || value === "same-origin") {
+            return value;
+        }
+
+        throw new TypeError(
+            `Failed to construct 'Request': '${value}' is not a valid enum value of type RequestMode.`,
+        );
+    }
+
+    function normalizeRequestRedirect(redirect) {
+        const value = String(redirect ?? "follow");
+        if (value === "follow" || value === "error" || value === "manual") {
+            return value;
+        }
+
+        throw new TypeError(
+            `Failed to construct 'Request': '${value}' is not a valid enum value of type RequestRedirect.`,
+        );
     }
 
     URL.createObjectURL = (object) => {
