@@ -61,6 +61,60 @@
         return parsed.nodes;
     }
 
+    function normalizeInsertionNodes(nodes) {
+        const normalized = [];
+        for (const node of nodes) {
+            if (node instanceof DocumentFragment) {
+                const fragmentChildren = node.childNodes.slice();
+                node.childNodes = [];
+                normalized.push(...fragmentChildren);
+                continue;
+            }
+
+            normalized.push(typeof node === "string" ? new Text(node) : node);
+        }
+        return normalized;
+    }
+
+    function mutateChildList(parent, index, insertedNodes, removedNodes) {
+        const normalizedInsertedNodes = normalizeInsertionNodes(insertedNodes);
+        if (index < 0) {
+            return normalizedInsertedNodes;
+        }
+
+        const previousSibling = parent.childNodes[index - 1] ?? null;
+        const nextSibling = parent.childNodes[index + removedNodes.length] ?? null;
+
+        for (const insertedNode of normalizedInsertedNodes) {
+            if (insertedNode.parentNode) {
+                insertedNode.parentNode.removeChild(insertedNode);
+            }
+        }
+
+        parent.childNodes.splice(index, removedNodes.length, ...normalizedInsertedNodes);
+        for (const removedNode of removedNodes) {
+            removedNode.parentNode = null;
+        }
+
+        for (const insertedNode of normalizedInsertedNodes) {
+            insertedNode.parentNode = parent;
+            notifyIframeLoad(insertedNode);
+        }
+
+        if (normalizedInsertedNodes.length > 0 || removedNodes.length > 0) {
+            notifyDomMutation({
+                type: "childList",
+                target: parent,
+                addedNodes: normalizedInsertedNodes,
+                removedNodes,
+                previousSibling,
+                nextSibling,
+            });
+        }
+
+        return normalizedInsertedNodes;
+    }
+
     function replaceNodeWithNodes(node, replacementNodes) {
         const parent = node?.parentNode ?? null;
         if (!parent) {
@@ -68,35 +122,7 @@
         }
 
         const index = parent.childNodes.indexOf(node);
-        if (index < 0) {
-            return;
-        }
-
-        const previousSibling = parent.childNodes[index - 1] ?? null;
-        const nextSibling = parent.childNodes[index + 1] ?? null;
-
-        for (const replacementNode of replacementNodes) {
-            if (replacementNode.parentNode) {
-                replacementNode.parentNode.removeChild(replacementNode);
-            }
-        }
-
-        parent.childNodes.splice(index, 1, ...replacementNodes);
-        node.parentNode = null;
-
-        for (const replacementNode of replacementNodes) {
-            replacementNode.parentNode = parent;
-            notifyIframeLoad(replacementNode);
-        }
-
-        notifyDomMutation({
-            type: "childList",
-            target: parent,
-            addedNodes: replacementNodes,
-            removedNodes: [node],
-            previousSibling,
-            nextSibling,
-        });
+        mutateChildList(parent, index, replacementNodes, [node]);
     }
 
     class Node extends EventTarget {
@@ -109,68 +135,64 @@
         }
 
         appendChild(node) {
-            if (node instanceof DocumentFragment) {
-                const addedNodes = node.childNodes.slice();
-                if (!addedNodes.length) {
-                    return node;
-                }
+            mutateChildList(this, this.childNodes.length, [node], []);
+            return node;
+        }
 
-                const previousSibling = this.lastChild;
-                node.childNodes = [];
-                for (const child of addedNodes) {
-                    child.parentNode = this;
-                    this.childNodes.push(child);
-                    notifyIframeLoad(child);
-                }
+        insertBefore(node, referenceNode = null) {
+            if (referenceNode === null) {
+                return this.appendChild(node);
+            }
 
-                notifyDomMutation({
-                    type: "childList",
-                    target: this,
-                    addedNodes,
-                    removedNodes: [],
-                    previousSibling,
-                    nextSibling: null,
-                });
-
+            const referenceIndex = this.childNodes.indexOf(referenceNode);
+            if (referenceIndex < 0) {
                 return node;
             }
 
-            if (node.parentNode) {
-                node.parentNode.removeChild(node);
-            }
-            const previousSibling = this.lastChild;
-            node.parentNode = this;
-            this.childNodes.push(node);
-            notifyDomMutation({
-                type: "childList",
-                target: this,
-                addedNodes: [node],
-                removedNodes: [],
-                previousSibling,
-                nextSibling: null,
-            });
-            notifyIframeLoad(node);
-
+            mutateChildList(this, referenceIndex, [node], []);
             return node;
         }
 
         removeChild(node) {
             const index = this.childNodes.indexOf(node);
             if (index >= 0) {
-                const previousSibling = this.childNodes[index - 1] ?? null;
-                const nextSibling = this.childNodes[index + 1] ?? null;
-                this.childNodes.splice(index, 1);
-                node.parentNode = null;
-                notifyDomMutation({
-                    type: "childList",
-                    target: this,
-                    addedNodes: [],
-                    removedNodes: [node],
-                    previousSibling,
-                    nextSibling,
-                });
+                mutateChildList(this, index, [], [node]);
             }
             return node;
+        }
+
+        replaceChild(newChild, oldChild) {
+            const index = this.childNodes.indexOf(oldChild);
+            if (index >= 0) {
+                mutateChildList(this, index, [newChild], [oldChild]);
+            }
+            return oldChild;
+        }
+
+        remove() {
+            if (this.parentNode) {
+                this.parentNode.removeChild(this);
+            }
+        }
+
+        before(...nodes) {
+            if (!this.parentNode) {
+                return;
+            }
+            const index = this.parentNode.childNodes.indexOf(this);
+            mutateChildList(this.parentNode, index, nodes, []);
+        }
+
+        after(...nodes) {
+            if (!this.parentNode) {
+                return;
+            }
+            const index = this.parentNode.childNodes.indexOf(this);
+            mutateChildList(this.parentNode, index + 1, nodes, []);
+        }
+
+        replaceWith(...nodes) {
+            replaceNodeWithNodes(this, nodes);
         }
 
         cloneNode(deep = false) {
