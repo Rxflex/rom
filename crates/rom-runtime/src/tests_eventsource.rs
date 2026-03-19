@@ -444,3 +444,107 @@ fn ignores_eventsource_ids_with_null_characters() {
     assert_eq!(value["data"], "hello");
     assert_eq!(value["lastEventId"], "");
 }
+
+#[test]
+fn ignores_eventsource_retry_fields_with_non_digit_values() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let address = listener.local_addr().unwrap();
+
+    let server = thread::spawn(move || {
+        let deadline = Instant::now() + Duration::from_millis(3500);
+        let mut requests = Vec::new();
+
+        while Instant::now() < deadline {
+            match listener.accept() {
+                Ok((mut stream, _)) => {
+                    let mut buffer = [0_u8; 2048];
+                    let read = stream.read(&mut buffer).unwrap();
+                    let request = String::from_utf8_lossy(&buffer[..read]).into_owned();
+                    requests.push((Instant::now(), request.clone()));
+
+                    let body = if requests.len() == 1 {
+                        "retry: 25ms\ndata: first\n\n"
+                    } else {
+                        "data: second\n\n"
+                    };
+                    let response = format!(
+                        concat!(
+                            "HTTP/1.1 200 OK\r\n",
+                            "Content-Type: text/event-stream\r\n",
+                            "Cache-Control: no-cache\r\n",
+                            "Content-Length: {}\r\n",
+                            "\r\n",
+                            "{}"
+                        ),
+                        body.len(),
+                        body,
+                    );
+
+                    stream.write_all(response.as_bytes()).unwrap();
+                    stream.flush().unwrap();
+
+                    if requests.len() == 2 {
+                        return requests;
+                    }
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    thread::sleep(Duration::from_millis(10));
+                }
+                Err(error) => panic!("unexpected accept error: {error}"),
+            }
+        }
+
+        panic!("timed out waiting for EventSource reconnect");
+    });
+
+    let runtime = RomRuntime::new(RuntimeConfig {
+        href: format!("http://{address}/"),
+        ..RuntimeConfig::default()
+    })
+    .unwrap();
+    let script = r#"
+        (async () => {
+            const startedAt = Date.now();
+            const source = new EventSource("/events");
+            const events = [];
+
+            return await new Promise((resolve, reject) => {
+                source.onmessage = (event) => {
+                    events.push({
+                        data: event.data,
+                        elapsedMs: Date.now() - startedAt,
+                    });
+
+                    if (event.data === "second") {
+                        source.close();
+                        resolve({ events });
+                    }
+                };
+
+                source.onerror = () => {
+                    events.push({
+                        type: "error",
+                        readyState: source.readyState,
+                        elapsedMs: Date.now() - startedAt,
+                    });
+                };
+            });
+        })()
+    "#;
+
+    let result = runtime.eval_async_as_string(script).unwrap();
+    let requests = server.join().unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+    let events = value["events"].as_array().unwrap();
+
+    assert_eq!(events[0]["data"], "first");
+    assert_eq!(events[1]["type"], "error");
+    assert_eq!(events[2]["data"], "second");
+    assert!(events[2]["elapsedMs"].as_i64().unwrap() >= 2500);
+
+    assert_eq!(requests.len(), 2);
+    let reconnect_delay = requests[1].0.duration_since(requests[0].0);
+    assert!(reconnect_delay >= Duration::from_millis(2500));
+}
