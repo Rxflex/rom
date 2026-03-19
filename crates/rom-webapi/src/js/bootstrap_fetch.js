@@ -59,16 +59,28 @@
 
     class Response {
         constructor(body = [], init = {}) {
-            this.status = Number(init.status ?? 200);
+            const status = Number(init.status ?? 200);
+            const allowStatusZero = Boolean(init.__allowStatusZero);
+            if (
+                !(allowStatusZero && status === 0) &&
+                (!Number.isInteger(status) || status < 200 || status > 599)
+            ) {
+                throw new RangeError(
+                    "Failed to construct 'Response': The status provided is outside the range [200, 599].",
+                );
+            }
+
+            this.status = status;
             this.statusText = String(init.statusText ?? "");
             this.ok = this.status >= 200 && this.status < 300;
-            this.redirected = Boolean(init.redirected);
-            this.url = String(init.url ?? "");
-            this.type = String(init.type ?? "basic");
+            this.redirected = Boolean(init.__redirected);
+            this.url = String(init.__url ?? "");
+            this.type = String(init.__type ?? "default");
             this.headers = new Headers(init.headers);
             this.__bodyBytes = normalizeBody(body, this.headers);
             this.bodyUsed = false;
-            attachBodyState(this, this.__bodyBytes);
+            this.__bodyIsNull = Boolean(init.__nullBody);
+            attachBodyState(this, this.__bodyBytes, { nullBody: this.__bodyIsNull });
         }
 
         clone() {
@@ -80,9 +92,11 @@
                 status: this.status,
                 statusText: this.statusText,
                 headers: this.headers,
-                redirected: this.redirected,
-                url: this.url,
-                type: this.type,
+                __allowStatusZero: this.status === 0,
+                __redirected: this.redirected,
+                __url: this.url,
+                __type: this.type,
+                __nullBody: this.__bodyIsNull,
             });
         }
 
@@ -140,9 +154,12 @@
                 }
 
                 if (request.mode === "no-cors") {
-                    performNetworkFetch(request, callerOrigin, {
-                        includeCookies: request.credentials !== "omit",
+                    const response = performNetworkFetch(request, callerOrigin, {
+                        includeCookies: request.credentials === "include",
                     });
+                    if (handleRedirectMode(response, request)) {
+                        return createOpaqueRedirectResponse();
+                    }
                     return createOpaqueResponse();
                 }
 
@@ -376,9 +393,9 @@
             status: response.status,
             statusText: response.status_text,
             headers: response.headers.map((entry) => [entry.name, entry.value]),
-            redirected: response.redirected,
-            url: response.url,
-            type: "basic",
+            __redirected: response.redirected,
+            __url: response.url,
+            __type: "basic",
         });
     }
 
@@ -393,9 +410,9 @@
             status: response.status,
             statusText: response.status_text,
             headers: headers.map((entry) => [entry.name, entry.value]),
-            redirected: response.redirected,
-            url: response.url,
-            type: "cors",
+            __redirected: response.redirected,
+            __url: response.url,
+            __type: "cors",
         });
     }
 
@@ -404,9 +421,11 @@
             status: 0,
             statusText: "",
             headers: [],
-            redirected: false,
-            url: "",
-            type: "opaque",
+            __allowStatusZero: true,
+            __redirected: false,
+            __url: "",
+            __type: "opaque",
+            __nullBody: true,
         });
     }
 
@@ -415,9 +434,11 @@
             status: 0,
             statusText: "",
             headers: [],
-            redirected: false,
-            url: "",
-            type: "opaqueredirect",
+            __allowStatusZero: true,
+            __redirected: false,
+            __url: "",
+            __type: "opaqueredirect",
+            __nullBody: true,
         });
     }
 
