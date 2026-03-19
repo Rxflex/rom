@@ -23,6 +23,10 @@ fn supports_compound_attribute_selectors() {
                 root.appendChild(secondary);
                 document.body.appendChild(root);
 
+                const nested = document.createElement("span");
+                nested.className = "pill";
+                secondary.appendChild(nested);
+
                 const checks = {
                     tagAndClass: root.querySelector("div.card") === primary,
                     idAndClass: root.querySelector("#hero.selected") === primary,
@@ -30,6 +34,12 @@ fn supports_compound_attribute_selectors() {
                     attrValue: root.querySelector("[data-kind=primary]") === primary,
                     quotedAttrValue: root.querySelector("[data-state=\"ready\"]") === primary,
                     compound: root.querySelector("div.card[data-kind=secondary]") === secondary,
+                    matchesClass: primary.matches(".selected"),
+                    matchesCompound: secondary.matches("div.card[data-kind=secondary]"),
+                    matchesUnsupported: secondary.matches("section div") === false,
+                    closestSelf: secondary.closest(".card") === secondary,
+                    closestAncestor: nested.closest("[data-kind]") === secondary,
+                    closestMiss: nested.closest(".missing") === null,
                     allCards: root.querySelectorAll("div.card").length,
                     selectedCards: root.querySelectorAll(".selected").length,
                     attrMatches: root.querySelectorAll("[data-kind]").length,
@@ -49,6 +59,12 @@ fn supports_compound_attribute_selectors() {
     assert_eq!(value["attrValue"], true);
     assert_eq!(value["quotedAttrValue"], true);
     assert_eq!(value["compound"], true);
+    assert_eq!(value["matchesClass"], true);
+    assert_eq!(value["matchesCompound"], true);
+    assert_eq!(value["matchesUnsupported"], true);
+    assert_eq!(value["closestSelf"], true);
+    assert_eq!(value["closestAncestor"], true);
+    assert_eq!(value["closestMiss"], true);
     assert_eq!(value["allCards"], 2);
     assert_eq!(value["selectedCards"], 1);
     assert_eq!(value["attrMatches"], 2);

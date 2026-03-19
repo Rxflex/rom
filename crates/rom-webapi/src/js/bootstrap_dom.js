@@ -413,6 +413,22 @@
             return inserted[0] ?? null;
         }
 
+        matches(selector) {
+            return matchesSelector(this, String(selector));
+        }
+
+        closest(selector) {
+            const normalized = String(selector);
+            let current = this;
+            while (current) {
+                if (matchesSelector(current, normalized)) {
+                    return current;
+                }
+                current = current.parentNode ?? null;
+            }
+            return null;
+        }
+
         querySelector(selector) {
             return querySelectorFrom(this, String(selector));
         }
