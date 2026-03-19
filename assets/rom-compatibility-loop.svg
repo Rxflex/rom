@@ -1,0 +1,70 @@
+<svg width="1600" height="620" viewBox="0 0 1600 620" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">ROM compatibility loop</title>
+  <desc id="desc">A pipeline diagram showing implementation, probes, harness comparison, and iteration for compatibility work.</desc>
+  <defs>
+    <linearGradient id="bg2" x1="80" y1="40" x2="1520" y2="580" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B1220"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="accent1" x1="130" y1="198" x2="430" y2="378" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#1E40AF"/>
+    </linearGradient>
+    <linearGradient id="accent2" x1="470" y1="198" x2="770" y2="378" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F766E"/>
+      <stop offset="1" stop-color="#115E59"/>
+    </linearGradient>
+    <linearGradient id="accent3" x1="810" y1="198" x2="1110" y2="378" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7C3AED"/>
+      <stop offset="1" stop-color="#5B21B6"/>
+    </linearGradient>
+    <linearGradient id="accent4" x1="1150" y1="198" x2="1450" y2="378" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#B45309"/>
+      <stop offset="1" stop-color="#92400E"/>
+    </linearGradient>
+    <style>
+      .title { font: 700 56px 'Segoe UI', Arial, sans-serif; fill: #F8FAFC; }
+      .subtitle { font: 400 24px 'Segoe UI', Arial, sans-serif; fill: #CBD5E1; }
+      .boxTitle { font: 700 28px 'Segoe UI', Arial, sans-serif; fill: #F8FAFC; }
+      .boxText { font: 500 20px 'Segoe UI', Arial, sans-serif; fill: #E5E7EB; }
+      .footer { font: 600 18px 'Segoe UI', Arial, sans-serif; fill: #CBD5E1; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="620" rx="34" fill="url(#bg2)"/>
+  <text x="120" y="106" class="title">Compatibility loop, not guesswork</text>
+  <text x="120" y="146" class="subtitle">ROM grows by implementing browser-facing behavior, then validating it through probes, snapshots, and real harnesses.</text>
+
+  <rect x="120" y="198" width="300" height="180" rx="28" fill="url(#accent1)"/>
+  <text x="156" y="252" class="boxTitle">1. Implement</text>
+  <text x="156" y="296" class="boxText">Add host objects, Web APIs,</text>
+  <text x="156" y="326" class="boxText">browser-like validation,</text>
+  <text x="156" y="356" class="boxText">and runtime behavior.</text>
+
+  <rect x="460" y="198" width="300" height="180" rx="28" fill="url(#accent2)"/>
+  <text x="496" y="252" class="boxTitle">2. Probe</text>
+  <text x="496" y="296" class="boxText">Capture structured snapshots</text>
+  <text x="496" y="326" class="boxText">through runtime probes and</text>
+  <text x="496" y="356" class="boxText">focused test cases.</text>
+
+  <rect x="800" y="198" width="300" height="180" rx="28" fill="url(#accent3)"/>
+  <text x="836" y="252" class="boxTitle">3. Compare</text>
+  <text x="836" y="296" class="boxText">Run the vendored</text>
+  <text x="836" y="326" class="boxText">FingerprintJS harness and</text>
+  <text x="836" y="356" class="boxText">browser reference checks.</text>
+
+  <rect x="1140" y="198" width="300" height="180" rx="28" fill="url(#accent4)"/>
+  <text x="1176" y="252" class="boxTitle">4. Iterate</text>
+  <text x="1176" y="296" class="boxText">Tighten semantics, exceptions,</text>
+  <text x="1176" y="326" class="boxText">surface fidelity, and</text>
+  <text x="1176" y="356" class="boxText">acceptance expectations.</text>
+
+  <path d="M420 288H460" stroke="#93C5FD" stroke-width="8" stroke-linecap="round"/>
+  <path d="M760 288H800" stroke="#5EEAD4" stroke-width="8" stroke-linecap="round"/>
+  <path d="M1100 288H1140" stroke="#C4B5FD" stroke-width="8" stroke-linecap="round"/>
+  <path d="M1290 410C1290 500 970 538 790 538C610 538 290 510 290 430" stroke="#F59E0B" stroke-width="6" stroke-linecap="round" stroke-dasharray="12 12"/>
+  <polygon points="306,440 282,430 302,412" fill="#F59E0B"/>
+
+  <rect x="120" y="472" width="1320" height="72" rx="24" fill="#0F172A" stroke="#1E293B"/>
+  <text x="156" y="516" class="footer">The project is acceptance-driven: runtime probes + harness parity + browser reference behavior.</text>
+</svg>

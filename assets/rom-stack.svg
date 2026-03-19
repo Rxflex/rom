@@ -1,0 +1,82 @@
+<svg width="1600" height="780" viewBox="0 0 1600 780" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">ROM architecture overview</title>
+  <desc id="desc">Three-layer diagram showing rom-core, rom-webapi, and rom-runtime with compatibility probes and browser-facing APIs.</desc>
+  <defs>
+    <linearGradient id="bg" x1="120" y1="40" x2="1480" y2="740" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="panelA" x1="248" y1="192" x2="1358" y2="700" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#13223F"/>
+      <stop offset="1" stop-color="#0B1220"/>
+    </linearGradient>
+    <linearGradient id="panelB" x1="240" y1="220" x2="1346" y2="644" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#10203B"/>
+      <stop offset="1" stop-color="#101828"/>
+    </linearGradient>
+    <linearGradient id="runtime" x1="320" y1="244" x2="1280" y2="370" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#1D4ED8"/>
+    </linearGradient>
+    <linearGradient id="webapi" x1="320" y1="414" x2="1280" y2="540" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F766E"/>
+      <stop offset="1" stop-color="#115E59"/>
+    </linearGradient>
+    <linearGradient id="core" x1="320" y1="584" x2="1280" y2="710" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#B45309"/>
+      <stop offset="1" stop-color="#92400E"/>
+    </linearGradient>
+    <filter id="shadow" x="180" y="120" width="1240" height="600" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="16"/>
+      <feGaussianBlur stdDeviation="30"/>
+      <feComposite in2="hardAlpha" operator="out"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.00784314 0 0 0 0 0.0470588 0 0 0 0 0.152941 0 0 0 0.42 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_1"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_1" result="shape"/>
+    </filter>
+    <style>
+      .title { font: 700 64px 'Segoe UI', Arial, sans-serif; fill: #F8FAFC; }
+      .subtitle { font: 400 26px 'Segoe UI', Arial, sans-serif; fill: #BFDBFE; }
+      .label { font: 700 32px 'Segoe UI', Arial, sans-serif; fill: #F8FAFC; }
+      .body { font: 500 21px 'Segoe UI', Arial, sans-serif; fill: #E5EEF8; }
+      .chip { font: 700 18px 'Segoe UI', Arial, sans-serif; fill: #DCE7F4; }
+      .small { font: 600 18px 'Segoe UI', Arial, sans-serif; fill: #CBD5E1; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="780" rx="36" fill="url(#bg)"/>
+  <circle cx="1328" cy="120" r="210" fill="#1D4ED8" fill-opacity="0.08"/>
+  <circle cx="202" cy="692" r="180" fill="#14B8A6" fill-opacity="0.08"/>
+
+  <text x="210" y="120" class="title">ROM</text>
+  <text x="210" y="164" class="subtitle">Browser-like runtime architecture without Chromium</text>
+
+  <g filter="url(#shadow)">
+    <rect x="210" y="198" width="1180" height="500" rx="30" fill="url(#panelA)"/>
+    <rect x="228" y="216" width="1144" height="464" rx="26" stroke="#243247" stroke-width="2" fill="url(#panelB)"/>
+
+    <rect x="292" y="246" width="1016" height="112" rx="24" fill="url(#runtime)"/>
+    <text x="332" y="300" class="label">rom-runtime</text>
+    <text x="332" y="338" class="body">High-level runtime assembly, configuration, probes, compatibility harnesses</text>
+    <rect x="996" y="272" width="268" height="44" rx="22" fill="#0F172A" fill-opacity="0.34" stroke="#93C5FD" stroke-opacity="0.32"/>
+    <text x="1026" y="300" class="chip">surface_snapshot • fingerprint_probe</text>
+
+    <rect x="292" y="416" width="1016" height="112" rx="24" fill="url(#webapi)"/>
+    <text x="332" y="470" class="label">rom-webapi</text>
+    <text x="332" y="508" class="body">Browser API bootstrap: DOM-ish globals, fetch, workers, crypto, streams, networking</text>
+    <rect x="930" y="442" width="334" height="44" rx="22" fill="#052E2B" fill-opacity="0.26" stroke="#5EEAD4" stroke-opacity="0.28"/>
+    <text x="958" y="470" class="chip">fetch • WebSocket • EventSource • WebCrypto</text>
+
+    <rect x="292" y="586" width="1016" height="74" rx="24" fill="url(#core)"/>
+    <text x="332" y="632" class="label">rom-core</text>
+    <text x="540" y="632" class="body">Embedded JavaScript engine wrapper, execution lifecycle, host bindings</text>
+  </g>
+
+  <path d="M800 358V416" stroke="#93C5FD" stroke-width="6" stroke-linecap="round" stroke-dasharray="10 10"/>
+  <path d="M800 528V586" stroke="#5EEAD4" stroke-width="6" stroke-linecap="round" stroke-dasharray="10 10"/>
+
+  <rect x="210" y="704" width="1180" height="44" rx="22" fill="#0F172A" stroke="#1E293B"/>
+  <text x="242" y="732" class="small">Design goal: a small, inspectable runtime that grows browser compatibility through measured probes instead of shipping a full browser engine.</text>
+</svg>
