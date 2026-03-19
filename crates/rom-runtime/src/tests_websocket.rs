@@ -1,6 +1,6 @@
 use crate::{RomRuntime, RuntimeConfig};
 use std::{
-    net::TcpListener,
+    net::{Shutdown, TcpListener},
     sync::mpsc,
     thread,
     time::Duration,
@@ -161,7 +161,9 @@ fn supports_websocket_messages_after_idle_delay() {
         let mut websocket = accept(stream).unwrap();
 
         thread::sleep(Duration::from_millis(75));
-        websocket.send(Message::Text("late-message".into())).unwrap();
+        websocket
+            .send(Message::Text("late-message".into()))
+            .unwrap();
         websocket.close(None).unwrap();
     });
 
@@ -249,7 +251,10 @@ fn supports_websocket_http_url_normalization() {
     let result = runtime.eval_async_as_string(&script).unwrap();
 
     server.join().unwrap();
-    assert_eq!(result, format!("ws://127.0.0.1:{}/normalized", address.port()));
+    assert_eq!(
+        result,
+        format!("ws://127.0.0.1:{}/normalized", address.port())
+    );
 }
 
 #[test]
@@ -346,7 +351,10 @@ fn validates_websocket_constructor_and_close_arguments() {
     let value: serde_json::Value = serde_json::from_str(&result).unwrap();
     assert_eq!(value["constructorErrors"]["fragment"], "SyntaxError");
     assert_eq!(value["constructorErrors"]["scheme"], "SyntaxError");
-    assert_eq!(value["constructorErrors"]["duplicateProtocol"], "SyntaxError");
+    assert_eq!(
+        value["constructorErrors"]["duplicateProtocol"],
+        "SyntaxError"
+    );
     assert_eq!(value["constructorErrors"]["invalidProtocol"], "SyntaxError");
     assert_eq!(value["closeErrors"]["invalidCode"], "InvalidAccessError");
     assert_eq!(value["closeErrors"]["longReason"], "SyntaxError");
@@ -364,7 +372,9 @@ fn validates_websocket_binary_type_values() {
     let server = thread::spawn(move || {
         let (stream, _) = listener.accept().unwrap();
         let mut websocket = accept(stream).unwrap();
-        websocket.send(Message::Binary(b"abc".to_vec().into())).unwrap();
+        websocket
+            .send(Message::Binary(b"abc".to_vec().into()))
+            .unwrap();
         websocket.close(None).unwrap();
     });
 
@@ -418,4 +428,60 @@ fn validates_websocket_binary_type_values() {
     assert_eq!(value["finalType"], "blob");
     assert_eq!(value["isBlob"], true);
     assert_eq!(value["text"], "abc");
+}
+
+#[test]
+fn dispatches_websocket_error_before_abnormal_close() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().unwrap();
+        let mut websocket = accept(stream).unwrap();
+
+        thread::sleep(Duration::from_millis(50));
+        websocket.get_mut().shutdown(Shutdown::Both).unwrap();
+    });
+
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let script = format!(
+        r#"
+        (async () => {{
+            const socket = new WebSocket("ws://{address}/abrupt");
+            const events = [];
+
+            return await new Promise((resolve, reject) => {{
+                socket.onopen = () => {{
+                    events.push("open");
+                }};
+
+                socket.onerror = () => {{
+                    events.push("error");
+                }};
+
+                socket.onclose = (event) => {{
+                    events.push("close");
+                    resolve({{
+                        events,
+                        code: event.code,
+                        wasClean: event.wasClean,
+                        readyState: socket.readyState,
+                    }});
+                }};
+
+                socket.onmessage = () => reject(new Error("unexpected websocket message"));
+            }});
+        }})()
+        "#
+    );
+
+    let result = runtime.eval_async_as_string(&script).unwrap();
+
+    server.join().unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(value["events"], serde_json::json!(["open", "error", "close"]));
+    assert_eq!(value["code"], 1006);
+    assert_eq!(value["wasClean"], false);
+    assert_eq!(value["readyState"], 3);
 }
