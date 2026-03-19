@@ -261,6 +261,41 @@
         return data.slice(normalizedOffset, normalizedOffset + normalizedCount);
     }
 
+    function normalizeCharacterDataCount(count) {
+        return Math.max(0, Number.isFinite(Number(count)) ? Math.trunc(Number(count)) : 0);
+    }
+
+    function appendCharacterData(node, data) {
+        node.textContent = node.data + String(data);
+    }
+
+    function insertCharacterData(node, offset, data) {
+        const normalizedOffset = normalizeCharacterDataOffset(offset, node.data.length);
+        const inserted = String(data);
+        node.textContent =
+            node.data.slice(0, normalizedOffset) +
+            inserted +
+            node.data.slice(normalizedOffset);
+    }
+
+    function deleteCharacterData(node, offset, count) {
+        const normalizedOffset = normalizeCharacterDataOffset(offset, node.data.length);
+        const normalizedCount = normalizeCharacterDataCount(count);
+        node.textContent =
+            node.data.slice(0, normalizedOffset) +
+            node.data.slice(normalizedOffset + normalizedCount);
+    }
+
+    function replaceCharacterData(node, offset, count, data) {
+        const normalizedOffset = normalizeCharacterDataOffset(offset, node.data.length);
+        const normalizedCount = normalizeCharacterDataCount(count);
+        const replacement = String(data);
+        node.textContent =
+            node.data.slice(0, normalizedOffset) +
+            replacement +
+            node.data.slice(normalizedOffset + normalizedCount);
+    }
+
     function ownStyleKeys(style) {
         return Object.keys(style ?? {}).filter((key) => typeof style[key] !== "function");
     }
@@ -614,6 +649,22 @@
             return substringCharacterData(this.data, offset, count);
         }
 
+        appendData(data) {
+            appendCharacterData(this, data);
+        }
+
+        insertData(offset, data) {
+            insertCharacterData(this, offset, data);
+        }
+
+        deleteData(offset, count) {
+            deleteCharacterData(this, offset, count);
+        }
+
+        replaceData(offset, count, data) {
+            replaceCharacterData(this, offset, count, data);
+        }
+
         get wholeText() {
             const segments = [this.data];
 
@@ -689,6 +740,22 @@
 
         substringData(offset, count) {
             return substringCharacterData(this.data, offset, count);
+        }
+
+        appendData(data) {
+            appendCharacterData(this, data);
+        }
+
+        insertData(offset, data) {
+            insertCharacterData(this, offset, data);
+        }
+
+        deleteData(offset, count) {
+            deleteCharacterData(this, offset, count);
+        }
+
+        replaceData(offset, count, data) {
+            replaceCharacterData(this, offset, count, data);
         }
     }
 
