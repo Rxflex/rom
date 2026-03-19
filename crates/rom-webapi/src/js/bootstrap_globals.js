@@ -222,6 +222,31 @@
         encode(input = "") {
             return Uint8Array.from(encodeUtf8(String(input)));
         }
+
+        encodeInto(input = "", destination) {
+            if (!(destination instanceof Uint8Array)) {
+                throw new TypeError("TextEncoder.encodeInto requires a Uint8Array destination.");
+            }
+
+            const source = String(input);
+            let read = 0;
+            let written = 0;
+
+            while (read < source.length && written < destination.length) {
+                const codePoint = source.codePointAt(read);
+                const charLength = codePoint > 0xffff ? 2 : 1;
+                const bytes = encodeUtf8(source.slice(read, read + charLength));
+                if (written + bytes.length > destination.length) {
+                    break;
+                }
+
+                destination.set(bytes, written);
+                read += charLength;
+                written += bytes.length;
+            }
+
+            return { read, written };
+        }
     };
 
     const textDecoderFactory = class TextDecoder {
