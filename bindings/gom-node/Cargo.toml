@@ -1,0 +1,20 @@
+[package]
+name = "rom-node-native"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[lib]
+name = "rom_node_native"
+path = "native/lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+napi = "3"
+napi-derive = "3"
+rom-runtime = { path = "../../crates/rom-runtime" }
+
+[build-dependencies]
+napi-build = "2"
+
+[workspace]

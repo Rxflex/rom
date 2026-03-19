@@ -6,6 +6,13 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+try:
+    if os.environ.get("ROM_FORCE_CLI_BRIDGE") == "1":
+        raise ImportError("Native ROM bridge disabled by environment.")
+    from . import _native
+except ImportError:
+    _native = None
+
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[4]
@@ -21,6 +28,12 @@ def _bridge_command() -> tuple[list[str], str]:
 
 
 def _run_bridge(command: str, payload: Dict[str, Any]) -> Any:
+    if _native is not None:
+        response = json.loads(_native.execute_bridge(json.dumps({"command": command, **payload})))
+        if not response.get("ok"):
+            raise RuntimeError(response.get("error") or "ROM native bridge failed.")
+        return response.get("result")
+
     args, cwd = _bridge_command()
     process = subprocess.run(
         args,
@@ -72,4 +85,8 @@ def create_runtime(config: Optional[Dict[str, Any]] = None) -> RomRuntime:
     return RomRuntime(config=config)
 
 
-__all__ = ["RomRuntime", "create_runtime"]
+def has_native_binding() -> bool:
+    return _native is not None
+
+
+__all__ = ["RomRuntime", "create_runtime", "has_native_binding"]

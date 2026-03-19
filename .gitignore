@@ -3,7 +3,7 @@ dist/
 node_modules/
 __pycache__/
 *.pyd
+*.node
 *.so
 *.dll
 *.dylib
-

@@ -7,7 +7,7 @@ Use Rust as the engine implementation language and keep the repository focused o
 Reasoning:
 
 1. Rust gives the cleanest path to a small native core without shipping Chromium.
-2. Wrappers for Node.js and Python can be added later without polluting the core repository now.
+2. Bindings for Node.js and Python should stay thin and protocol-driven so they do not pollute the runtime core.
 3. Web API emulation can be built incrementally around a single host-state model.
 
 ## Target Shape
@@ -22,7 +22,13 @@ The system is split into three layers:
    High-level environment assembly, configuration, validation, snapshots, future compatibility presets.
 
 Bindings sit on top of `rom-runtime`.
-The current external language strategy is a CLI bridge plus thin Node.js and Python wrappers, which keeps the Rust core stable while avoiding early lock-in to a single native extension toolchain.
+The current external language strategy is a shared JSON bridge protocol with three front doors:
+
+- the `rom_bridge` CLI
+- a `napi-rs` Node native addon with JS fallback to the CLI bridge
+- a `PyO3` Python extension with pure Python fallback to the CLI bridge
+
+That keeps the Rust core stable, gives JS and Python a smoother local developer experience, and still avoids hard-locking the repository to a single host integration path.
 
 ## Delivery Phases
 

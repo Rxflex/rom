@@ -1,3 +1,4 @@
+mod bridge;
 mod compat;
 mod config;
 mod error;
@@ -34,6 +35,10 @@ mod tests_webcrypto;
 #[cfg(test)]
 mod tests_websocket;
 
+pub use bridge::{
+    BridgeCommand, BridgeRequest, BridgeResponse, execute_bridge_request,
+    execute_bridge_request_json, parse_bridge_request,
+};
 pub use compat::{
     CanvasSurface, FingerprintCanvas, FingerprintMedia, FingerprintObservers, FingerprintProbe,
     FingerprintScreen, FingerprintStorage, GlobalSurface, NavigatorSurface, ObserverSurface,

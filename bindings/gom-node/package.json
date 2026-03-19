@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "description": "Node.js wrapper for the ROM browser-like runtime",
+  "scripts": {
+    "build:native": "node ./scripts/build-native.mjs --release",
+    "build:native:debug": "node ./scripts/build-native.mjs"
+  },
   "exports": {
     ".": "./src/index.js"
   },
