@@ -7,6 +7,8 @@ mod runtime;
 #[cfg(test)]
 mod tests_adjacent_html;
 #[cfg(test)]
+mod tests_classlist;
+#[cfg(test)]
 mod tests_cookies;
 #[cfg(test)]
 mod tests_cors;

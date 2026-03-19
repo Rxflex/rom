@@ -331,6 +331,112 @@
         }
     }
 
+    class DOMTokenList {
+        constructor(element, attributeName) {
+            this.__element = element;
+            this.__attributeName = String(attributeName);
+        }
+
+        __tokens() {
+            return (this.__element.getAttribute(this.__attributeName) ?? "")
+                .split(/\s+/)
+                .filter(Boolean);
+        }
+
+        __setTokens(tokens) {
+            if (!tokens.length) {
+                this.__element.removeAttribute(this.__attributeName);
+                return;
+            }
+            this.__element.setAttribute(this.__attributeName, tokens.join(" "));
+        }
+
+        __normalizeToken(token) {
+            const normalized = String(token ?? "").trim();
+            if (!normalized || /\s/.test(normalized)) {
+                throw new SyntaxError("The token provided must not be empty or contain whitespace.");
+            }
+            return normalized;
+        }
+
+        get length() {
+            return this.__tokens().length;
+        }
+
+        get value() {
+            return this.__tokens().join(" ");
+        }
+
+        set value(nextValue) {
+            this.__setTokens(
+                String(nextValue ?? "")
+                    .split(/\s+/)
+                    .filter(Boolean),
+            );
+        }
+
+        item(index) {
+            return this.__tokens()[Number(index)] ?? null;
+        }
+
+        contains(token) {
+            return this.__tokens().includes(this.__normalizeToken(token));
+        }
+
+        add(...tokens) {
+            const nextTokens = this.__tokens();
+            for (const token of tokens.map((value) => this.__normalizeToken(value))) {
+                if (!nextTokens.includes(token)) {
+                    nextTokens.push(token);
+                }
+            }
+            this.__setTokens(nextTokens);
+        }
+
+        remove(...tokens) {
+            const removed = new Set(tokens.map((value) => this.__normalizeToken(value)));
+            this.__setTokens(this.__tokens().filter((token) => !removed.has(token)));
+        }
+
+        toggle(token, force = undefined) {
+            const normalized = this.__normalizeToken(token);
+            const tokens = this.__tokens();
+            const present = tokens.includes(normalized);
+            const shouldAdd = force === undefined ? !present : Boolean(force);
+
+            if (shouldAdd && !present) {
+                tokens.push(normalized);
+                this.__setTokens(tokens);
+            } else if (!shouldAdd && present) {
+                this.__setTokens(tokens.filter((entry) => entry !== normalized));
+            }
+
+            return shouldAdd;
+        }
+
+        replace(oldToken, newToken) {
+            const normalizedOld = this.__normalizeToken(oldToken);
+            const normalizedNew = this.__normalizeToken(newToken);
+            const tokens = this.__tokens();
+            const index = tokens.indexOf(normalizedOld);
+            if (index < 0) {
+                return false;
+            }
+
+            if (!tokens.includes(normalizedNew)) {
+                tokens[index] = normalizedNew;
+            } else {
+                tokens.splice(index, 1);
+            }
+            this.__setTokens(tokens);
+            return true;
+        }
+
+        toString() {
+            return this.value;
+        }
+    }
+
     class Element extends Node {
         constructor(tagName = "div") {
             const normalized = String(tagName).toUpperCase();
@@ -338,6 +444,7 @@
             this.tagName = normalized;
             this.attributes = new Map();
             this.style = createStyleDeclaration();
+            this.__classList = new DOMTokenList(this, "class");
         }
 
         cloneNode(deep = false) {
@@ -400,6 +507,10 @@
 
         set className(value) {
             this.setAttribute("class", value);
+        }
+
+        get classList() {
+            return this.__classList;
         }
 
         get children() {
