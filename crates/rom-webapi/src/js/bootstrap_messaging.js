@@ -133,11 +133,24 @@
             this.onmessage = null;
             this.onerror = null;
             this.__terminated = false;
+            this.__ready = false;
+            this.__failed = false;
             this.__scheduledTimers = new Set();
             this.__url = new URL(String(specifier), location.href).href;
             this.__scope = createWorkerScope(this, this.__url);
             const source = resolveWorkerSource(this.__url);
-            executeWorkerSource(this.__scope, source);
+            queueMicrotask(() => {
+                if (this.__terminated) {
+                    return;
+                }
+
+                try {
+                    executeWorkerSource(this.__scope, source);
+                    this.__ready = true;
+                } catch (_error) {
+                    this.__failed = true;
+                }
+            });
         }
 
         postMessage(data, transfer = []) {
@@ -154,7 +167,7 @@
             });
 
             queueMicrotask(() => {
-                if (this.__terminated) {
+                if (this.__terminated || this.__failed || !this.__ready) {
                     return;
                 }
 
@@ -371,6 +384,8 @@
 
         const event = new Event("error");
         event.error = error;
+        event.target = worker;
+        event.currentTarget = worker;
 
         if (typeof worker.onerror === "function") {
             worker.onerror(event);
