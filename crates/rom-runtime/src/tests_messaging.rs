@@ -186,3 +186,52 @@ fn supports_broadcast_channel_delivery() {
         ])
     );
 }
+
+#[test]
+fn isolates_worker_timers_from_terminated_scopes() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const terminateUrl = URL.createObjectURL(
+                    new Blob(
+                        [
+                            "self.onmessage = () => {",
+                            "  setTimeout(() => postMessage('late-from-terminate'), 20);",
+                            "};",
+                        ],
+                        { type: "text/javascript" },
+                    ),
+                );
+
+                const closeUrl = URL.createObjectURL(
+                    new Blob(
+                        [
+                            "setTimeout(() => postMessage('late-from-close'), 20);",
+                            "close();",
+                        ],
+                        { type: "text/javascript" },
+                    ),
+                );
+
+                const terminateWorker = new Worker(terminateUrl);
+                const closeWorker = new Worker(closeUrl);
+                const events = [];
+
+                terminateWorker.onmessage = (event) => events.push(event.data);
+                closeWorker.onmessage = (event) => events.push(event.data);
+
+                terminateWorker.postMessage("start");
+                terminateWorker.terminate();
+
+                await new Promise((resolve) => setTimeout(resolve, 60));
+                return events;
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(value, serde_json::json!([]));
+}

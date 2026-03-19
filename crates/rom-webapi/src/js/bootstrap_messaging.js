@@ -132,6 +132,7 @@
             this.onmessage = null;
             this.onerror = null;
             this.__terminated = false;
+            this.__scheduledTimers = new Set();
             this.__url = new URL(String(specifier), location.href).href;
             this.__scope = createWorkerScope(this, this.__url);
             const source = resolveWorkerSource(this.__url);
@@ -168,7 +169,7 @@
         }
 
         terminate() {
-            this.__terminated = true;
+            terminateWorker(this);
         }
     }
 
@@ -181,7 +182,7 @@
         scope.globalThis = scope;
         scope.onmessage = null;
         scope.close = () => {
-            worker.__terminated = true;
+            terminateWorker(worker);
         };
         scope.postMessage = (data, _transfer = []) => {
             if (worker.__terminated) {
@@ -256,15 +257,60 @@
         scope.crypto = crypto;
         scope.performance = performance;
         scope.console = console;
-        scope.setTimeout = setTimeout;
-        scope.clearTimeout = clearTimeout;
-        scope.setInterval = setInterval;
-        scope.clearInterval = clearInterval;
-        scope.queueMicrotask = queueMicrotask;
+        scope.setTimeout = (...args) => scheduleWorkerTimer(worker, false, ...args);
+        scope.clearTimeout = (timerId) => clearWorkerTimer(worker, timerId);
+        scope.setInterval = (...args) => scheduleWorkerTimer(worker, true, ...args);
+        scope.clearInterval = (timerId) => clearWorkerTimer(worker, timerId);
+        scope.queueMicrotask = (callback) => {
+            queueMicrotask(() => {
+                if (worker.__terminated) {
+                    return;
+                }
+                callback();
+            });
+        };
         scope.navigator = navigator;
         scope.location = new URL(workerUrl);
         scope.origin = scope.location.origin;
         return scope;
+    }
+
+    function scheduleWorkerTimer(worker, repeat, callback, delay = 0, ...args) {
+        let timerId = null;
+        const runner = () => {
+            if (worker.__terminated) {
+                worker.__scheduledTimers.delete(timerId);
+                return;
+            }
+
+            callback(...args);
+
+            if (!repeat) {
+                worker.__scheduledTimers.delete(timerId);
+            }
+        };
+        timerId = repeat ? setInterval(runner, delay) : setTimeout(runner, delay);
+        worker.__scheduledTimers.add(timerId);
+        return timerId;
+    }
+
+    function clearWorkerTimer(worker, timerId) {
+        clearTimeout(timerId);
+        clearInterval(timerId);
+        worker.__scheduledTimers.delete(timerId);
+    }
+
+    function terminateWorker(worker) {
+        if (worker.__terminated) {
+            return;
+        }
+
+        worker.__terminated = true;
+        for (const timerId of worker.__scheduledTimers) {
+            clearTimeout(timerId);
+            clearInterval(timerId);
+        }
+        worker.__scheduledTimers.clear();
     }
 
     function resolveWorkerSource(workerUrl) {
