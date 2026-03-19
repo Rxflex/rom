@@ -5,7 +5,11 @@ use std::{
     thread,
     time::Duration,
 };
-use tungstenite::{Message, accept};
+use tungstenite::{
+    Message, accept, accept_hdr,
+    handshake::server::{Request, Response},
+    http::HeaderValue,
+};
 
 #[test]
 fn supports_websocket_text_binary_and_close_events() {
@@ -484,4 +488,81 @@ fn dispatches_websocket_error_before_abnormal_close() {
     assert_eq!(value["code"], 1006);
     assert_eq!(value["wasClean"], false);
     assert_eq!(value["readyState"], 3);
+}
+
+#[test]
+fn validates_websocket_protocol_negotiation_and_argument_types() {
+    let valid_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let valid_address = valid_listener.local_addr().unwrap();
+    let invalid_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let invalid_address = invalid_listener.local_addr().unwrap();
+
+    let valid_server = thread::spawn(move || {
+        let (stream, _) = valid_listener.accept().unwrap();
+        let callback = |request: &Request, mut response: Response| {
+            let requested = request
+                .headers()
+                .get("Sec-WebSocket-Protocol")
+                .and_then(|value| value.to_str().ok())
+                .unwrap_or_default();
+            assert_eq!(requested, "chat, superchat");
+            response.headers_mut().insert(
+                "Sec-WebSocket-Protocol",
+                HeaderValue::from_static("superchat"),
+            );
+            Ok(response)
+        };
+        let mut websocket = accept_hdr(stream, callback).unwrap();
+        websocket.close(None).unwrap();
+    });
+
+    let invalid_server = thread::spawn(move || {
+        let (stream, _) = invalid_listener.accept().unwrap();
+        let callback = |_: &Request, mut response: Response| {
+            response.headers_mut().insert(
+                "Sec-WebSocket-Protocol",
+                HeaderValue::from_static("bogus"),
+            );
+            Ok(response)
+        };
+        let mut websocket = accept_hdr(stream, callback).unwrap();
+        websocket.close(None).unwrap();
+    });
+
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let script = format!(
+        r#"
+        (() => {{
+            const result = {{}};
+
+            const negotiated = new WebSocket("ws://{valid_address}/protocol", ["chat", "superchat"]);
+            result.negotiatedProtocol = negotiated.protocol;
+            negotiated.close();
+
+            try {{
+                new WebSocket("ws://{invalid_address}/protocol", ["chat"]);
+            }} catch (error) {{
+                result.invalidNegotiation = error.name;
+            }}
+
+            try {{
+                new WebSocket("ws://example.com/socket", 1);
+            }} catch (error) {{
+                result.invalidProtocolsType = error.name;
+            }}
+
+            return result;
+        }})()
+        "#
+    );
+
+    let result = runtime.eval_as_string(&script).unwrap();
+
+    valid_server.join().unwrap();
+    invalid_server.join().unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(value["negotiatedProtocol"], "superchat");
+    assert_eq!(value["invalidNegotiation"], "TypeError");
+    assert_eq!(value["invalidProtocolsType"], "TypeError");
 }

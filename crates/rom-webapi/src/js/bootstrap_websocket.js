@@ -20,10 +20,14 @@
                     }),
                 ),
             );
+            const negotiatedProtocol = validateNegotiatedProtocol(
+                protocolList,
+                response.protocol,
+            );
 
             this.url = String(response.url ?? "");
             this.readyState = WebSocket.CONNECTING;
-            this.protocol = String(response.protocol ?? "");
+            this.protocol = negotiatedProtocol;
             this.extensions = "";
             this.__binaryType = "blob";
             this.bufferedAmount = 0;
@@ -200,6 +204,17 @@
     }
 
     function normalizeWebSocketProtocols(protocols) {
+        if (
+            protocols !== undefined &&
+            protocols !== null &&
+            typeof protocols !== "string" &&
+            !Array.isArray(protocols)
+        ) {
+            throw new TypeError(
+                "Failed to construct 'WebSocket': The subprotocols argument must be a string or an array of strings.",
+            );
+        }
+
         const normalized =
             typeof protocols === "string"
                 ? [protocols]
@@ -225,6 +240,24 @@
         }
 
         return normalized;
+    }
+
+    function validateNegotiatedProtocol(requestedProtocols, protocol) {
+        const negotiated = String(protocol ?? "");
+        if (!negotiated) {
+            return "";
+        }
+
+        if (
+            !isValidWebSocketProtocol(negotiated) ||
+            !requestedProtocols.includes(negotiated)
+        ) {
+            throw new SyntaxError(
+                "Failed to construct 'WebSocket': The server selected an invalid subprotocol.",
+            );
+        }
+
+        return negotiated;
     }
 
     function normalizeCloseParameters(code, reason) {
