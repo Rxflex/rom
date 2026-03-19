@@ -261,3 +261,51 @@ fn rejects_cors_response_without_allow_origin() {
 
     assert_eq!(result, "Failed to fetch");
 }
+
+#[test]
+fn does_not_send_or_store_cross_origin_cookies_with_default_credentials() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        let request = read_http_request(&mut stream);
+
+        assert!(request.contains("GET /default-creds HTTP/1.1"));
+        assert!(request.contains("origin: https://rom.local"));
+        assert!(!request.contains("cookie:"));
+
+        let response = concat!(
+            "HTTP/1.1 200 OK\r\n",
+            "Content-Type: text/plain\r\n",
+            "Access-Control-Allow-Origin: https://rom.local\r\n",
+            "Set-Cookie: sid=abc; Path=/; SameSite=None\r\n",
+            "Content-Length: 2\r\n",
+            "\r\n",
+            "ok"
+        );
+
+        stream.write_all(response.as_bytes()).unwrap();
+        stream.flush().unwrap();
+    });
+
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let script = format!(
+        r#"
+        (async () => {{
+            const response = await fetch("http://{address}/default-creds");
+            return {{
+                text: await response.text(),
+                documentCookie: document.cookie,
+            }};
+        }})()
+        "#
+    );
+
+    let result = runtime.eval_async_as_string(&script).unwrap();
+    server.join().unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(value["text"], "ok");
+    assert_eq!(value["documentCookie"], "");
+}
