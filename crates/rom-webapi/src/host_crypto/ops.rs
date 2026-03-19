@@ -1,4 +1,4 @@
-use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
 use pbkdf2::pbkdf2_hmac;
@@ -58,13 +58,13 @@ pub(crate) fn digest_bytes(algorithm: HashAlgorithm, data: &[u8]) -> Vec<u8> {
     }
 }
 
-pub(crate) fn build_hmac_algorithm(hash: HashAlgorithm, secret_len: usize) -> KeyAlgorithm {
+pub(crate) fn build_hmac_algorithm(hash: HashAlgorithm, length_bits: usize) -> KeyAlgorithm {
     KeyAlgorithm {
         name: "HMAC".to_owned(),
         hash: Some(KeyHashAlgorithm {
             name: hash.web_name().to_owned(),
         }),
-        length: Some(secret_len * 8),
+        length: Some(length_bits),
     }
 }
 

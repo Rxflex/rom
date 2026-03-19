@@ -10,6 +10,21 @@ function serializeDeriveOperationAlgorithm(algorithm) {
     return serializeNormalizedAlgorithmDescriptor(source);
 }
 
+function validateGenerateKeyAlgorithm(algorithm) {
+    switch (String(algorithm.name ?? "").toUpperCase()) {
+        case "HMAC":
+            validateHmacKeyLength(algorithm, null, "OperationError");
+            requireAlgorithmHash(algorithm, "HMAC");
+            break;
+        case "AES-CTR":
+        case "AES-CBC":
+        case "AES-GCM":
+        case "AES-KW":
+            validateAesKeyLength(String(algorithm.name), algorithm.length, "OperationError");
+            break;
+    }
+}
+
 function normalizeCryptoKeyUsages(algorithm, keyUsages) {
     const usages = Array.from(keyUsages ?? [], String);
     validateCryptoKeyUsages(algorithm, usages);
@@ -18,7 +33,7 @@ function normalizeCryptoKeyUsages(algorithm, keyUsages) {
 
 function validateImportKeyData(format, keyData, algorithm, extractable, usages) {
     if (format === "raw") {
-        toByteArray(keyData);
+        validateRawSecretImport(algorithm, toByteArray(keyData));
         return;
     }
     if (!keyData || typeof keyData !== "object" || Array.isArray(keyData)) {
@@ -171,6 +186,7 @@ function validateSecretJwkImport(algorithm, jwk, extractable, usages) {
     }
 
     const secret = decodeBase64Url(jwk.k);
+    validateImportedSecretLength(algorithm, secret.length);
     if (jwk.ext === false && extractable) {
         throw createCryptoDomException("DataError", "JWK ext does not allow extractable import.");
     }
@@ -192,6 +208,74 @@ function validateSecretJwkImport(algorithm, jwk, extractable, usages) {
     if (jwk.alg !== undefined && jwk.alg !== expectedAlg) {
         throw createCryptoDomException("DataError", `JWK alg mismatch: expected ${expectedAlg}.`);
     }
+}
+
+function validateRawSecretImport(algorithm, secret) {
+    validateImportedSecretLength(algorithm, secret.length);
+}
+
+function validateImportedSecretLength(algorithm, secretLengthBytes) {
+    const algorithmName = String(algorithm.name ?? "").toUpperCase();
+    const secretLengthBits = secretLengthBytes * 8;
+
+    switch (algorithmName) {
+        case "HMAC":
+            validateHmacKeyLength(algorithm, secretLengthBits, "DataError");
+            requireAlgorithmHash(algorithm, "HMAC");
+            break;
+        case "AES-CTR":
+        case "AES-CBC":
+        case "AES-GCM":
+        case "AES-KW":
+            validateAesImportLength(String(algorithm.name), algorithm.length, secretLengthBits);
+            break;
+    }
+}
+
+function validateHmacKeyLength(algorithm, secretLengthBits, errorName) {
+    if (algorithm.length === undefined) {
+        return;
+    }
+
+    const length = Number(algorithm.length);
+    if (!Number.isInteger(length) || length <= 0) {
+        throw createCryptoDomException(errorName, "Invalid HMAC key length.");
+    }
+    if (secretLengthBits !== null && length > secretLengthBits) {
+        throw createCryptoDomException("DataError", "HMAC key length exceeds keyData.");
+    }
+}
+
+function validateAesImportLength(algorithmName, declaredLength, secretLengthBits) {
+    validateAesKeyLength(algorithmName, secretLengthBits, "DataError");
+    if (declaredLength === undefined) {
+        return;
+    }
+
+    const normalizedLength = normalizeAesKeyLength(algorithmName, declaredLength, "DataError");
+    if (normalizedLength !== secretLengthBits) {
+        throw createCryptoDomException("DataError", `${algorithmName} key length does not match keyData.`);
+    }
+}
+
+function validateAesKeyLength(algorithmName, length, errorName) {
+    normalizeAesKeyLength(algorithmName, length, errorName);
+}
+
+function normalizeAesKeyLength(algorithmName, length, errorName) {
+    if (length === undefined) {
+        throw new TypeError(`${algorithmName} requires algorithm.length`);
+    }
+
+    const normalizedLength = Number(length);
+    if (
+        !Number.isInteger(normalizedLength) ||
+        (normalizedLength !== 128 && normalizedLength !== 192 && normalizedLength !== 256)
+    ) {
+        throw createCryptoDomException(errorName, `Invalid ${algorithmName} key length.`);
+    }
+
+    return normalizedLength;
 }
 
 function expectedJwkAlgorithm(algorithmName, algorithm, secretLength) {
