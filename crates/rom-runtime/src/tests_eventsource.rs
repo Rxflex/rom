@@ -311,3 +311,26 @@ fn closes_eventsource_on_fatal_http_failure_without_reconnect() {
     assert_eq!(value["readyState"], 2);
     assert_eq!(value["url"], format!("http://{address}/events"));
 }
+
+#[test]
+fn validates_eventsource_constructor_url() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let script = r#"
+        (() => {
+            try {
+                new EventSource("http://[::1");
+                return "ok";
+            } catch (error) {
+                return JSON.stringify({
+                    name: String(error.name),
+                    message: String(error.message),
+                });
+            }
+        })()
+    "#;
+
+    let result = runtime.eval_as_string(script).unwrap();
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+
+    assert_eq!(value["name"], "SyntaxError");
+}

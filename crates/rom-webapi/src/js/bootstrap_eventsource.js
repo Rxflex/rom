@@ -1,7 +1,7 @@
     class EventSource extends EventTarget {
         constructor(url, init = {}) {
             super();
-            this.url = new URL(String(url), location.href).href;
+            this.url = parseEventSourceUrl(url);
             this.withCredentials = Boolean(init.withCredentials);
             this.readyState = EventSource.CONNECTING;
             this.onopen = null;
@@ -243,4 +243,14 @@
             id: entry.id,
             retry: Number.isFinite(entry.retry) && entry.retry >= 0 ? entry.retry : null,
         });
+    }
+
+    function parseEventSourceUrl(url) {
+        try {
+            return new URL(String(url), location.href).href;
+        } catch (error) {
+            const syntaxError = new Error("Invalid EventSource URL.");
+            syntaxError.name = "SyntaxError";
+            throw syntaxError;
+        }
     }
