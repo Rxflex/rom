@@ -349,3 +349,62 @@ fn validates_webcrypto_unwrap_key_payload_edges() {
     assert_eq!(value["invalidFormat"]["name"], "NotSupportedError");
     assert_eq!(value["invalidJwkJson"]["name"], "DataError");
 }
+
+#[test]
+fn validates_webcrypto_wrap_and_unwrap_algorithms() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const keyToWrap = await crypto.subtle.generateKey(
+                    { name: "AES-GCM", length: 128 },
+                    true,
+                    ["encrypt", "decrypt"],
+                );
+                const wrappingKey = await crypto.subtle.generateKey(
+                    { name: "AES-GCM", length: 128 },
+                    true,
+                    ["wrapKey", "unwrapKey"],
+                );
+
+                async function captureError(action) {
+                    try {
+                        await action();
+                        return null;
+                    } catch (error) {
+                        return { name: String(error.name), message: String(error.message) };
+                    }
+                }
+
+                return {
+                    wrapUnsupported: await captureError(() =>
+                        crypto.subtle.wrapKey(
+                            "raw",
+                            keyToWrap,
+                            wrappingKey,
+                            "PBKDF2",
+                        ),
+                    ),
+                    unwrapUnsupported: await captureError(() =>
+                        crypto.subtle.unwrapKey(
+                            "raw",
+                            new Uint8Array([1, 2, 3]).buffer,
+                            wrappingKey,
+                            "PBKDF2",
+                            { name: "AES-GCM" },
+                            true,
+                            ["encrypt", "decrypt"],
+                        ),
+                    ),
+                };
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+
+    assert_eq!(value["wrapUnsupported"]["name"], "NotSupportedError");
+    assert_eq!(value["unwrapUnsupported"]["name"], "NotSupportedError");
+}

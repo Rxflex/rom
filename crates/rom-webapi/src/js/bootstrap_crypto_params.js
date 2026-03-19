@@ -4,6 +4,12 @@ function serializeDataOperationAlgorithm(algorithm, dataLength) {
     return serializeNormalizedAlgorithmDescriptor(source);
 }
 
+function serializeWrapOperationAlgorithm(algorithm, dataLength) {
+    const source = normalizeAlgorithmObject(algorithm);
+    validateWrapOperationAlgorithm(source, dataLength);
+    return serializeNormalizedAlgorithmDescriptor(source);
+}
+
 function serializeDeriveOperationAlgorithm(algorithm) {
     const source = normalizeAlgorithmObject(algorithm);
     validateDeriveOperationAlgorithm(source);
@@ -72,6 +78,23 @@ function validateDataOperationAlgorithm(algorithm, dataLength) {
         case "AES-GCM":
             validateAesGcmParams(algorithm);
             break;
+    }
+}
+
+function validateWrapOperationAlgorithm(algorithm, dataLength) {
+    switch (String(algorithm.name ?? "").toUpperCase()) {
+        case "AES-CTR":
+        case "AES-CBC":
+        case "AES-GCM":
+            validateDataOperationAlgorithm(algorithm, dataLength);
+            break;
+        case "AES-KW":
+            break;
+        default:
+            throw createCryptoDomException(
+                "NotSupportedError",
+                `Unsupported wrap algorithm: ${algorithm.name}`,
+            );
     }
 }
 

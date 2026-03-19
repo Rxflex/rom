@@ -206,7 +206,7 @@
             const response = JSON.parse(
                 g.__rom_subtle_encrypt(
                     JSON.stringify({
-                        algorithm: serializeDataOperationAlgorithm(
+                        algorithm: serializeWrapOperationAlgorithm(
                             wrapAlgorithm,
                             payloadBytes.length,
                         ),
@@ -235,7 +235,7 @@
             const response = JSON.parse(
                 g.__rom_subtle_decrypt(
                     JSON.stringify({
-                        algorithm: serializeDataOperationAlgorithm(
+                        algorithm: serializeWrapOperationAlgorithm(
                             unwrapAlgorithm,
                             wrappedBytes.length,
                         ),
