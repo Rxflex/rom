@@ -6,6 +6,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+mod parsing;
+
 #[test]
 fn supports_eventsource_stream_events() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();

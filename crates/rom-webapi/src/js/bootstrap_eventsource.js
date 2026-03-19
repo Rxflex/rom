@@ -183,8 +183,10 @@
     function parseEventStream(input) {
         const entries = [];
         let current = createEventSourceEntry();
+        const text = String(input);
+        const normalizedInput = text.startsWith("\uFEFF") ? text.slice(1) : text;
 
-        for (const rawLine of String(input).split(/\r?\n/)) {
+        for (const rawLine of normalizedInput.split(/\r?\n/)) {
             if (rawLine === "") {
                 flushEventSourceEntry(entries, current);
                 current = createEventSourceEntry();
