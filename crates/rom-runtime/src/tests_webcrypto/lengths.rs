@@ -221,3 +221,66 @@ fn validates_webcrypto_derive_key_target_lengths() {
     assert_eq!(value["derivedDefaultHmacLength"], 512);
     assert_eq!(value["derivedDefaultHmacHash"], "SHA-256");
 }
+
+#[test]
+fn validates_webcrypto_derive_operation_edges() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const encoder = new TextEncoder();
+                const baseKey = await crypto.subtle.importKey(
+                    "raw",
+                    encoder.encode("password"),
+                    "PBKDF2",
+                    false,
+                    ["deriveBits", "deriveKey"],
+                );
+                const salt = encoder.encode("salt");
+
+                async function captureError(action) {
+                    try {
+                        await action();
+                        return null;
+                    } catch (error) {
+                        return { name: String(error.name), message: String(error.message) };
+                    }
+                }
+
+                return {
+                    nullLength: await captureError(() =>
+                        crypto.subtle.deriveBits(
+                            { name: "PBKDF2", salt, iterations: 1000, hash: "SHA-256" },
+                            baseKey,
+                            null,
+                        ),
+                    ),
+                    unsupportedAlgorithm: await captureError(() =>
+                        crypto.subtle.deriveBits(
+                            { name: "AES-GCM", iv: new Uint8Array(12) },
+                            baseKey,
+                            256,
+                        ),
+                    ),
+                    unsupportedTarget: await captureError(() =>
+                        crypto.subtle.deriveKey(
+                            { name: "PBKDF2", salt, iterations: 1000, hash: "SHA-256" },
+                            baseKey,
+                            { name: "PBKDF2" },
+                            false,
+                            ["deriveBits", "deriveKey"],
+                        ),
+                    ),
+                };
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+
+    assert_eq!(value["nullLength"]["name"], "OperationError");
+    assert_eq!(value["unsupportedAlgorithm"]["name"], "NotSupportedError");
+    assert_eq!(value["unsupportedTarget"]["name"], "NotSupportedError");
+}
