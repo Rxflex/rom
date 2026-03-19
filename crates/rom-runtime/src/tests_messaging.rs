@@ -113,6 +113,63 @@ fn supports_structured_clone_for_error_objects() {
 }
 
 #[test]
+fn reports_worker_startup_errors_as_async_events() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const workerUrl = URL.createObjectURL(
+                    new Blob(
+                        [
+                            "throw new Error('startup boom');",
+                            "self.onmessage = () => postMessage('unexpected');",
+                        ],
+                        { type: "text/javascript" },
+                    ),
+                );
+
+                let constructorError = "";
+                let startupError = null;
+                const messages = [];
+
+                try {
+                    const worker = new Worker(workerUrl);
+                    worker.onmessage = (event) => messages.push(event.data);
+                    worker.onerror = (event) => {
+                        startupError = {
+                            type: event.type,
+                            message: event.error?.message ?? "",
+                            isError: event.error instanceof Error,
+                            targetMatches: event.target === worker,
+                        };
+                    };
+                    worker.postMessage("start");
+                    await new Promise((resolve) => setTimeout(resolve, 0));
+                } catch (error) {
+                    constructorError = String(error.message ?? error);
+                }
+
+                return {
+                    constructorError,
+                    startupError,
+                    messages,
+                };
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(value["constructorError"], "");
+    assert_eq!(value["startupError"]["type"], "error");
+    assert_eq!(value["startupError"]["message"], "startup boom");
+    assert_eq!(value["startupError"]["isError"], true);
+    assert_eq!(value["startupError"]["targetMatches"], true);
+    assert_eq!(value["messages"], serde_json::json!([]));
+}
+
+#[test]
 fn supports_worker_blob_url_and_import_scripts() {
     let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
     let result = runtime
