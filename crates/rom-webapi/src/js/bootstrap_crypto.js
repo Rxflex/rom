@@ -230,7 +230,7 @@
         ) {
             assertCryptoKey(unwrappingKey);
             assertCryptoKeyUsage(unwrappingKey, "unwrapKey");
-            const normalizedFormat = String(format);
+            const normalizedFormat = normalizeCryptoKeyFormat(format);
             const wrappedBytes = toByteArray(wrappedKey);
             const response = JSON.parse(
                 g.__rom_subtle_decrypt(
@@ -247,7 +247,7 @@
             const decrypted = toArrayBuffer(response.bytes ?? []);
             const keyData =
                 normalizedFormat === "jwk"
-                    ? JSON.parse(new TextDecoder().decode(new Uint8Array(decrypted)))
+                    ? parseUnwrappedJwk(decrypted)
                     : decrypted;
 
             return this.importKey(
@@ -440,6 +440,14 @@
 
     function toOptionalByteArray(value) {
         return value === undefined || value === null ? null : toByteArray(value);
+    }
+
+    function parseUnwrappedJwk(buffer) {
+        try {
+            return JSON.parse(new TextDecoder().decode(new Uint8Array(buffer)));
+        } catch (error) {
+            throw createCryptoDomException("DataError", "Unwrapped JWK payload is invalid JSON.");
+        }
     }
 
     function createCryptoDomException(name, message) {
