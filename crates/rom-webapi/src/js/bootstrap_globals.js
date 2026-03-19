@@ -200,15 +200,296 @@
         return Math.min(2147483647, Math.trunc(numeric));
     }
 
+    const performanceEntries = [];
+    const performanceObservers = new Set();
+
+    class PerformanceEntry {
+        constructor(name, entryType, startTime, duration, detail = null) {
+            this.name = String(name);
+            this.entryType = String(entryType);
+            this.startTime = Number(startTime) || 0;
+            this.duration = Number(duration) || 0;
+            this.detail = detail ?? null;
+        }
+
+        toJSON() {
+            return {
+                name: this.name,
+                entryType: this.entryType,
+                startTime: this.startTime,
+                duration: this.duration,
+                detail: this.detail,
+            };
+        }
+    }
+
+    class PerformanceObserverEntryList {
+        constructor(entries) {
+            this.__entries = entries.slice().sort(comparePerformanceEntries);
+        }
+
+        getEntries() {
+            return this.__entries.slice();
+        }
+
+        getEntriesByType(type) {
+            const normalizedType = String(type);
+            return this.__entries.filter((entry) => entry.entryType === normalizedType);
+        }
+
+        getEntriesByName(name, type = undefined) {
+            const normalizedName = String(name);
+            const normalizedType = type === undefined ? null : String(type);
+            return this.__entries.filter(
+                (entry) =>
+                    entry.name === normalizedName &&
+                    (normalizedType === null || entry.entryType === normalizedType),
+            );
+        }
+    }
+
+    class PerformanceObserver {
+        constructor(callback) {
+            this.callback = typeof callback === "function" ? callback : () => {};
+            this.__entryTypes = [];
+            this.__records = [];
+            this.__scheduled = false;
+            performanceObservers.add(this);
+        }
+
+        observe(options = {}) {
+            if (!options || typeof options !== "object") {
+                throw new TypeError("Failed to observe performance timeline.");
+            }
+
+            let entryTypes = [];
+            if (Array.isArray(options.entryTypes)) {
+                entryTypes = options.entryTypes.map(String);
+            } else if (options.type !== undefined) {
+                entryTypes = [String(options.type)];
+            }
+
+            if (!entryTypes.length) {
+                throw new TypeError("PerformanceObserver requires entryTypes or type.");
+            }
+
+            this.__entryTypes = entryTypes.filter(isSupportedPerformanceEntryType);
+        }
+
+        disconnect() {
+            this.__entryTypes = [];
+            this.__records = [];
+            this.__scheduled = false;
+        }
+
+        takeRecords() {
+            const records = this.__records.slice().sort(comparePerformanceEntries);
+            this.__records = [];
+            return records;
+        }
+
+        static get supportedEntryTypes() {
+            return ["mark", "measure"];
+        }
+    }
+
+    function comparePerformanceEntries(left, right) {
+        if (left.startTime !== right.startTime) {
+            return left.startTime - right.startTime;
+        }
+        return performanceEntries.indexOf(left) - performanceEntries.indexOf(right);
+    }
+
+    function isSupportedPerformanceEntryType(type) {
+        return type === "mark" || type === "measure";
+    }
+
+    function clonePerformanceDetail(detail) {
+        if (detail === undefined) {
+            return null;
+        }
+
+        if (typeof structuredClone === "function") {
+            return structuredClone(detail);
+        }
+
+        return detail;
+    }
+
+    function addPerformanceEntry(entry) {
+        performanceEntries.push(entry);
+        queuePerformanceObservers(entry);
+        return entry;
+    }
+
+    function queuePerformanceObservers(entry) {
+        for (const observer of performanceObservers) {
+            if (!observer.__entryTypes.includes(entry.entryType)) {
+                continue;
+            }
+
+            observer.__records.push(entry);
+            if (observer.__scheduled) {
+                continue;
+            }
+
+            observer.__scheduled = true;
+            queueMicrotask(() => {
+                observer.__scheduled = false;
+                if (!observer.__records.length || !observer.__entryTypes.length) {
+                    observer.__records = [];
+                    return;
+                }
+
+                observer.callback(
+                    new PerformanceObserverEntryList(observer.takeRecords()),
+                    observer,
+                );
+            });
+        }
+    }
+
+    function getPerformanceEntries(type = null, name = null) {
+        return performanceEntries
+            .filter(
+                (entry) =>
+                    (type === null || entry.entryType === type) &&
+                    (name === null || entry.name === name),
+            )
+            .slice()
+            .sort(comparePerformanceEntries);
+    }
+
+    function clearPerformanceEntries(type, name = null) {
+        for (let index = performanceEntries.length - 1; index >= 0; index -= 1) {
+            const entry = performanceEntries[index];
+            if (entry.entryType !== type) {
+                continue;
+            }
+            if (name !== null && entry.name !== name) {
+                continue;
+            }
+            performanceEntries.splice(index, 1);
+        }
+    }
+
+    function findLatestPerformanceMark(name) {
+        const normalizedName = String(name);
+        for (let index = performanceEntries.length - 1; index >= 0; index -= 1) {
+            const entry = performanceEntries[index];
+            if (entry.entryType === "mark" && entry.name === normalizedName) {
+                return entry;
+            }
+        }
+
+        throw createDomException(
+            "SyntaxError",
+            `The mark '${normalizedName}' does not exist.`,
+        );
+    }
+
+    function resolvePerformanceTimestamp(reference, fallbackStartTime = null) {
+        if (reference === undefined) {
+            return fallbackStartTime === null ? performance.now() : fallbackStartTime;
+        }
+
+        if (typeof reference === "number") {
+            return Number(reference);
+        }
+
+        if (typeof reference === "string") {
+            return findLatestPerformanceMark(reference).startTime;
+        }
+
+        throw new TypeError("Invalid performance timestamp reference.");
+    }
+
     const performance = {
         timeOrigin: nowBase,
         now() {
             return Date.now() - nowBase;
         },
-        mark() {},
-        measure() {},
+        mark(name, options = {}) {
+            const normalizedName = String(name);
+            const normalizedOptions =
+                options && typeof options === "object" ? options : {};
+            const startTime = resolvePerformanceTimestamp(
+                normalizedOptions.startTime,
+                performance.now(),
+            );
+            const entry = new PerformanceEntry(
+                normalizedName,
+                "mark",
+                startTime,
+                0,
+                clonePerformanceDetail(normalizedOptions.detail),
+            );
+            return addPerformanceEntry(entry);
+        },
+        measure(name, startOrOptions = undefined, endMark = undefined) {
+            const normalizedName = String(name);
+            let startTime = 0;
+            let endTime = performance.now();
+            let detail = null;
+
+            if (
+                startOrOptions &&
+                typeof startOrOptions === "object" &&
+                !Array.isArray(startOrOptions)
+            ) {
+                const options = startOrOptions;
+                detail = clonePerformanceDetail(options.detail);
+                if (options.duration !== undefined) {
+                    const duration = Number(options.duration);
+                    if (options.start !== undefined) {
+                        startTime = resolvePerformanceTimestamp(options.start);
+                        endTime = startTime + duration;
+                    } else if (options.end !== undefined) {
+                        endTime = resolvePerformanceTimestamp(options.end);
+                        startTime = endTime - duration;
+                    } else {
+                        startTime = performance.now();
+                        endTime = startTime + duration;
+                    }
+                } else {
+                    startTime = resolvePerformanceTimestamp(options.start, 0);
+                    endTime = resolvePerformanceTimestamp(options.end, performance.now());
+                }
+            } else {
+                startTime = resolvePerformanceTimestamp(startOrOptions, 0);
+                endTime = resolvePerformanceTimestamp(endMark, performance.now());
+            }
+
+            const entry = new PerformanceEntry(
+                normalizedName,
+                "measure",
+                startTime,
+                Math.max(0, endTime - startTime),
+                detail,
+            );
+            return addPerformanceEntry(entry);
+        },
         getEntries() {
-            return [];
+            return getPerformanceEntries();
+        },
+        getEntriesByType(type) {
+            return getPerformanceEntries(String(type));
+        },
+        getEntriesByName(name, type = undefined) {
+            const normalizedType = type === undefined ? null : String(type);
+            return getPerformanceEntries(normalizedType, String(name));
+        },
+        clearMarks(name = undefined) {
+            clearPerformanceEntries(
+                "mark",
+                name === undefined ? null : String(name),
+            );
+        },
+        clearMeasures(name = undefined) {
+            clearPerformanceEntries(
+                "measure",
+                name === undefined ? null : String(name),
+            );
         },
     };
 
@@ -469,7 +750,8 @@
     g.MutationObserver = MutationObserver;
     g.ResizeObserver = ResizeObserver;
     g.IntersectionObserver = IntersectionObserver;
-    g.PerformanceObserver = class PerformanceObserver extends ObserverBase {};
+    g.PerformanceEntry = PerformanceEntry;
+    g.PerformanceObserver = PerformanceObserver;
     g.AudioContext = audioContextFactory;
     g.OfflineAudioContext = OfflineAudioContext;
     g.webkitOfflineAudioContext = OfflineAudioContext;
