@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./assets/rom-header.svg" alt="ROM header" width="100%" />
+</p>
+
 # ROM
 
 <p align="center">
