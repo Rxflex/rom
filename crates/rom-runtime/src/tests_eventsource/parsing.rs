@@ -9,16 +9,27 @@ use std::{
 fn supports_utf8_text_encoding_and_decoding() {
     let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
     let script = r#"
-        (() => JSON.stringify({
-            encoded: Array.from(new TextEncoder().encode("hé🙂")),
-            decoded: new TextDecoder().decode(Uint8Array.from([104, 195, 169, 240, 159, 153, 130])),
-            bomDecoded: new TextDecoder().decode(Uint8Array.from([239, 187, 191, 104, 105])),
-            bomIncluded: new TextDecoder(" utf8 ", { ignoreBOM: true }).decode(
-                Uint8Array.from([239, 187, 191, 104, 105])
-            ),
-            nullOptionsEncoding: new TextDecoder(" UTF-8 ", null).encoding,
-            nullOptionsFatal: new TextDecoder(" UTF-8 ", null).fatal,
-        }))()
+        (() => {
+            const fullBuffer = new Uint8Array(8);
+            const fullEncodeInto = new TextEncoder().encodeInto("hé🙂", fullBuffer);
+            const partialBuffer = new Uint8Array(4);
+            const partialEncodeInto = new TextEncoder().encodeInto("A🙂B", partialBuffer);
+
+            return JSON.stringify({
+                encoded: Array.from(new TextEncoder().encode("hé🙂")),
+                decoded: new TextDecoder().decode(Uint8Array.from([104, 195, 169, 240, 159, 153, 130])),
+                bomDecoded: new TextDecoder().decode(Uint8Array.from([239, 187, 191, 104, 105])),
+                bomIncluded: new TextDecoder(" utf8 ", { ignoreBOM: true }).decode(
+                    Uint8Array.from([239, 187, 191, 104, 105])
+                ),
+                nullOptionsEncoding: new TextDecoder(" UTF-8 ", null).encoding,
+                nullOptionsFatal: new TextDecoder(" UTF-8 ", null).fatal,
+                fullEncodeInto,
+                fullBuffer: Array.from(fullBuffer),
+                partialEncodeInto,
+                partialBuffer: Array.from(partialBuffer),
+            });
+        })()
     "#;
 
     let result = runtime.eval_as_string(script).unwrap();
@@ -30,6 +41,13 @@ fn supports_utf8_text_encoding_and_decoding() {
     assert_eq!(value["bomIncluded"], "\u{feff}hi");
     assert_eq!(value["nullOptionsEncoding"], "utf-8");
     assert_eq!(value["nullOptionsFatal"], false);
+    assert_eq!(value["fullEncodeInto"], serde_json::json!({ "read": 4, "written": 7 }));
+    assert_eq!(
+        value["fullBuffer"],
+        serde_json::json!([104, 195, 169, 240, 159, 153, 130, 0])
+    );
+    assert_eq!(value["partialEncodeInto"], serde_json::json!({ "read": 1, "written": 1 }));
+    assert_eq!(value["partialBuffer"], serde_json::json!([65, 0, 0, 0]));
 }
 
 #[test]
