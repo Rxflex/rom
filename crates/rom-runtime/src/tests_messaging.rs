@@ -235,3 +235,55 @@ fn isolates_worker_timers_from_terminated_scopes() {
     let value: serde_json::Value = serde_json::from_str(&result).unwrap();
     assert_eq!(value, serde_json::json!([]));
 }
+
+#[test]
+fn rejects_transfer_lists_for_current_structured_clone_and_messaging_model() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const channel = new MessageChannel();
+                const workerUrl = URL.createObjectURL(
+                    new Blob(
+                        [
+                            "self.onmessage = () => {",
+                            "  postMessage('unexpected');",
+                            "};",
+                        ],
+                        { type: "text/javascript" },
+                    ),
+                );
+                const worker = new Worker(workerUrl);
+                const buffer = new Uint8Array([1, 2, 3]).buffer;
+
+                const capture = (fn) => {
+                    try {
+                        fn();
+                        return "ok";
+                    } catch (error) {
+                        return error.name;
+                    }
+                };
+
+                return {
+                    structuredCloneTransfer: capture(() =>
+                        structuredClone({ buffer }, { transfer: [buffer] }),
+                    ),
+                    messagePortTransfer: capture(() =>
+                        channel.port1.postMessage({ buffer }, [buffer]),
+                    ),
+                    workerTransfer: capture(() =>
+                        worker.postMessage({ buffer }, [buffer]),
+                    ),
+                };
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(value["structuredCloneTransfer"], "TypeError");
+    assert_eq!(value["messagePortTransfer"], "TypeError");
+    assert_eq!(value["workerTransfer"], "TypeError");
+}
