@@ -17,6 +17,7 @@
                 this.__bodyBytes = init.body === undefined
                     ? input.__bodyBytes.slice()
                     : normalizeBody(init.body, this.headers);
+                validateNoCorsRequestMode(this.method, this.mode);
                 validateRequestBody(this.method, this.__bodyIsNull);
                 this.bodyUsed = false;
                 attachBodyState(this, this.__bodyBytes, { nullBody: this.__bodyIsNull });
@@ -32,6 +33,7 @@
             this.redirect = normalizeRequestRedirect(init.redirect ?? "follow");
             this.__bodyIsNull = !hasBodyValue(init.body);
             this.__bodyBytes = normalizeBody(init.body, this.headers);
+            validateNoCorsRequestMode(this.method, this.mode);
             validateRequestBody(this.method, this.__bodyIsNull);
             this.bodyUsed = false;
             attachBodyState(this, this.__bodyBytes, { nullBody: this.__bodyIsNull });
@@ -582,6 +584,18 @@
         throw new TypeError(
             `Failed to construct 'Request': '${value}' is not a valid enum value of type RequestRedirect.`,
         );
+    }
+
+    function validateNoCorsRequestMode(method, mode) {
+        if (mode !== "no-cors") {
+            return;
+        }
+
+        if (!isCorsSafelistedMethod(method)) {
+            throw new TypeError(
+                `Failed to construct 'Request': '${method}' is unsupported in no-cors mode.`,
+            );
+        }
     }
 
     URL.createObjectURL = (object) => {
