@@ -28,6 +28,8 @@ const WEB_BOOTSTRAP: &str = concat!(
     "\n",
     include_str!("js/bootstrap_body.js"),
     "\n",
+    include_str!("js/bootstrap_textcodecs.js"),
+    "\n",
     include_str!("js/bootstrap_crypto_params.js"),
     "\n",
     include_str!("js/bootstrap_crypto.js"),
