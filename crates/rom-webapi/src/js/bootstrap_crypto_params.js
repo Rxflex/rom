@@ -40,7 +40,7 @@ function resolveDerivedKeyLengthBits(algorithm) {
             validateGenerateKeyAlgorithm(algorithm);
             return Number(algorithm.length);
         default:
-            throw new TypeError(`Unsupported deriveKey target: ${algorithm.name}`);
+            throw createCryptoDomException("NotSupportedError", `Unsupported deriveKey target: ${algorithm.name}`);
     }
 }
 
@@ -83,6 +83,11 @@ function validateDeriveOperationAlgorithm(algorithm) {
         case "HKDF":
             validateHkdfParams(algorithm);
             break;
+        default:
+            throw createCryptoDomException(
+                "NotSupportedError",
+                `Unsupported derive algorithm: ${algorithm.name}`,
+            );
     }
 }
 
@@ -397,6 +402,12 @@ function decodeBase64Url(value) {
 }
 
 function normalizeDeriveBitsLength(length) {
+    if (length === null) {
+        throw createCryptoDomException(
+            "OperationError",
+            "deriveBits length must not be null.",
+        );
+    }
     const normalized = Number(length);
     if (!Number.isInteger(normalized) || normalized % 8 !== 0) {
         throw createCryptoDomException(
