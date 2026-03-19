@@ -8,10 +8,10 @@
         search: locationConfig.search ?? "",
         hash: locationConfig.hash ?? "",
         assign(nextHref) {
-            applyLocationHref(this, nextHref);
+            navigateLocation("push", nextHref);
         },
         replace(nextHref) {
-            this.assign(nextHref);
+            navigateLocation("replace", nextHref);
         },
         reload() {},
         toString() {
@@ -33,25 +33,113 @@
 
     const navigator = createNavigator(navigatorConfig);
 
+    const historyEntries = [{ href: location.href, state: null }];
+    let currentHistoryIndex = 0;
+
     const history = {
-        length: 1,
+        length: historyEntries.length,
         state: null,
-        back() {},
-        forward() {},
-        go() {},
-        pushState(state, _title, nextHref) {
-            this.state = state;
-            if (nextHref) {
-                location.assign(nextHref);
+        back() {
+            traverseHistory(-1);
+        },
+        forward() {
+            traverseHistory(1);
+        },
+        go(delta = 0) {
+            const numericDelta = Number(delta);
+            if (!Number.isFinite(numericDelta)) {
+                return;
             }
+
+            traverseHistory(Math.trunc(numericDelta));
+        },
+        pushState(state, _title, nextHref) {
+            updateHistoryEntry("push", state, nextHref);
         },
         replaceState(state, _title, nextHref) {
-            this.state = state;
-            if (nextHref) {
-                location.replace(nextHref);
-            }
+            updateHistoryEntry("replace", state, nextHref);
         },
     };
+
+    function cloneHistoryState(value) {
+        if (typeof structuredClone === "function") {
+            return structuredClone(value);
+        }
+
+        return value;
+    }
+
+    function createDomException(name, message) {
+        const error = new Error(message);
+        error.name = name;
+        return error;
+    }
+
+    function resolveHistoryHref(nextHref) {
+        if (nextHref === undefined || nextHref === null || nextHref === "") {
+            return location.href;
+        }
+
+        const resolved = new URL(String(nextHref), location.href);
+        if (resolved.origin !== location.origin) {
+            throw createDomException(
+                "SecurityError",
+                "History state URLs must stay on the current origin.",
+            );
+        }
+
+        return resolved.href;
+    }
+
+    function syncHistoryState(entry) {
+        applyLocationHref(location, entry.href);
+        history.length = historyEntries.length;
+        history.state = cloneHistoryState(entry.state);
+    }
+
+    function updateHistoryEntry(mode, state, nextHref) {
+        const entry = {
+            href: resolveHistoryHref(nextHref),
+            state: cloneHistoryState(state),
+        };
+
+        if (mode === "replace") {
+            historyEntries[currentHistoryIndex] = entry;
+        } else {
+            historyEntries.splice(currentHistoryIndex + 1);
+            historyEntries.push(entry);
+            currentHistoryIndex = historyEntries.length - 1;
+        }
+
+        syncHistoryState(entry);
+    }
+
+    function navigateLocation(mode, nextHref) {
+        const nextState = mode === "replace"
+            ? historyEntries[currentHistoryIndex]?.state ?? null
+            : null;
+        updateHistoryEntry(mode, nextState, nextHref);
+    }
+
+    function traverseHistory(delta) {
+        if (!delta) {
+            return;
+        }
+
+        const nextIndex = currentHistoryIndex + delta;
+        if (nextIndex < 0 || nextIndex >= historyEntries.length) {
+            return;
+        }
+
+        currentHistoryIndex = nextIndex;
+        const entry = historyEntries[currentHistoryIndex];
+        syncHistoryState(entry);
+        dispatchWindowEvent(
+            new PopStateEvent("popstate", {
+                state: cloneHistoryState(entry.state),
+            }),
+        );
+    }
 
     const viewport = createViewportState();
     const screen = createScreen(viewport);
@@ -226,6 +314,15 @@
         },
     };
 
+    class PopStateEvent extends Event {
+        constructor(type, init = {}) {
+            super(type, init);
+            this.state = Object.prototype.hasOwnProperty.call(init, "state")
+                ? init.state
+                : null;
+        }
+    }
+
     class Image {}
 
     class Audio {
@@ -238,10 +335,49 @@
 
     class CompositionEvent extends Event {}
 
+    function dispatchWindowEvent(event) {
+        const instance = event instanceof Event ? event : new Event(event?.type ?? event);
+        instance.target = g;
+        instance.currentTarget = g;
+        instance.eventPhase = Event.AT_TARGET;
+        instance.__dispatchPath = [g];
+        instance.__stopPropagation = false;
+        instance.__stopImmediatePropagation = false;
+
+        const handlerName = `on${instance.type}`;
+        if (typeof g[handlerName] === "function") {
+            g[handlerName].call(g, instance);
+        }
+
+        if (!instance.__stopImmediatePropagation) {
+            const listeners = g.__listeners?.get(instance.type) ?? [];
+            for (const entry of listeners.slice()) {
+                entry.listener.call(g, instance);
+                if (entry.once) {
+                    g.removeEventListener(instance.type, entry.listener, {
+                        capture: entry.capture,
+                    });
+                }
+                if (instance.__stopImmediatePropagation) {
+                    break;
+                }
+            }
+        }
+
+        instance.currentTarget = null;
+        instance.eventPhase = Event.NONE;
+        return !instance.defaultPrevented;
+    }
+
     g.window = g;
     g.self = g;
     g.top = g;
     g.parent = g;
+    g.__listeners = new Map();
+    g.addEventListener = EventTarget.prototype.addEventListener.bind(g);
+    g.removeEventListener = EventTarget.prototype.removeEventListener.bind(g);
+    g.dispatchEvent = (event) => dispatchWindowEvent(event);
+    g.onpopstate = null;
     g.document = document;
     g.navigator = navigator;
     g.location = location;
@@ -265,6 +401,7 @@
     g.Audio = Audio;
     g.HTMLButtonElement = HTMLButtonElement;
     g.CompositionEvent = CompositionEvent;
+    g.PopStateEvent = PopStateEvent;
     g.MessageChannel = MessageChannel;
     g.MessagePort = MessagePort;
     g.MessageEvent = MessageEvent;
