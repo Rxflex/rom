@@ -130,6 +130,10 @@
                     );
                 }
 
+                if (result.error_event) {
+                    dispatchWebSocketEvent(this, "error", new Event("error"));
+                }
+
                 if (result.close_event) {
                     this.__applyClose(result.close_event);
                     return;

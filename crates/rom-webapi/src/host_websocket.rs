@@ -72,6 +72,7 @@ struct WebSocketConnectResult {
 #[derive(Debug, Serialize)]
 struct WebSocketPollResult {
     messages: Vec<WebSocketFrame>,
+    error_event: bool,
     close_event: Option<WebSocketCloseEvent>,
 }
 
@@ -164,6 +165,7 @@ impl WebSocketHost {
             .ok_or_else(|| format!("Unknown WebSocket id: {}", payload.socket_id))?;
 
         let mut messages = Vec::new();
+        let mut error_event = false;
         let close_event = loop {
             match session.socket.read() {
                 Ok(Message::Text(text)) => messages.push(WebSocketFrame {
@@ -199,6 +201,7 @@ impl WebSocketHost {
                     session.closed = true;
                     session.close_code = 1006;
                     session.close_reason = error.to_string();
+                    error_event = true;
                     break Some(WebSocketCloseEvent {
                         code: 1006,
                         reason: session.close_reason.clone(),
@@ -210,6 +213,7 @@ impl WebSocketHost {
 
         serde_json::to_string(&WebSocketPollResult {
             messages,
+            error_event,
             close_event,
         })
         .map_err(|error| error.to_string())
