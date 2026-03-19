@@ -239,6 +239,90 @@
         return typeof href === "string" ? href : "about:blank";
     }
 
+    function ownStyleKeys(style) {
+        return Object.keys(style ?? {}).filter((key) => typeof style[key] !== "function");
+    }
+
+    function areNodeAttributesEqual(leftNode, rightNode) {
+        const leftAttributes = leftNode?.attributes;
+        const rightAttributes = rightNode?.attributes;
+
+        if (!(leftAttributes instanceof Map) || !(rightAttributes instanceof Map)) {
+            return true;
+        }
+
+        if (leftAttributes.size !== rightAttributes.size) {
+            return false;
+        }
+
+        for (const [name, value] of leftAttributes.entries()) {
+            if (rightAttributes.get(name) !== value) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    function areNodeStylesEqual(leftNode, rightNode) {
+        const leftKeys = ownStyleKeys(leftNode?.style).sort();
+        const rightKeys = ownStyleKeys(rightNode?.style).sort();
+
+        if (leftKeys.length !== rightKeys.length) {
+            return false;
+        }
+
+        for (let index = 0; index < leftKeys.length; index += 1) {
+            if (leftKeys[index] !== rightKeys[index]) {
+                return false;
+            }
+
+            if (leftNode.style[leftKeys[index]] !== rightNode.style[rightKeys[index]]) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    function areNodesEqual(leftNode, rightNode) {
+        if (leftNode === rightNode) {
+            return true;
+        }
+
+        if (!leftNode || !rightNode) {
+            return false;
+        }
+
+        if (
+            leftNode.nodeType !== rightNode.nodeType ||
+            leftNode.nodeName !== rightNode.nodeName ||
+            leftNode.nodeValue !== rightNode.nodeValue
+        ) {
+            return false;
+        }
+
+        if (!areNodeAttributesEqual(leftNode, rightNode)) {
+            return false;
+        }
+
+        if (!areNodeStylesEqual(leftNode, rightNode)) {
+            return false;
+        }
+
+        if ((leftNode.childNodes?.length ?? 0) !== (rightNode.childNodes?.length ?? 0)) {
+            return false;
+        }
+
+        for (let index = 0; index < (leftNode.childNodes?.length ?? 0); index += 1) {
+            if (!areNodesEqual(leftNode.childNodes[index], rightNode.childNodes[index])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     class Node extends EventTarget {
         constructor(nodeType, nodeName) {
             super();
@@ -425,6 +509,14 @@
                 current = current.parentNode;
             }
             return current ?? this;
+        }
+
+        isSameNode(otherNode) {
+            return this === otherNode;
+        }
+
+        isEqualNode(otherNode) {
+            return areNodesEqual(this, otherNode);
         }
 
         normalize() {

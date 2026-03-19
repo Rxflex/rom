@@ -47,6 +47,8 @@ mod tests_mutation_observer;
 #[cfg(test)]
 mod tests_navigator;
 #[cfg(test)]
+mod tests_node_equality;
+#[cfg(test)]
 mod tests_node_helpers;
 #[cfg(test)]
 mod tests_normalize;
