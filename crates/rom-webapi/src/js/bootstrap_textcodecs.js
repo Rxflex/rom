@@ -44,13 +44,26 @@
             defineReadOnly(this, "encoding", "utf-8");
             defineReadOnly(this, "fatal", Boolean(normalizedOptions.fatal));
             defineReadOnly(this, "ignoreBOM", Boolean(normalizedOptions.ignoreBOM));
+            this.__pendingBytes = [];
+            this.__bomHandled = false;
         }
 
-        decode(input = new Uint8Array()) {
-            return decodeUtf8(normalizeTextDecodeInput(input), {
+        decode(input = new Uint8Array(), options = {}) {
+            const normalizedOptions = options == null ? {} : Object(options);
+            const bytes = [
+                ...this.__pendingBytes,
+                ...normalizeTextDecodeInput(input),
+            ];
+            const result = decodeUtf8(bytes, {
                 fatal: this.fatal,
                 ignoreBOM: this.ignoreBOM,
+                stream: Boolean(normalizedOptions.stream),
+                bomHandled: this.__bomHandled,
             });
+
+            this.__pendingBytes = result.pendingBytes;
+            this.__bomHandled = result.bomHandled;
+            return result.text;
         }
     };
 
@@ -110,16 +123,28 @@
         const bytes = Array.from(input);
         const codeUnits = [];
         const fatal = Boolean(options.fatal);
+        const stream = Boolean(options.stream);
+        let bomHandled = Boolean(options.bomHandled);
         let index = 0;
 
-        if (
-            !options.ignoreBOM &&
-            bytes.length >= 3 &&
-            bytes[0] === 0xef &&
-            bytes[1] === 0xbb &&
-            bytes[2] === 0xbf
-        ) {
-            index = 3;
+        if (!bomHandled && !options.ignoreBOM) {
+            if (
+                bytes.length >= 3 &&
+                bytes[0] === 0xef &&
+                bytes[1] === 0xbb &&
+                bytes[2] === 0xbf
+            ) {
+                index = 3;
+                bomHandled = true;
+            } else if (stream && isPotentialUtf8BomPrefix(bytes)) {
+                return {
+                    text: "",
+                    pendingBytes: bytes.slice(),
+                    bomHandled,
+                };
+            } else if (bytes.length > 0) {
+                bomHandled = true;
+            }
         }
 
         while (index < bytes.length) {
@@ -141,6 +166,23 @@
                 index += sequence?.invalidLength ?? 1;
                 continue;
             }
+            if ("truncatedLength" in sequence) {
+                if (stream) {
+                    return {
+                        text: String.fromCharCode(...codeUnits),
+                        pendingBytes: bytes.slice(index),
+                        bomHandled,
+                    };
+                }
+
+                if (fatal) {
+                    throw new TypeError("The encoded data was not valid utf-8.");
+                }
+
+                codeUnits.push(0xfffd);
+                index += sequence.truncatedLength;
+                continue;
+            }
 
             const { codePoint, length } = sequence;
             if (codePoint <= 0xffff) {
@@ -153,7 +195,11 @@
             index += length;
         }
 
-        return String.fromCharCode(...codeUnits);
+        return {
+            text: String.fromCharCode(...codeUnits),
+            pendingBytes: [],
+            bomHandled,
+        };
     }
 
     function readUtf8Sequence(bytes, index) {
@@ -162,7 +208,7 @@
         if (first >= 0xc2 && first <= 0xdf) {
             const second = bytes[index + 1];
             if (second === undefined) {
-                return { invalidLength: 1 };
+                return { truncatedLength: 1 };
             }
 
             if (!isUtf8ContinuationByte(second)) {
@@ -179,7 +225,7 @@
             const second = bytes[index + 1];
             const third = bytes[index + 2];
             if (second === undefined) {
-                return { invalidLength: 1 };
+                return { truncatedLength: 1 };
             }
             if (
                 !isUtf8ContinuationByte(second) ||
@@ -189,7 +235,7 @@
                 return null;
             }
             if (third === undefined) {
-                return { invalidLength: 2 };
+                return { truncatedLength: 2 };
             }
             if (!isUtf8ContinuationByte(third)) {
                 return { invalidLength: 2 };
@@ -207,7 +253,7 @@
             const third = bytes[index + 2];
             const fourth = bytes[index + 3];
             if (second === undefined) {
-                return { invalidLength: 1 };
+                return { truncatedLength: 1 };
             }
             if (
                 !isUtf8ContinuationByte(second) ||
@@ -217,13 +263,13 @@
                 return null;
             }
             if (third === undefined) {
-                return { invalidLength: 2 };
+                return { truncatedLength: 2 };
             }
             if (!isUtf8ContinuationByte(third)) {
                 return { invalidLength: 2 };
             }
             if (fourth === undefined) {
-                return { invalidLength: 3 };
+                return { truncatedLength: 3 };
             }
             if (!isUtf8ContinuationByte(fourth)) {
                 return { invalidLength: 3 };
@@ -244,6 +290,15 @@
 
     function isUtf8ContinuationByte(value) {
         return Number.isInteger(value) && (value & 0xc0) === 0x80;
+    }
+
+    function isPotentialUtf8BomPrefix(bytes) {
+        const bom = [0xef, 0xbb, 0xbf];
+        if (bytes.length === 0 || bytes.length >= bom.length) {
+            return false;
+        }
+
+        return bytes.every((value, index) => value === bom[index]);
     }
 
     function isUtf8Label(label) {
