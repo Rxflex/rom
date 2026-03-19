@@ -437,6 +437,106 @@
         }
     }
 
+    function datasetAttributeToPropertyName(attributeName) {
+        const normalized = String(attributeName);
+        if (!normalized.startsWith("data-") || normalized.length <= 5) {
+            return null;
+        }
+
+        return normalized.slice(5).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+    }
+
+    function datasetPropertyToAttributeName(propertyName) {
+        return `data-${String(propertyName).replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`;
+    }
+
+    class DOMStringMap {
+        constructor(element) {
+            this.__element = element;
+        }
+
+        __entries() {
+            const entries = [];
+            for (const [name, value] of this.__element.attributes.entries()) {
+                const propertyName = datasetAttributeToPropertyName(name);
+                if (propertyName !== null) {
+                    entries.push([propertyName, value]);
+                }
+            }
+            return entries;
+        }
+
+        __keys() {
+            return this.__entries().map(([propertyName]) => propertyName);
+        }
+
+        __has(propertyName) {
+            return this.__element.hasAttribute(datasetPropertyToAttributeName(propertyName));
+        }
+
+        __get(propertyName) {
+            return this.__element.getAttribute(datasetPropertyToAttributeName(propertyName));
+        }
+
+        __set(propertyName, value) {
+            this.__element.setAttribute(datasetPropertyToAttributeName(propertyName), String(value));
+        }
+
+        __delete(propertyName) {
+            this.__element.removeAttribute(datasetPropertyToAttributeName(propertyName));
+        }
+
+        toString() {
+            return "[object DOMStringMap]";
+        }
+    }
+
+    function createDatasetProxy(element) {
+        const target = new DOMStringMap(element);
+        return new Proxy(target, {
+            get(currentTarget, property, receiver) {
+                if (typeof property === "string" && !(property in currentTarget)) {
+                    return currentTarget.__get(property);
+                }
+                return Reflect.get(currentTarget, property, receiver);
+            },
+            set(currentTarget, property, value, receiver) {
+                if (typeof property === "string" && !(property in currentTarget)) {
+                    currentTarget.__set(property, value);
+                    return true;
+                }
+                return Reflect.set(currentTarget, property, value, receiver);
+            },
+            deleteProperty(currentTarget, property) {
+                if (typeof property === "string" && !(property in currentTarget)) {
+                    currentTarget.__delete(property);
+                    return true;
+                }
+                return Reflect.deleteProperty(currentTarget, property);
+            },
+            has(currentTarget, property) {
+                if (typeof property === "string" && !(property in currentTarget)) {
+                    return currentTarget.__has(property);
+                }
+                return Reflect.has(currentTarget, property);
+            },
+            ownKeys(currentTarget) {
+                return currentTarget.__keys();
+            },
+            getOwnPropertyDescriptor(currentTarget, property) {
+                if (typeof property === "string" && currentTarget.__has(property)) {
+                    return {
+                        configurable: true,
+                        enumerable: true,
+                        value: currentTarget.__get(property),
+                        writable: true,
+                    };
+                }
+                return Reflect.getOwnPropertyDescriptor(currentTarget, property);
+            },
+        });
+    }
+
     class Element extends Node {
         constructor(tagName = "div") {
             const normalized = String(tagName).toUpperCase();
@@ -445,6 +545,7 @@
             this.attributes = new Map();
             this.style = createStyleDeclaration();
             this.__classList = new DOMTokenList(this, "class");
+            this.__dataset = createDatasetProxy(this);
         }
 
         cloneNode(deep = false) {
@@ -511,6 +612,10 @@
 
         get classList() {
             return this.__classList;
+        }
+
+        get dataset() {
+            return this.__dataset;
         }
 
         get children() {
