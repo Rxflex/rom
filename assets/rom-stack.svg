@@ -1,82 +1,134 @@
 <svg width="1600" height="780" viewBox="0 0 1600 780" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
   <title id="title">ROM architecture overview</title>
-  <desc id="desc">Three-layer diagram showing rom-core, rom-webapi, and rom-runtime with compatibility probes and browser-facing APIs.</desc>
+  <desc id="desc">Mechanical copper and steel diagram showing rom-runtime, rom-webapi, and rom-core stacked as interlocking layers.</desc>
   <defs>
-    <linearGradient id="bg" x1="120" y1="40" x2="1480" y2="740" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#0F172A"/>
-      <stop offset="1" stop-color="#111827"/>
+    <linearGradient id="bg" x1="80" y1="40" x2="1520" y2="740" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#16110F"/>
+      <stop offset="1" stop-color="#2A1913"/>
     </linearGradient>
-    <linearGradient id="panelA" x1="248" y1="192" x2="1358" y2="700" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#13223F"/>
-      <stop offset="1" stop-color="#0B1220"/>
+    <linearGradient id="frame" x1="90" y1="52" x2="1510" y2="730" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#533126"/>
+      <stop offset="1" stop-color="#2B1A14"/>
     </linearGradient>
-    <linearGradient id="panelB" x1="240" y1="220" x2="1346" y2="644" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#10203B"/>
-      <stop offset="1" stop-color="#101828"/>
+    <linearGradient id="metal" x1="260" y1="220" x2="1330" y2="690" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#201A18"/>
+      <stop offset="1" stop-color="#130F0E"/>
     </linearGradient>
-    <linearGradient id="runtime" x1="320" y1="244" x2="1280" y2="370" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#2563EB"/>
-      <stop offset="1" stop-color="#1D4ED8"/>
-    </linearGradient>
-    <linearGradient id="webapi" x1="320" y1="414" x2="1280" y2="540" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#0F766E"/>
-      <stop offset="1" stop-color="#115E59"/>
-    </linearGradient>
-    <linearGradient id="core" x1="320" y1="584" x2="1280" y2="710" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#B45309"/>
+    <linearGradient id="runtime" x1="290" y1="242" x2="1290" y2="360" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D97706"/>
       <stop offset="1" stop-color="#92400E"/>
     </linearGradient>
-    <filter id="shadow" x="180" y="120" width="1240" height="600" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+    <linearGradient id="webapi" x1="290" y1="402" x2="1290" y2="520" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#B45309"/>
+      <stop offset="1" stop-color="#78350F"/>
+    </linearGradient>
+    <linearGradient id="core" x1="290" y1="562" x2="1290" y2="648" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6B7280"/>
+      <stop offset="1" stop-color="#374151"/>
+    </linearGradient>
+    <filter id="shadow" x="180" y="140" width="1240" height="560" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
       <feFlood flood-opacity="0" result="BackgroundImageFix"/>
       <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
-      <feOffset dy="16"/>
+      <feOffset dy="18"/>
       <feGaussianBlur stdDeviation="30"/>
       <feComposite in2="hardAlpha" operator="out"/>
-      <feColorMatrix type="matrix" values="0 0 0 0 0.00784314 0 0 0 0 0.0470588 0 0 0 0 0.152941 0 0 0 0.42 0"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.05 0 0 0 0 0.03 0 0 0 0 0.02 0 0 0 0.48 0"/>
       <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_1"/>
       <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_1" result="shape"/>
     </filter>
+    <clipPath id="clip">
+      <rect x="20" y="20" width="1560" height="740" rx="34"/>
+    </clipPath>
     <style>
-      .title { font: 700 64px 'Segoe UI', Arial, sans-serif; fill: #F8FAFC; }
-      .subtitle { font: 400 26px 'Segoe UI', Arial, sans-serif; fill: #BFDBFE; }
-      .label { font: 700 32px 'Segoe UI', Arial, sans-serif; fill: #F8FAFC; }
-      .body { font: 500 21px 'Segoe UI', Arial, sans-serif; fill: #E5EEF8; }
-      .chip { font: 700 18px 'Segoe UI', Arial, sans-serif; fill: #DCE7F4; }
-      .small { font: 600 18px 'Segoe UI', Arial, sans-serif; fill: #CBD5E1; }
+      .title { font: 700 62px 'Segoe UI', Arial, sans-serif; fill: #FFF7ED; }
+      .subtitle { font: 400 25px 'Segoe UI', Arial, sans-serif; fill: #FDE7C7; }
+      .label { font: 700 32px 'Segoe UI', Arial, sans-serif; fill: #FFF7ED; }
+      .body { font: 500 21px 'Segoe UI', Arial, sans-serif; fill: #F4E7D7; }
+      .chip { font: 700 18px 'Segoe UI', Arial, sans-serif; fill: #F7E6CE; }
+      .small { font: 600 18px 'Segoe UI', Arial, sans-serif; fill: #E7D7C5; }
     </style>
+    <g id="gearLarge">
+      <circle r="54" fill="#4B5563"/>
+      <circle r="44" fill="#1F2937"/>
+      <circle r="15" fill="#9CA3AF"/>
+      <rect x="-8" y="-76" width="16" height="24" rx="4" fill="#9A3412"/>
+      <rect x="-8" y="52" width="16" height="24" rx="4" fill="#9A3412"/>
+      <rect x="52" y="-8" width="24" height="16" rx="4" fill="#9A3412"/>
+      <rect x="-76" y="-8" width="24" height="16" rx="4" fill="#9A3412"/>
+      <rect x="-8" y="-76" width="16" height="24" rx="4" transform="rotate(45)" fill="#9A3412"/>
+      <rect x="-8" y="-76" width="16" height="24" rx="4" transform="rotate(90)" fill="#9A3412"/>
+      <rect x="-8" y="-76" width="16" height="24" rx="4" transform="rotate(135)" fill="#9A3412"/>
+      <rect x="-8" y="-76" width="16" height="24" rx="4" transform="rotate(180)" fill="#9A3412"/>
+      <rect x="-8" y="-76" width="16" height="24" rx="4" transform="rotate(225)" fill="#9A3412"/>
+      <rect x="-8" y="-76" width="16" height="24" rx="4" transform="rotate(270)" fill="#9A3412"/>
+      <rect x="-8" y="-76" width="16" height="24" rx="4" transform="rotate(315)" fill="#9A3412"/>
+    </g>
+    <g id="gearSmall">
+      <circle r="34" fill="#78716C"/>
+      <circle r="27" fill="#292524"/>
+      <circle r="9" fill="#D6D3D1"/>
+      <rect x="-5" y="-48" width="10" height="16" rx="3" fill="#C2410C"/>
+      <rect x="-5" y="32" width="10" height="16" rx="3" fill="#C2410C"/>
+      <rect x="32" y="-5" width="16" height="10" rx="3" fill="#C2410C"/>
+      <rect x="-48" y="-5" width="16" height="10" rx="3" fill="#C2410C"/>
+      <rect x="-5" y="-48" width="10" height="16" rx="3" transform="rotate(45)" fill="#C2410C"/>
+      <rect x="-5" y="-48" width="10" height="16" rx="3" transform="rotate(90)" fill="#C2410C"/>
+      <rect x="-5" y="-48" width="10" height="16" rx="3" transform="rotate(135)" fill="#C2410C"/>
+      <rect x="-5" y="-48" width="10" height="16" rx="3" transform="rotate(180)" fill="#C2410C"/>
+      <rect x="-5" y="-48" width="10" height="16" rx="3" transform="rotate(225)" fill="#C2410C"/>
+      <rect x="-5" y="-48" width="10" height="16" rx="3" transform="rotate(270)" fill="#C2410C"/>
+      <rect x="-5" y="-48" width="10" height="16" rx="3" transform="rotate(315)" fill="#C2410C"/>
+    </g>
   </defs>
 
-  <rect width="1600" height="780" rx="36" fill="url(#bg)"/>
-  <circle cx="1328" cy="120" r="210" fill="#1D4ED8" fill-opacity="0.08"/>
-  <circle cx="202" cy="692" r="180" fill="#14B8A6" fill-opacity="0.08"/>
+  <g clip-path="url(#clip)">
+    <rect width="1600" height="780" fill="url(#bg)"/>
+    <rect x="20" y="20" width="1560" height="740" rx="34" fill="url(#frame)" stroke="#A16207" stroke-width="2"/>
+    <rect x="36" y="36" width="1528" height="708" rx="28" fill="none" stroke="#D97706" stroke-opacity="0.22"/>
 
-  <text x="210" y="120" class="title">ROM</text>
-  <text x="210" y="164" class="subtitle">Browser-like runtime architecture without Chromium</text>
+    <path d="M94 138H1506" stroke="#F59E0B" stroke-opacity="0.12" stroke-width="2" stroke-dasharray="10 10"/>
+    <path d="M94 690H1506" stroke="#F59E0B" stroke-opacity="0.12" stroke-width="2" stroke-dasharray="10 10"/>
 
-  <g filter="url(#shadow)">
-    <rect x="210" y="198" width="1180" height="500" rx="30" fill="url(#panelA)"/>
-    <rect x="228" y="216" width="1144" height="464" rx="26" stroke="#243247" stroke-width="2" fill="url(#panelB)"/>
+    <g opacity="0.88">
+      <use href="#gearLarge" transform="translate(1310 126)"/>
+      <use href="#gearSmall" transform="translate(1452 174)"/>
+      <use href="#gearLarge" transform="translate(202 650)"/>
+      <use href="#gearSmall" transform="translate(310 574)"/>
+    </g>
 
-    <rect x="292" y="246" width="1016" height="112" rx="24" fill="url(#runtime)"/>
-    <text x="332" y="300" class="label">rom-runtime</text>
-    <text x="332" y="338" class="body">High-level runtime assembly, configuration, probes, compatibility harnesses</text>
-    <rect x="996" y="272" width="268" height="44" rx="22" fill="#0F172A" fill-opacity="0.34" stroke="#93C5FD" stroke-opacity="0.32"/>
-    <text x="1026" y="300" class="chip">surface_snapshot • fingerprint_probe</text>
+    <text x="116" y="114" class="title">ROM</text>
+    <text x="116" y="156" class="subtitle">Rust-driven browser runtime built like a machine, not bundled like a browser.</text>
 
-    <rect x="292" y="416" width="1016" height="112" rx="24" fill="url(#webapi)"/>
-    <text x="332" y="470" class="label">rom-webapi</text>
-    <text x="332" y="508" class="body">Browser API bootstrap: DOM-ish globals, fetch, workers, crypto, streams, networking</text>
-    <rect x="930" y="442" width="334" height="44" rx="22" fill="#052E2B" fill-opacity="0.26" stroke="#5EEAD4" stroke-opacity="0.28"/>
-    <text x="958" y="470" class="chip">fetch • WebSocket • EventSource • WebCrypto</text>
+    <g filter="url(#shadow)">
+      <rect x="214" y="196" width="1172" height="500" rx="30" fill="url(#metal)" stroke="#6B3E2E" stroke-width="2"/>
+      <circle cx="246" cy="228" r="7" fill="#F59E0B"/>
+      <circle cx="1354" cy="228" r="7" fill="#F59E0B"/>
+      <circle cx="246" cy="664" r="7" fill="#F59E0B"/>
+      <circle cx="1354" cy="664" r="7" fill="#F59E0B"/>
 
-    <rect x="292" y="586" width="1016" height="74" rx="24" fill="url(#core)"/>
-    <text x="332" y="632" class="label">rom-core</text>
-    <text x="540" y="632" class="body">Embedded JavaScript engine wrapper, execution lifecycle, host bindings</text>
+      <rect x="284" y="244" width="1032" height="112" rx="22" fill="url(#runtime)" stroke="#F59E0B" stroke-opacity="0.26"/>
+      <text x="326" y="299" class="label">rom-runtime</text>
+      <text x="326" y="336" class="body">High-level runtime assembly, probes, compatibility harnesses, configuration</text>
+      <rect x="987" y="270" width="279" height="46" rx="23" fill="#2B1A14" stroke="#FDBA74" stroke-opacity="0.28"/>
+      <text x="1016" y="299" class="chip">surface_snapshot • fingerprint_probe</text>
+
+      <rect x="284" y="404" width="1032" height="112" rx="22" fill="url(#webapi)" stroke="#FB923C" stroke-opacity="0.22"/>
+      <text x="326" y="459" class="label">rom-webapi</text>
+      <text x="326" y="496" class="body">Host objects and browser APIs: fetch, DOM-ish globals, streams, workers, crypto</text>
+      <rect x="962" y="430" width="304" height="46" rx="23" fill="#2B1A14" stroke="#FDBA74" stroke-opacity="0.24"/>
+      <text x="994" y="459" class="chip">WebSocket • EventSource • WebCrypto</text>
+
+      <rect x="284" y="564" width="1032" height="78" rx="22" fill="url(#core)" stroke="#D1D5DB" stroke-opacity="0.18"/>
+      <text x="326" y="611" class="label">rom-core</text>
+      <text x="520" y="611" class="body">Embedded JavaScript engine wrapper, host bindings, execution lifecycle</text>
+    </g>
+
+    <path d="M800 356V404" stroke="#FDBA74" stroke-width="6" stroke-linecap="round" stroke-dasharray="10 10"/>
+    <path d="M800 516V564" stroke="#D6D3D1" stroke-width="6" stroke-linecap="round" stroke-dasharray="10 10"/>
+    <path d="M116 640H214" stroke="#C2410C" stroke-width="8" stroke-linecap="round"/>
+    <path d="M1386 640H1484" stroke="#C2410C" stroke-width="8" stroke-linecap="round"/>
+
+    <rect x="112" y="698" width="1376" height="38" rx="19" fill="#1C1917" stroke="#6B3E2E"/>
+    <text x="142" y="723" class="small">Design intent: a small, inspectable runtime that grows browser fidelity through measurable compatibility machinery.</text>
   </g>
-
-  <path d="M800 358V416" stroke="#93C5FD" stroke-width="6" stroke-linecap="round" stroke-dasharray="10 10"/>
-  <path d="M800 528V586" stroke="#5EEAD4" stroke-width="6" stroke-linecap="round" stroke-dasharray="10 10"/>
-
-  <rect x="210" y="704" width="1180" height="44" rx="22" fill="#0F172A" stroke="#1E293B"/>
-  <text x="242" y="732" class="small">Design goal: a small, inspectable runtime that grows browser compatibility through measured probes instead of shipping a full browser engine.</text>
 </svg>
