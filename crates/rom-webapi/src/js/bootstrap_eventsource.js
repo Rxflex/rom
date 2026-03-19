@@ -47,12 +47,14 @@
                 });
 
                 if (!response.ok) {
-                    throw new Error(`Failed to connect: ${response.status}`);
+                    this.__failConnection(controller);
+                    return;
                 }
 
                 const contentType = response.headers.get("content-type") ?? "";
                 if (!contentType.toLowerCase().includes("text/event-stream")) {
-                    throw new TypeError("Invalid EventSource content-type");
+                    this.__failConnection(controller);
+                    return;
                 }
 
                 if (this.readyState === EventSource.CLOSED || this.__controller !== controller) {
@@ -138,6 +140,23 @@
 
                     this.__connect();
                 }, this.__retry);
+            });
+        }
+
+        __failConnection(controller) {
+            if (this.readyState === EventSource.CLOSED || this.__controller !== controller) {
+                return;
+            }
+
+            this.__controller = null;
+
+            queueMicrotask(() => {
+                if (this.readyState === EventSource.CLOSED) {
+                    return;
+                }
+
+                this.readyState = EventSource.CLOSED;
+                emitEventSourceEvent(this, "error", new Event("error"));
             });
         }
     }
