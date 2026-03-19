@@ -1,6 +1,7 @@
     class Request {
         constructor(input, init = {}) {
             if (input instanceof Request) {
+                validateRequestSourceBodyReuse(input, init);
                 this.url = init.url ?? input.url;
                 this.method = String(init.method ?? input.method ?? "GET").toUpperCase();
                 this.headers = new Headers(init.headers ?? input.headers);
@@ -501,6 +502,18 @@
         if (method === "GET" || method === "HEAD") {
             throw new TypeError(
                 "Failed to construct 'Request': Request with GET/HEAD method cannot have body.",
+            );
+        }
+    }
+
+    function validateRequestSourceBodyReuse(input, init) {
+        if (init.body !== undefined) {
+            return;
+        }
+
+        if (input.bodyUsed || input.__bodyState?.readerLocked) {
+            throw new TypeError(
+                "Failed to construct 'Request': Cannot construct a Request from a Request with a used body.",
             );
         }
     }
