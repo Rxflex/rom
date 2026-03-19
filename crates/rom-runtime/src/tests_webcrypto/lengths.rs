@@ -256,6 +256,13 @@ fn validates_webcrypto_derive_operation_edges() {
                             null,
                         ),
                     ),
+                    negativeLength: await captureError(() =>
+                        crypto.subtle.deriveBits(
+                            { name: "PBKDF2", salt, iterations: 1000, hash: "SHA-256" },
+                            baseKey,
+                            -8,
+                        ),
+                    ),
                     unsupportedAlgorithm: await captureError(() =>
                         crypto.subtle.deriveBits(
                             { name: "AES-GCM", iv: new Uint8Array(12) },
@@ -281,6 +288,7 @@ fn validates_webcrypto_derive_operation_edges() {
     let value: serde_json::Value = serde_json::from_str(&result).unwrap();
 
     assert_eq!(value["nullLength"]["name"], "OperationError");
+    assert_eq!(value["negativeLength"]["name"], "OperationError");
     assert_eq!(value["unsupportedAlgorithm"]["name"], "NotSupportedError");
     assert_eq!(value["unsupportedTarget"]["name"], "NotSupportedError");
 }
