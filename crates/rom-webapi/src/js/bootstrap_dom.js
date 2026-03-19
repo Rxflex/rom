@@ -402,6 +402,14 @@
             return this.childNodes.length > 0;
         }
 
+        getRootNode(_options = undefined) {
+            let current = this;
+            while (current?.parentNode) {
+                current = current.parentNode;
+            }
+            return current ?? this;
+        }
+
         normalize() {
             let index = 0;
             while (index < this.childNodes.length) {

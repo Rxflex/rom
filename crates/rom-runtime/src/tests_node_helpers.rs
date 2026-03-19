@@ -25,6 +25,11 @@ fn supports_node_document_and_connection_helpers() {
                     textOwnerDocument: text.ownerDocument === document,
                     fragmentOwnerDocument: fragment.ownerDocument === document,
                     fragmentChildOwnerDocument: fragmentChild.ownerDocument === document,
+                    childRootNode: child.getRootNode() === document,
+                    textRootNode: text.getRootNode({ composed: true }) === document,
+                    fragmentRootNode: fragment.getRootNode() === fragment,
+                    fragmentChildRootNode: fragmentChild.getRootNode() === fragment,
+                    detachedRootNode: detached.getRootNode() === detached,
                     childIsConnected: child.isConnected,
                     textIsConnected: text.isConnected,
                     detachedIsConnected: detached.isConnected,
@@ -54,6 +59,11 @@ fn supports_node_document_and_connection_helpers() {
     assert_eq!(value["beforeDetach"]["textOwnerDocument"], true);
     assert_eq!(value["beforeDetach"]["fragmentOwnerDocument"], true);
     assert_eq!(value["beforeDetach"]["fragmentChildOwnerDocument"], true);
+    assert_eq!(value["beforeDetach"]["childRootNode"], true);
+    assert_eq!(value["beforeDetach"]["textRootNode"], true);
+    assert_eq!(value["beforeDetach"]["fragmentRootNode"], true);
+    assert_eq!(value["beforeDetach"]["fragmentChildRootNode"], true);
+    assert_eq!(value["beforeDetach"]["detachedRootNode"], true);
     assert_eq!(value["beforeDetach"]["childIsConnected"], true);
     assert_eq!(value["beforeDetach"]["textIsConnected"], true);
     assert_eq!(value["beforeDetach"]["detachedIsConnected"], false);
