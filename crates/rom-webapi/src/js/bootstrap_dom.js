@@ -98,6 +98,10 @@
 
         for (const insertedNode of normalizedInsertedNodes) {
             insertedNode.parentNode = parent;
+            assignOwnerDocumentToSubtree(
+                insertedNode,
+                parent.nodeType === 9 ? parent : parent.ownerDocument,
+            );
             notifyIframeLoad(insertedNode);
         }
 
@@ -195,6 +199,35 @@
         });
     }
 
+    function getOwnerDocumentForNode(node) {
+        if (!node) {
+            return null;
+        }
+        if (node.nodeType === 9) {
+            return null;
+        }
+        if (node.__ownerDocument) {
+            return node.__ownerDocument;
+        }
+        if (node.parentNode) {
+            return node.parentNode.nodeType === 9
+                ? node.parentNode
+                : node.parentNode.ownerDocument;
+        }
+        return null;
+    }
+
+    function assignOwnerDocumentToSubtree(node, ownerDocument) {
+        if (!node || node.nodeType === 9) {
+            return;
+        }
+
+        node.__ownerDocument = ownerDocument;
+        for (const child of node.childNodes ?? []) {
+            assignOwnerDocumentToSubtree(child, ownerDocument);
+        }
+    }
+
     class Node extends EventTarget {
         constructor(nodeType, nodeName) {
             super();
@@ -202,6 +235,7 @@
             this.nodeName = nodeName;
             this.parentNode = null;
             this.childNodes = [];
+            this.__ownerDocument = null;
         }
 
         appendChild(node) {
@@ -319,6 +353,27 @@
             return index >= 0 ? this.parentNode.childNodes[index + 1] ?? null : null;
         }
 
+        get ownerDocument() {
+            return getOwnerDocumentForNode(this);
+        }
+
+        get isConnected() {
+            let current = this;
+            while (current) {
+                if (current.nodeType === 9) {
+                    return true;
+                }
+                current = current.parentNode ?? null;
+            }
+            return false;
+        }
+
+        get nodeValue() {
+            return null;
+        }
+
+        set nodeValue(_value) {}
+
         get textContent() {
             return this.childNodes.map((child) => child.textContent ?? "").join("");
         }
@@ -342,6 +397,10 @@
             }
             return false;
         }
+
+        hasChildNodes() {
+            return this.childNodes.length > 0;
+        }
     }
 
     class Text extends Node {
@@ -351,7 +410,9 @@
         }
 
         cloneNode() {
-            return new Text(this.data);
+            const clone = new Text(this.data);
+            clone.__ownerDocument = this.ownerDocument;
+            return clone;
         }
 
         get textContent() {
@@ -366,6 +427,14 @@
                 target: this,
                 oldValue,
             });
+        }
+
+        get nodeValue() {
+            return this.data;
+        }
+
+        set nodeValue(value) {
+            this.textContent = value;
         }
     }
 
@@ -588,6 +657,7 @@
 
         cloneNode(deep = false) {
             const clone = new this.constructor(this.tagName);
+            clone.__ownerDocument = this.ownerDocument;
             for (const [key, value] of this.attributes.entries()) {
                 clone.setAttribute(key, value);
             }
@@ -857,6 +927,7 @@
 
         cloneNode(deep = false) {
             const clone = new DocumentFragment();
+            clone.__ownerDocument = this.ownerDocument;
             if (deep) {
                 for (const child of this.childNodes) {
                     clone.appendChild(child.cloneNode(true));
@@ -903,6 +974,9 @@
             this.documentElement = new Element("html");
             this.head = new Element("head");
             this.body = new Element("body");
+            assignOwnerDocumentToSubtree(this.documentElement, this);
+            assignOwnerDocumentToSubtree(this.head, this);
+            assignOwnerDocumentToSubtree(this.body, this);
             this.appendChild(this.documentElement);
             this.documentElement.appendChild(this.head);
             this.documentElement.appendChild(this.body);
@@ -910,17 +984,22 @@
 
         createElement(tagName) {
             const normalized = String(tagName).toLowerCase();
+            let element = null;
             if (normalized === "canvas") {
-                return new HTMLCanvasElement();
+                element = new HTMLCanvasElement();
+            } else if (normalized === "iframe") {
+                element = new HTMLIFrameElement();
+            } else {
+                element = new Element(tagName);
             }
-            if (normalized === "iframe") {
-                return new HTMLIFrameElement();
-            }
-            return new Element(tagName);
+            assignOwnerDocumentToSubtree(element, this);
+            return element;
         }
 
         createTextNode(data) {
-            return new Text(data);
+            const node = new Text(data);
+            assignOwnerDocumentToSubtree(node, this);
+            return node;
         }
 
         createEvent(type) {
@@ -928,7 +1007,9 @@
         }
 
         createDocumentFragment() {
-            return new DocumentFragment();
+            const fragment = new DocumentFragment();
+            assignOwnerDocumentToSubtree(fragment, this);
+            return fragment;
         }
 
         querySelector(selector) {
