@@ -17,10 +17,11 @@
             this.__closed = false;
         }
 
-        postMessage(data, _transfer = []) {
+        postMessage(data, transfer = []) {
             if (!this.__peer || this.__closed || this.__peer.__closed) {
                 return;
             }
+            validateTransferList(transfer);
 
             const event = new MessageEvent("message", {
                 data: structuredClone(data),
@@ -139,10 +140,11 @@
             executeWorkerSource(this.__scope, source);
         }
 
-        postMessage(data, _transfer = []) {
+        postMessage(data, transfer = []) {
             if (this.__terminated) {
                 return;
             }
+            validateTransferList(transfer);
 
             const event = new MessageEvent("message", {
                 data: structuredClone(data),
@@ -184,10 +186,11 @@
         scope.close = () => {
             terminateWorker(worker);
         };
-        scope.postMessage = (data, _transfer = []) => {
+        scope.postMessage = (data, transfer = []) => {
             if (worker.__terminated) {
                 return;
             }
+            validateTransferList(transfer);
 
             const event = new MessageEvent("message", {
                 data: structuredClone(data),
@@ -417,8 +420,34 @@
         return decodeBytes(bytes);
     }
 
-    function structuredClone(value, _options = undefined) {
+    function structuredClone(value, options = undefined) {
+        validateStructuredCloneOptions(options);
         return cloneStructuredValue(value, new Map());
+    }
+
+    function validateStructuredCloneOptions(options) {
+        if (options === undefined || options === null) {
+            return;
+        }
+
+        if (typeof options !== "object") {
+            throw new TypeError("The provided value is not a valid structured clone options dictionary.");
+        }
+
+        validateTransferList(options.transfer ?? []);
+    }
+
+    function validateTransferList(transfer) {
+        if (transfer === undefined || transfer === null) {
+            return;
+        }
+
+        const values = Array.isArray(transfer) ? transfer : [transfer];
+        if (values.length === 0) {
+            return;
+        }
+
+        throw new TypeError("DataCloneError");
     }
 
     function cloneStructuredValue(value, seen) {
