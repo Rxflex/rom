@@ -1,70 +1,102 @@
 <svg width="1600" height="620" viewBox="0 0 1600 620" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
   <title id="title">ROM compatibility loop</title>
-  <desc id="desc">A pipeline diagram showing implementation, probes, harness comparison, and iteration for compatibility work.</desc>
+  <desc id="desc">Rusty mechanical workflow diagram showing implementation, probes, comparison, and iteration connected through gears and shafts.</desc>
   <defs>
-    <linearGradient id="bg2" x1="80" y1="40" x2="1520" y2="580" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#0B1220"/>
-      <stop offset="1" stop-color="#111827"/>
+    <linearGradient id="bg2" x1="110" y1="30" x2="1490" y2="590" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#140F0D"/>
+      <stop offset="1" stop-color="#261712"/>
     </linearGradient>
-    <linearGradient id="accent1" x1="130" y1="198" x2="430" y2="378" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#2563EB"/>
-      <stop offset="1" stop-color="#1E40AF"/>
+    <linearGradient id="box1" x1="118" y1="188" x2="414" y2="374" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D97706"/>
+      <stop offset="1" stop-color="#9A3412"/>
     </linearGradient>
-    <linearGradient id="accent2" x1="470" y1="198" x2="770" y2="378" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#0F766E"/>
-      <stop offset="1" stop-color="#115E59"/>
-    </linearGradient>
-    <linearGradient id="accent3" x1="810" y1="198" x2="1110" y2="378" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#7C3AED"/>
-      <stop offset="1" stop-color="#5B21B6"/>
-    </linearGradient>
-    <linearGradient id="accent4" x1="1150" y1="198" x2="1450" y2="378" gradientUnits="userSpaceOnUse">
+    <linearGradient id="box2" x1="452" y1="188" x2="748" y2="374" gradientUnits="userSpaceOnUse">
       <stop stop-color="#B45309"/>
-      <stop offset="1" stop-color="#92400E"/>
+      <stop offset="1" stop-color="#7C2D12"/>
     </linearGradient>
+    <linearGradient id="box3" x1="786" y1="188" x2="1082" y2="374" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#78716C"/>
+      <stop offset="1" stop-color="#44403C"/>
+    </linearGradient>
+    <linearGradient id="box4" x1="1120" y1="188" x2="1416" y2="374" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EA580C"/>
+      <stop offset="1" stop-color="#9A3412"/>
+    </linearGradient>
+    <clipPath id="clip2">
+      <rect x="20" y="20" width="1560" height="580" rx="34"/>
+    </clipPath>
     <style>
-      .title { font: 700 56px 'Segoe UI', Arial, sans-serif; fill: #F8FAFC; }
-      .subtitle { font: 400 24px 'Segoe UI', Arial, sans-serif; fill: #CBD5E1; }
-      .boxTitle { font: 700 28px 'Segoe UI', Arial, sans-serif; fill: #F8FAFC; }
-      .boxText { font: 500 20px 'Segoe UI', Arial, sans-serif; fill: #E5E7EB; }
-      .footer { font: 600 18px 'Segoe UI', Arial, sans-serif; fill: #CBD5E1; }
+      .title { font: 700 54px 'Segoe UI', Arial, sans-serif; fill: #FFF7ED; }
+      .subtitle { font: 400 24px 'Segoe UI', Arial, sans-serif; fill: #FDE7C7; }
+      .boxTitle { font: 700 28px 'Segoe UI', Arial, sans-serif; fill: #FFF7ED; }
+      .boxText { font: 500 20px 'Segoe UI', Arial, sans-serif; fill: #F5E7D9; }
+      .footer { font: 600 18px 'Segoe UI', Arial, sans-serif; fill: #E7D7C5; }
     </style>
+    <g id="gearMid">
+      <circle r="28" fill="#6B7280"/>
+      <circle r="21" fill="#292524"/>
+      <circle r="7" fill="#E7E5E4"/>
+      <rect x="-4" y="-40" width="8" height="14" rx="2" fill="#B45309"/>
+      <rect x="-4" y="26" width="8" height="14" rx="2" fill="#B45309"/>
+      <rect x="26" y="-4" width="14" height="8" rx="2" fill="#B45309"/>
+      <rect x="-40" y="-4" width="14" height="8" rx="2" fill="#B45309"/>
+      <rect x="-4" y="-40" width="8" height="14" rx="2" transform="rotate(45)" fill="#B45309"/>
+      <rect x="-4" y="-40" width="8" height="14" rx="2" transform="rotate(90)" fill="#B45309"/>
+      <rect x="-4" y="-40" width="8" height="14" rx="2" transform="rotate(135)" fill="#B45309"/>
+      <rect x="-4" y="-40" width="8" height="14" rx="2" transform="rotate(180)" fill="#B45309"/>
+      <rect x="-4" y="-40" width="8" height="14" rx="2" transform="rotate(225)" fill="#B45309"/>
+      <rect x="-4" y="-40" width="8" height="14" rx="2" transform="rotate(270)" fill="#B45309"/>
+      <rect x="-4" y="-40" width="8" height="14" rx="2" transform="rotate(315)" fill="#B45309"/>
+    </g>
   </defs>
 
-  <rect width="1600" height="620" rx="34" fill="url(#bg2)"/>
-  <text x="120" y="106" class="title">Compatibility loop, not guesswork</text>
-  <text x="120" y="146" class="subtitle">ROM grows by implementing browser-facing behavior, then validating it through probes, snapshots, and real harnesses.</text>
+  <g clip-path="url(#clip2)">
+    <rect width="1600" height="620" fill="url(#bg2)"/>
+    <rect x="20" y="20" width="1560" height="580" rx="34" fill="none" stroke="#A16207" stroke-width="2"/>
+    <rect x="36" y="36" width="1528" height="548" rx="28" fill="none" stroke="#F59E0B" stroke-opacity="0.18"/>
 
-  <rect x="120" y="198" width="300" height="180" rx="28" fill="url(#accent1)"/>
-  <text x="156" y="252" class="boxTitle">1. Implement</text>
-  <text x="156" y="296" class="boxText">Add host objects, Web APIs,</text>
-  <text x="156" y="326" class="boxText">browser-like validation,</text>
-  <text x="156" y="356" class="boxText">and runtime behavior.</text>
+    <text x="116" y="104" class="title">Compatibility loop, driven by machinery</text>
+    <text x="116" y="144" class="subtitle">ROM grows through implementation, probes, harness comparison, and focused iteration.</text>
 
-  <rect x="460" y="198" width="300" height="180" rx="28" fill="url(#accent2)"/>
-  <text x="496" y="252" class="boxTitle">2. Probe</text>
-  <text x="496" y="296" class="boxText">Capture structured snapshots</text>
-  <text x="496" y="326" class="boxText">through runtime probes and</text>
-  <text x="496" y="356" class="boxText">focused test cases.</text>
+    <path d="M116 170H1484" stroke="#F59E0B" stroke-opacity="0.14" stroke-width="2" stroke-dasharray="10 10"/>
 
-  <rect x="800" y="198" width="300" height="180" rx="28" fill="url(#accent3)"/>
-  <text x="836" y="252" class="boxTitle">3. Compare</text>
-  <text x="836" y="296" class="boxText">Run the vendored</text>
-  <text x="836" y="326" class="boxText">FingerprintJS harness and</text>
-  <text x="836" y="356" class="boxText">browser reference checks.</text>
+    <rect x="116" y="190" width="298" height="176" rx="26" fill="url(#box1)" stroke="#FDBA74" stroke-opacity="0.24"/>
+    <text x="152" y="244" class="boxTitle">1. Implement</text>
+    <text x="152" y="288" class="boxText">Add browser-facing APIs,</text>
+    <text x="152" y="318" class="boxText">host behavior, validation,</text>
+    <text x="152" y="348" class="boxText">and runtime semantics.</text>
 
-  <rect x="1140" y="198" width="300" height="180" rx="28" fill="url(#accent4)"/>
-  <text x="1176" y="252" class="boxTitle">4. Iterate</text>
-  <text x="1176" y="296" class="boxText">Tighten semantics, exceptions,</text>
-  <text x="1176" y="326" class="boxText">surface fidelity, and</text>
-  <text x="1176" y="356" class="boxText">acceptance expectations.</text>
+    <rect x="450" y="190" width="298" height="176" rx="26" fill="url(#box2)" stroke="#FDBA74" stroke-opacity="0.24"/>
+    <text x="486" y="244" class="boxTitle">2. Probe</text>
+    <text x="486" y="288" class="boxText">Capture snapshots and</text>
+    <text x="486" y="318" class="boxText">targeted tests for the</text>
+    <text x="486" y="348" class="boxText">exposed browser surface.</text>
 
-  <path d="M420 288H460" stroke="#93C5FD" stroke-width="8" stroke-linecap="round"/>
-  <path d="M760 288H800" stroke="#5EEAD4" stroke-width="8" stroke-linecap="round"/>
-  <path d="M1100 288H1140" stroke="#C4B5FD" stroke-width="8" stroke-linecap="round"/>
-  <path d="M1290 410C1290 500 970 538 790 538C610 538 290 510 290 430" stroke="#F59E0B" stroke-width="6" stroke-linecap="round" stroke-dasharray="12 12"/>
-  <polygon points="306,440 282,430 302,412" fill="#F59E0B"/>
+    <rect x="784" y="190" width="298" height="176" rx="26" fill="url(#box3)" stroke="#D6D3D1" stroke-opacity="0.18"/>
+    <text x="820" y="244" class="boxTitle">3. Compare</text>
+    <text x="820" y="288" class="boxText">Run FingerprintJS and</text>
+    <text x="820" y="318" class="boxText">reference browser checks</text>
+    <text x="820" y="348" class="boxText">against the same surface.</text>
 
-  <rect x="120" y="472" width="1320" height="72" rx="24" fill="#0F172A" stroke="#1E293B"/>
-  <text x="156" y="516" class="footer">The project is acceptance-driven: runtime probes + harness parity + browser reference behavior.</text>
+    <rect x="1118" y="190" width="298" height="176" rx="26" fill="url(#box4)" stroke="#FDBA74" stroke-opacity="0.24"/>
+    <text x="1154" y="244" class="boxTitle">4. Iterate</text>
+    <text x="1154" y="288" class="boxText">Tighten semantics, fix</text>
+    <text x="1154" y="318" class="boxText">gaps, and repeat the</text>
+    <text x="1154" y="348" class="boxText">compatibility cycle.</text>
+
+    <path d="M414 278H450" stroke="#F59E0B" stroke-width="8" stroke-linecap="round"/>
+    <path d="M748 278H784" stroke="#F59E0B" stroke-width="8" stroke-linecap="round"/>
+    <path d="M1082 278H1118" stroke="#F59E0B" stroke-width="8" stroke-linecap="round"/>
+
+    <use href="#gearMid" transform="translate(432 278)"/>
+    <use href="#gearMid" transform="translate(766 278)"/>
+    <use href="#gearMid" transform="translate(1100 278)"/>
+    <use href="#gearMid" transform="translate(1310 468) scale(1.22)"/>
+    <use href="#gearMid" transform="translate(244 468) scale(1.22)"/>
+
+    <path d="M1310 424C1310 510 990 544 798 544C606 544 286 516 244 424" stroke="#EA580C" stroke-width="6" stroke-linecap="round" stroke-dasharray="12 12"/>
+
+    <rect x="116" y="456" width="1368" height="82" rx="22" fill="#1C1917" stroke="#6B3E2E"/>
+    <text x="152" y="503" class="footer">Acceptance is the flywheel: runtime probes, browser harnesses, and repeated behavioral tightening.</text>
+  </g>
 </svg>
