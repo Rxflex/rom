@@ -1,11 +1,13 @@
 [package]
 name = "rom-core"
+description = "Core embedded JavaScript runtime layer for ROM"
 version.workspace = true
 edition.workspace = true
+homepage.workspace = true
 license.workspace = true
+repository.workspace = true
 
 [dependencies]
 rquickjs.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-

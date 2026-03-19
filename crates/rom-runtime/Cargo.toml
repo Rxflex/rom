@@ -1,8 +1,11 @@
 [package]
 name = "rom-runtime"
+description = "High-level browser-like runtime assembly for ROM"
 version.workspace = true
 edition.workspace = true
+homepage.workspace = true
 license.workspace = true
+repository.workspace = true
 
 [dependencies]
 rom-core.workspace = true

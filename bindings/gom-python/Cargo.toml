@@ -1,8 +1,11 @@
 [package]
 name = "rom-python-native"
+description = "Native PyO3 bridge for the ROM Python bindings"
 version = "0.1.0"
 edition = "2024"
+homepage = "https://github.com/Rxflex/rom"
 license = "MIT"
+repository = "https://github.com/Rxflex/rom"
 
 [lib]
 name = "_native"
