@@ -12,9 +12,22 @@
     class MessagePort extends EventTarget {
         constructor() {
             super();
-            this.onmessage = null;
             this.__peer = null;
             this.__closed = false;
+            this.__started = false;
+            this.__messageQueue = [];
+            this.__onmessage = null;
+        }
+
+        get onmessage() {
+            return this.__onmessage;
+        }
+
+        set onmessage(listener) {
+            this.__onmessage = typeof listener === "function" ? listener : null;
+            if (this.__onmessage) {
+                this.start();
+            }
         }
 
         postMessage(data, transfer = []) {
@@ -35,18 +48,48 @@
                     return;
                 }
 
-                if (typeof this.__peer.onmessage === "function") {
-                    this.__peer.onmessage(event);
-                }
-
-                this.__peer.dispatchEvent(event);
+                this.__peer.__enqueueMessage(event);
             });
         }
 
-        start() {}
+        start() {
+            if (this.__closed) {
+                return;
+            }
+
+            this.__started = true;
+            this.__drainMessageQueue();
+        }
 
         close() {
             this.__closed = true;
+            this.__messageQueue = [];
+        }
+
+        __enqueueMessage(event) {
+            if (this.__closed) {
+                return;
+            }
+
+            this.__messageQueue.push(event);
+            if (this.__started) {
+                this.__drainMessageQueue();
+            }
+        }
+
+        __drainMessageQueue() {
+            if (!this.__started || this.__closed) {
+                return;
+            }
+
+            while (this.__messageQueue.length > 0) {
+                const event = this.__messageQueue.shift();
+                if (typeof this.__onmessage === "function") {
+                    this.__onmessage(event);
+                }
+
+                this.dispatchEvent(event);
+            }
         }
     }
 

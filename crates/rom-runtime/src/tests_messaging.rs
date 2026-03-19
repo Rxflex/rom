@@ -118,6 +118,47 @@ fn supports_structured_clone_for_error_objects() {
 }
 
 #[test]
+fn starts_message_ports_and_drains_queued_messages() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const channel = new MessageChannel();
+                const received = [];
+
+                channel.port2.addEventListener("message", (event) => {
+                    received.push(event.data);
+                });
+
+                channel.port1.postMessage("before-start");
+                await new Promise((resolve) => setTimeout(resolve, 0));
+
+                const beforeStart = received.slice();
+                channel.port2.start();
+                await new Promise((resolve) => setTimeout(resolve, 0));
+
+                channel.port1.postMessage("after-start");
+                await new Promise((resolve) => setTimeout(resolve, 0));
+
+                return {
+                    beforeStart,
+                    afterStart: received,
+                };
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(value["beforeStart"], serde_json::json!([]));
+    assert_eq!(
+        value["afterStart"],
+        serde_json::json!(["before-start", "after-start"])
+    );
+}
+
+#[test]
 fn reports_worker_startup_errors_as_async_events() {
     let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
     let result = runtime
