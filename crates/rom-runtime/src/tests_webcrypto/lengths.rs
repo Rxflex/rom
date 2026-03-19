@@ -284,3 +284,68 @@ fn validates_webcrypto_derive_operation_edges() {
     assert_eq!(value["unsupportedAlgorithm"]["name"], "NotSupportedError");
     assert_eq!(value["unsupportedTarget"]["name"], "NotSupportedError");
 }
+
+#[test]
+fn validates_webcrypto_unwrap_key_payload_edges() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const encoder = new TextEncoder();
+                const iv = new Uint8Array(12);
+                const wrappingKey = await crypto.subtle.generateKey(
+                    { name: "AES-GCM", length: 128 },
+                    true,
+                    ["wrapKey", "unwrapKey", "encrypt", "decrypt"],
+                );
+
+                async function captureError(action) {
+                    try {
+                        await action();
+                        return null;
+                    } catch (error) {
+                        return { name: String(error.name), message: String(error.message) };
+                    }
+                }
+
+                const invalidJsonPayload = await crypto.subtle.encrypt(
+                    { name: "AES-GCM", iv },
+                    wrappingKey,
+                    encoder.encode("{bad json"),
+                );
+
+                return {
+                    invalidFormat: await captureError(() =>
+                        crypto.subtle.unwrapKey(
+                            "pkcs8",
+                            invalidJsonPayload,
+                            wrappingKey,
+                            { name: "AES-GCM", iv },
+                            { name: "AES-GCM" },
+                            true,
+                            ["encrypt", "decrypt"],
+                        ),
+                    ),
+                    invalidJwkJson: await captureError(() =>
+                        crypto.subtle.unwrapKey(
+                            "jwk",
+                            invalidJsonPayload,
+                            wrappingKey,
+                            { name: "AES-GCM", iv },
+                            { name: "AES-GCM" },
+                            true,
+                            ["encrypt", "decrypt"],
+                        ),
+                    ),
+                };
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+
+    assert_eq!(value["invalidFormat"]["name"], "NotSupportedError");
+    assert_eq!(value["invalidJwkJson"]["name"], "DataError");
+}
