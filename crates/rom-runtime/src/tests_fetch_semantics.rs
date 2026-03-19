@@ -106,6 +106,79 @@ fn supports_readable_stream_body_consumption() {
 }
 
 #[test]
+fn enforces_request_body_method_guards_and_null_body_surfaces() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                let getBodyError = "";
+                try {
+                    new Request("https://rom.local/get", {
+                        method: "GET",
+                        body: "blocked",
+                    });
+                } catch (error) {
+                    getBodyError = String(error.message ?? error);
+                }
+
+                let headBodyError = "";
+                try {
+                    await fetch("https://rom.local/head", {
+                        method: "HEAD",
+                        body: "blocked",
+                    });
+                } catch (error) {
+                    headBodyError = String(error.message ?? error);
+                }
+
+                const emptyRequest = new Request("https://rom.local/no-body");
+                const explicitEmptyRequest = new Request("https://rom.local/empty", {
+                    method: "POST",
+                    body: "",
+                });
+                const emptyResponse = new Response();
+                const explicitEmptyResponse = new Response("");
+                const clonedEmptyRequest = emptyRequest.clone();
+                const clonedEmptyResponse = emptyResponse.clone();
+
+                return {
+                    getBodyError,
+                    headBodyError,
+                    emptyRequestBodyIsNull: emptyRequest.body === null,
+                    explicitEmptyRequestBodyIsStream: explicitEmptyRequest.body instanceof ReadableStream,
+                    emptyResponseBodyIsStream: emptyResponse.body instanceof ReadableStream,
+                    explicitEmptyResponseBodyIsStream: explicitEmptyResponse.body instanceof ReadableStream,
+                    clonedEmptyRequestBodyIsNull: clonedEmptyRequest.body === null,
+                    clonedEmptyResponseBodyIsStream: clonedEmptyResponse.body instanceof ReadableStream,
+                    explicitEmptyRequestText: await explicitEmptyRequest.text(),
+                    explicitEmptyResponseText: await explicitEmptyResponse.text(),
+                };
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(
+        value["getBodyError"],
+        "Failed to construct 'Request': Request with GET/HEAD method cannot have body."
+    );
+    assert_eq!(
+        value["headBodyError"],
+        "Failed to construct 'Request': Request with GET/HEAD method cannot have body."
+    );
+    assert_eq!(value["emptyRequestBodyIsNull"], true);
+    assert_eq!(value["explicitEmptyRequestBodyIsStream"], true);
+    assert_eq!(value["emptyResponseBodyIsStream"], true);
+    assert_eq!(value["explicitEmptyResponseBodyIsStream"], true);
+    assert_eq!(value["clonedEmptyRequestBodyIsNull"], true);
+    assert_eq!(value["clonedEmptyResponseBodyIsStream"], true);
+    assert_eq!(value["explicitEmptyRequestText"], "");
+    assert_eq!(value["explicitEmptyResponseText"], "");
+}
+
+#[test]
 fn supports_redirect_modes() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();

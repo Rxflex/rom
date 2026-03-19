@@ -8,11 +8,15 @@
                 this.credentials = init.credentials ?? input.credentials ?? "same-origin";
                 this.mode = init.mode ?? input.mode ?? "cors";
                 this.redirect = init.redirect ?? input.redirect ?? "follow";
+                this.__bodyIsNull = init.body === undefined
+                    ? Boolean(input.__bodyIsNull)
+                    : !hasBodyValue(init.body);
                 this.__bodyBytes = init.body === undefined
                     ? input.__bodyBytes.slice()
                     : normalizeBody(init.body, this.headers);
+                validateRequestBody(this.method, this.__bodyIsNull);
                 this.bodyUsed = false;
-                attachBodyState(this, this.__bodyBytes);
+                attachBodyState(this, this.__bodyBytes, { nullBody: this.__bodyIsNull });
                 return;
             }
 
@@ -23,9 +27,11 @@
             this.credentials = init.credentials ?? "same-origin";
             this.mode = init.mode ?? "cors";
             this.redirect = init.redirect ?? "follow";
+            this.__bodyIsNull = !hasBodyValue(init.body);
             this.__bodyBytes = normalizeBody(init.body, this.headers);
+            validateRequestBody(this.method, this.__bodyIsNull);
             this.bodyUsed = false;
-            attachBodyState(this, this.__bodyBytes);
+            attachBodyState(this, this.__bodyBytes, { nullBody: this.__bodyIsNull });
         }
 
         clone() {
@@ -79,7 +85,7 @@
             this.headers = new Headers(init.headers);
             this.__bodyBytes = normalizeBody(body, this.headers);
             this.bodyUsed = false;
-            this.__bodyIsNull = Boolean(init.__nullBody);
+            this.__bodyIsNull = Boolean(init.__nullBody) || !hasBodyValue(body);
             attachBodyState(this, this.__bodyBytes, { nullBody: this.__bodyIsNull });
         }
 
@@ -485,6 +491,18 @@
             normalized === "pragma" ||
             exposedHeaders.has(normalized)
         );
+    }
+
+    function validateRequestBody(method, isNullBody) {
+        if (isNullBody) {
+            return;
+        }
+
+        if (method === "GET" || method === "HEAD") {
+            throw new TypeError(
+                "Failed to construct 'Request': Request with GET/HEAD method cannot have body.",
+            );
+        }
     }
 
     URL.createObjectURL = (object) => {
