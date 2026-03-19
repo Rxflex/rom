@@ -430,11 +430,21 @@
             return serializeFormData(body, headers);
         }
 
+        if (body instanceof URLSearchParams) {
+            if (!headers.has("content-type")) {
+                headers.set("content-type", "application/x-www-form-urlencoded;charset=UTF-8");
+            }
+            return Array.from(new TextEncoder().encode(body.toString()));
+        }
+
         if (typeof body === "string") {
+            if (!headers.has("content-type")) {
+                headers.set("content-type", "text/plain;charset=UTF-8");
+            }
             return Array.from(new TextEncoder().encode(body));
         }
 
-        return Array.from(new TextEncoder().encode(JSON.stringify(body)));
+        return Array.from(new TextEncoder().encode(String(body)));
     }
 
     function decodeBytes(bytes) {

@@ -355,6 +355,57 @@ fn validates_request_method_and_enum_values() {
 }
 
 #[test]
+fn applies_bodyinit_content_types_and_string_coercion() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const textRequest = new Request("https://rom.local/text", {
+                    method: "POST",
+                    body: "hello",
+                });
+                const paramsRequest = new Request("https://rom.local/params", {
+                    method: "POST",
+                    body: new URLSearchParams([
+                        ["alpha", "1"],
+                        ["beta", "two words"],
+                    ]),
+                });
+                const objectRequest = new Request("https://rom.local/object", {
+                    method: "POST",
+                    body: { answer: 42 },
+                });
+                const textResponse = new Response("hello");
+
+                return {
+                    textRequestContentType: textRequest.headers.get("content-type"),
+                    textRequestBody: await textRequest.text(),
+                    paramsRequestContentType: paramsRequest.headers.get("content-type"),
+                    paramsRequestBody: await paramsRequest.text(),
+                    objectRequestBody: await objectRequest.text(),
+                    textResponseContentType: textResponse.headers.get("content-type"),
+                    textResponseBody: await textResponse.text(),
+                };
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(value["textRequestContentType"], "text/plain;charset=UTF-8");
+    assert_eq!(value["textRequestBody"], "hello");
+    assert_eq!(
+        value["paramsRequestContentType"],
+        "application/x-www-form-urlencoded;charset=UTF-8"
+    );
+    assert_eq!(value["paramsRequestBody"], "alpha=1&beta=two+words");
+    assert_eq!(value["objectRequestBody"], "[object Object]");
+    assert_eq!(value["textResponseContentType"], "text/plain;charset=UTF-8");
+    assert_eq!(value["textResponseBody"], "hello");
+}
+
+#[test]
 fn supports_redirect_modes() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();
