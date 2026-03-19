@@ -3,6 +3,7 @@ use std::{
     io::{Read, Write},
     net::TcpListener,
     thread,
+    time::{Duration, Instant},
 };
 
 #[test]
@@ -231,4 +232,82 @@ fn supports_eventsource_reconnect_retry_and_last_event_id() {
         ])
     );
     assert_eq!(value["readyState"], 2);
+}
+
+#[test]
+fn closes_eventsource_on_fatal_http_failure_without_reconnect() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let address = listener.local_addr().unwrap();
+
+    let server = thread::spawn(move || {
+        let deadline = Instant::now() + Duration::from_millis(200);
+        let mut accepted = 0usize;
+
+        while Instant::now() < deadline {
+            match listener.accept() {
+                Ok((mut stream, _)) => {
+                    accepted += 1;
+                    let mut buffer = [0_u8; 2048];
+                    let read = stream.read(&mut buffer).unwrap();
+                    let request = String::from_utf8_lossy(&buffer[..read]);
+
+                    assert!(request.contains("GET /events HTTP/1.1"));
+
+                    let response = concat!(
+                        "HTTP/1.1 500 Internal Server Error\r\n",
+                        "Content-Type: text/plain\r\n",
+                        "Content-Length: 0\r\n",
+                        "\r\n"
+                    );
+                    stream.write_all(response.as_bytes()).unwrap();
+                    stream.flush().unwrap();
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    thread::sleep(Duration::from_millis(10));
+                }
+                Err(error) => panic!("unexpected accept error: {error}"),
+            }
+        }
+
+        accepted
+    });
+
+    let runtime = RomRuntime::new(RuntimeConfig {
+        href: format!("http://{address}/"),
+        ..RuntimeConfig::default()
+    })
+    .unwrap();
+    let script = r#"
+        (async () => {
+            const events = [];
+            const source = new EventSource("/events");
+
+            return await new Promise((resolve) => {
+                source.onerror = () => {
+                    events.push({ type: "error", readyState: source.readyState });
+                    setTimeout(() => {
+                        resolve({
+                            events,
+                            readyState: source.readyState,
+                            url: source.url,
+                        });
+                    }, 80);
+                };
+            });
+        })()
+    "#;
+
+    let result = runtime.eval_async_as_string(script).unwrap();
+    let accepted = server.join().unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+
+    assert_eq!(accepted, 1);
+    assert_eq!(
+        value["events"],
+        serde_json::json!([{ "type": "error", "readyState": 2 }])
+    );
+    assert_eq!(value["readyState"], 2);
+    assert_eq!(value["url"], format!("http://{address}/events"));
 }
