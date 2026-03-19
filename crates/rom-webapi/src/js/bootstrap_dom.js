@@ -917,6 +917,10 @@
             return this.attributes.has(String(name));
         }
 
+        hasAttributes() {
+            return this.attributes.size > 0;
+        }
+
         removeAttribute(name) {
             const normalizedName = String(name);
             const oldValue = this.getAttribute(normalizedName);

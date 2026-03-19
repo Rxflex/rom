@@ -11,6 +11,7 @@ fn supports_node_document_and_connection_helpers() {
                 const child = document.createElement("span");
                 const text = document.createTextNode("hello");
                 child.appendChild(text);
+                child.setAttribute("data-state", "ready");
 
                 const detached = document.createElement("em");
                 const fragment = document.createDocumentFragment();
@@ -41,6 +42,8 @@ fn supports_node_document_and_connection_helpers() {
                     documentIsConnected: document.isConnected,
                     hostHasChildren: host.hasChildNodes(),
                     detachedHasChildren: detached.hasChildNodes(),
+                    childHasAttributes: child.hasAttributes(),
+                    detachedHasAttributes: detached.hasAttributes(),
                     elementNodeValue: child.nodeValue === null,
                     textNodeValue: text.nodeValue,
                 };
@@ -91,6 +94,8 @@ fn supports_node_document_and_connection_helpers() {
     assert_eq!(value["beforeDetach"]["documentIsConnected"], true);
     assert_eq!(value["beforeDetach"]["hostHasChildren"], true);
     assert_eq!(value["beforeDetach"]["detachedHasChildren"], false);
+    assert_eq!(value["beforeDetach"]["childHasAttributes"], true);
+    assert_eq!(value["beforeDetach"]["detachedHasAttributes"], false);
     assert_eq!(value["beforeDetach"]["elementNodeValue"], true);
     assert_eq!(value["beforeDetach"]["textNodeValue"], "hello");
     assert_eq!(
