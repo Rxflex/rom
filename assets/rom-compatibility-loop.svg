@@ -1,102 +1,54 @@
-<svg width="1600" height="620" viewBox="0 0 1600 620" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
-  <title id="title">ROM compatibility loop</title>
-  <desc id="desc">Rusty mechanical workflow diagram showing implementation, probes, comparison, and iteration connected through gears and shafts.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 350" width="920" height="350">
   <defs>
-    <linearGradient id="bg2" x1="110" y1="30" x2="1490" y2="590" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#140F0D"/>
-      <stop offset="1" stop-color="#261712"/>
-    </linearGradient>
-    <linearGradient id="box1" x1="118" y1="188" x2="414" y2="374" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#D97706"/>
-      <stop offset="1" stop-color="#9A3412"/>
-    </linearGradient>
-    <linearGradient id="box2" x1="452" y1="188" x2="748" y2="374" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#B45309"/>
-      <stop offset="1" stop-color="#7C2D12"/>
-    </linearGradient>
-    <linearGradient id="box3" x1="786" y1="188" x2="1082" y2="374" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#78716C"/>
-      <stop offset="1" stop-color="#44403C"/>
-    </linearGradient>
-    <linearGradient id="box4" x1="1120" y1="188" x2="1416" y2="374" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#EA580C"/>
-      <stop offset="1" stop-color="#9A3412"/>
-    </linearGradient>
-    <clipPath id="clip2">
-      <rect x="20" y="20" width="1560" height="580" rx="34"/>
-    </clipPath>
     <style>
-      .title { font: 700 54px 'Segoe UI', Arial, sans-serif; fill: #FFF7ED; }
-      .subtitle { font: 400 24px 'Segoe UI', Arial, sans-serif; fill: #FDE7C7; }
-      .boxTitle { font: 700 28px 'Segoe UI', Arial, sans-serif; fill: #FFF7ED; }
-      .boxText { font: 500 20px 'Segoe UI', Arial, sans-serif; fill: #F5E7D9; }
-      .footer { font: 600 18px 'Segoe UI', Arial, sans-serif; fill: #E7D7C5; }
+      .title { font-family: system-ui, -apple-system, sans-serif; font-size: 24px; font-weight: bold; fill: #f1f5f9; text-anchor: middle; }
+      .box-title { font-family: monospace; font-size: 18px; font-weight: bold; fill: #ffffff; text-anchor: middle; }
+      .box-text { font-family: system-ui, -apple-system, sans-serif; font-size: 14px; fill: #cbd5e1; text-anchor: middle; }
+      .arrow-text { font-family: system-ui, -apple-system, sans-serif; font-size: 13px; font-weight: 600; fill: #f97316; text-anchor: middle; }
+      .glowing-box { filter: drop-shadow(0 0 8px rgba(249, 115, 22, 0.4)); } /* Rust color glow */
+      .glowing-arrow { filter: drop-shadow(0 0 4px rgba(241, 245, 249, 0.5)); }
     </style>
-    <g id="gearMid">
-      <circle r="28" fill="#6B7280"/>
-      <circle r="21" fill="#292524"/>
-      <circle r="7" fill="#E7E5E4"/>
-      <rect x="-4" y="-40" width="8" height="14" rx="2" fill="#B45309"/>
-      <rect x="-4" y="26" width="8" height="14" rx="2" fill="#B45309"/>
-      <rect x="26" y="-4" width="14" height="8" rx="2" fill="#B45309"/>
-      <rect x="-40" y="-4" width="14" height="8" rx="2" fill="#B45309"/>
-      <rect x="-4" y="-40" width="8" height="14" rx="2" transform="rotate(45)" fill="#B45309"/>
-      <rect x="-4" y="-40" width="8" height="14" rx="2" transform="rotate(90)" fill="#B45309"/>
-      <rect x="-4" y="-40" width="8" height="14" rx="2" transform="rotate(135)" fill="#B45309"/>
-      <rect x="-4" y="-40" width="8" height="14" rx="2" transform="rotate(180)" fill="#B45309"/>
-      <rect x="-4" y="-40" width="8" height="14" rx="2" transform="rotate(225)" fill="#B45309"/>
-      <rect x="-4" y="-40" width="8" height="14" rx="2" transform="rotate(270)" fill="#B45309"/>
-      <rect x="-4" y="-40" width="8" height="14" rx="2" transform="rotate(315)" fill="#B45309"/>
-    </g>
+    
+    <marker id="fine_arrowhead" markerWidth="12" markerHeight="8" refX="11" refY="4" orient="auto">
+      <polygon points="0 0, 12 4, 0 8" fill="#f1f5f9" />
+    </marker>
   </defs>
 
-  <g clip-path="url(#clip2)">
-    <rect width="1600" height="620" fill="url(#bg2)"/>
-    <rect x="20" y="20" width="1560" height="580" rx="34" fill="none" stroke="#A16207" stroke-width="2"/>
-    <rect x="36" y="36" width="1528" height="548" rx="28" fill="none" stroke="#F59E0B" stroke-opacity="0.18"/>
+  <rect width="100%" height="100%" fill="#0e1116" rx="16" />
 
-    <text x="116" y="104" class="title">Compatibility loop, driven by machinery</text>
-    <text x="116" y="144" class="subtitle">ROM grows through implementation, probes, harness comparison, and focused iteration.</text>
+  <text x="460" y="45" class="title">MEASURABLE COMPATIBILITY LOOP</text>
 
-    <path d="M116 170H1484" stroke="#F59E0B" stroke-opacity="0.14" stroke-width="2" stroke-dasharray="10 10"/>
-
-    <rect x="116" y="190" width="298" height="176" rx="26" fill="url(#box1)" stroke="#FDBA74" stroke-opacity="0.24"/>
-    <text x="152" y="244" class="boxTitle">1. Implement</text>
-    <text x="152" y="288" class="boxText">Add browser-facing APIs,</text>
-    <text x="152" y="318" class="boxText">host behavior, validation,</text>
-    <text x="152" y="348" class="boxText">and runtime semantics.</text>
-
-    <rect x="450" y="190" width="298" height="176" rx="26" fill="url(#box2)" stroke="#FDBA74" stroke-opacity="0.24"/>
-    <text x="486" y="244" class="boxTitle">2. Probe</text>
-    <text x="486" y="288" class="boxText">Capture snapshots and</text>
-    <text x="486" y="318" class="boxText">targeted tests for the</text>
-    <text x="486" y="348" class="boxText">exposed browser surface.</text>
-
-    <rect x="784" y="190" width="298" height="176" rx="26" fill="url(#box3)" stroke="#D6D3D1" stroke-opacity="0.18"/>
-    <text x="820" y="244" class="boxTitle">3. Compare</text>
-    <text x="820" y="288" class="boxText">Run FingerprintJS and</text>
-    <text x="820" y="318" class="boxText">reference browser checks</text>
-    <text x="820" y="348" class="boxText">against the same surface.</text>
-
-    <rect x="1118" y="190" width="298" height="176" rx="26" fill="url(#box4)" stroke="#FDBA74" stroke-opacity="0.24"/>
-    <text x="1154" y="244" class="boxTitle">4. Iterate</text>
-    <text x="1154" y="288" class="boxText">Tighten semantics, fix</text>
-    <text x="1154" y="318" class="boxText">gaps, and repeat the</text>
-    <text x="1154" y="348" class="boxText">compatibility cycle.</text>
-
-    <path d="M414 278H450" stroke="#F59E0B" stroke-width="8" stroke-linecap="round"/>
-    <path d="M748 278H784" stroke="#F59E0B" stroke-width="8" stroke-linecap="round"/>
-    <path d="M1082 278H1118" stroke="#F59E0B" stroke-width="8" stroke-linecap="round"/>
-
-    <use href="#gearMid" transform="translate(432 278)"/>
-    <use href="#gearMid" transform="translate(766 278)"/>
-    <use href="#gearMid" transform="translate(1100 278)"/>
-    <use href="#gearMid" transform="translate(1310 468) scale(1.22)"/>
-    <use href="#gearMid" transform="translate(244 468) scale(1.22)"/>
-
-    <path d="M1310 424C1310 510 990 544 798 544C606 544 286 516 244 424" stroke="#EA580C" stroke-width="6" stroke-linecap="round" stroke-dasharray="12 12"/>
-
-    <rect x="116" y="456" width="1368" height="82" rx="22" fill="#1C1917" stroke="#6B3E2E"/>
-    <text x="152" y="503" class="footer">Acceptance is the flywheel: runtime probes, browser harnesses, and repeated behavioral tightening.</text>
+  <g transform="translate(60, 100)" class="glowing-box">
+    <rect x="0" y="0" width="220" height="130" rx="12" fill="#1f1a2a" stroke="#f97316" stroke-width="2.5" />
+    <text x="110" y="40" class="box-title">1. ROM Runtime</text>
+    <text x="110" y="70" class="box-text">Rust Web API Shims</text>
+    <text x="110" y="90" class="box-text">Embedded JS Engine</text>
+    <text x="110" y="110" class="box-text">Validation Shims</text>
   </g>
+
+  <g transform="translate(350, 100)">
+    <rect x="0" y="0" width="220" height="130" rx="12" fill="#142131" stroke="#2dd4bf" stroke-width="2.5" />
+    <text x="110" y="40" class="box-title">2. Internal Probes</text>
+    <text x="110" y="70" class="box-text">surface_snapshot()</text>
+    <text x="110" y="90" class="box-text">fingerprint_probe()</text>
+    <text x="110" y="110" class="box-text">Validation Harness</text>
+  </g>
+
+  <g transform="translate(640, 100)">
+    <rect x="0" y="0" width="220" height="130" rx="12" fill="#1a1a20" stroke="#f1f5f9" stroke-width="2.5" />
+    <text x="110" y="40" class="box-title">3. Reference Engine</text>
+    <text x="110" y="70" class="box-text">Playwright Runner</text>
+    <text x="110" y="90" class="box-text">Chromium Baseline</text>
+    <text x="110" y="110" class="box-text">Diff &amp; Acceptance</text>
+  </g>
+
+  <path d="M 280 165 L 340 165" stroke="#f1f5f9" stroke-width="2.5" class="glowing-arrow" marker-end="url(#fine_arrowhead)" />
+  <text x="310" y="155" class="arrow-text">Expose</text>
+
+  <path d="M 570 165 L 630 165" stroke="#f1f5f9" stroke-width="2.5" class="glowing-arrow" marker-end="url(#fine_arrowhead)" />
+  <text x="600" y="155" class="arrow-text">Compare</text>
+
+  <path d="M 750 230 Q 750 290 460 290 Q 170 290 170 235" fill="none" stroke="#f1f5f9" stroke-width="2.5" stroke-dasharray="8 6" marker-end="url(#fine_arrowhead)" class="glowing-arrow" />
+  <text x="460" y="315" class="arrow-text">Adjust &amp; Tighten Compatibility (Measurable Loop)</text>
+
 </svg>

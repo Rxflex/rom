@@ -1,134 +1,75 @@
-<svg width="1600" height="780" viewBox="0 0 1600 780" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
-  <title id="title">ROM architecture overview</title>
-  <desc id="desc">Mechanical copper and steel diagram showing rom-runtime, rom-webapi, and rom-core stacked as interlocking layers.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 400" width="920" height="400">
   <defs>
-    <linearGradient id="bg" x1="80" y1="40" x2="1520" y2="740" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#16110F"/>
-      <stop offset="1" stop-color="#2A1913"/>
+    <linearGradient id="gradRuntime" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#581c87" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#9333ea" stop-opacity="0.3"/>
     </linearGradient>
-    <linearGradient id="frame" x1="90" y1="52" x2="1510" y2="730" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#533126"/>
-      <stop offset="1" stop-color="#2B1A14"/>
+    <linearGradient id="gradCore" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f97316" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#ea580c" stop-opacity="0.3"/>
     </linearGradient>
-    <linearGradient id="metal" x1="260" y1="220" x2="1330" y2="690" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#201A18"/>
-      <stop offset="1" stop-color="#130F0E"/>
+    <linearGradient id="gradApi" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0d9488" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#2dd4bf" stop-opacity="0.3"/>
     </linearGradient>
-    <linearGradient id="runtime" x1="290" y1="242" x2="1290" y2="360" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#D97706"/>
-      <stop offset="1" stop-color="#92400E"/>
-    </linearGradient>
-    <linearGradient id="webapi" x1="290" y1="402" x2="1290" y2="520" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#B45309"/>
-      <stop offset="1" stop-color="#78350F"/>
-    </linearGradient>
-    <linearGradient id="core" x1="290" y1="562" x2="1290" y2="648" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#6B7280"/>
-      <stop offset="1" stop-color="#374151"/>
-    </linearGradient>
-    <filter id="shadow" x="180" y="140" width="1240" height="560" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
-      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
-      <feOffset dy="18"/>
-      <feGaussianBlur stdDeviation="30"/>
-      <feComposite in2="hardAlpha" operator="out"/>
-      <feColorMatrix type="matrix" values="0 0 0 0 0.05 0 0 0 0 0.03 0 0 0 0 0.02 0 0 0 0.48 0"/>
-      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_1"/>
-      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_1" result="shape"/>
-    </filter>
-    <clipPath id="clip">
-      <rect x="20" y="20" width="1560" height="740" rx="34"/>
-    </clipPath>
+    
     <style>
-      .title { font: 700 62px 'Segoe UI', Arial, sans-serif; fill: #FFF7ED; }
-      .subtitle { font: 400 25px 'Segoe UI', Arial, sans-serif; fill: #FDE7C7; }
-      .label { font: 700 32px 'Segoe UI', Arial, sans-serif; fill: #FFF7ED; }
-      .body { font: 500 21px 'Segoe UI', Arial, sans-serif; fill: #F4E7D7; }
-      .chip { font: 700 18px 'Segoe UI', Arial, sans-serif; fill: #F7E6CE; }
-      .small { font: 600 18px 'Segoe UI', Arial, sans-serif; fill: #E7D7C5; }
+      .title { font-family: system-ui, -apple-system, sans-serif; font-size: 26px; font-weight: 700; fill: #f1f5f9; }
+      .subtitle { font-family: system-ui, -apple-system, sans-serif; font-size: 15px; fill: #cbd5e1; }
+      .box-title { font-family: monospace; font-size: 19px; font-weight: 600; fill: #e2e8f0; }
+      .box-text { font-family: system-ui, -apple-system, sans-serif; font-size: 14px; fill: #f1f5f9; }
+      .badge { font-family: monospace; font-size: 13px; font-weight: bold; fill: #ffffff; }
+      .icon { fill: #f97316; } /* Rust icon color */
     </style>
-    <g id="gearLarge">
-      <circle r="54" fill="#4B5563"/>
-      <circle r="44" fill="#1F2937"/>
-      <circle r="15" fill="#9CA3AF"/>
-      <rect x="-8" y="-76" width="16" height="24" rx="4" fill="#9A3412"/>
-      <rect x="-8" y="52" width="16" height="24" rx="4" fill="#9A3412"/>
-      <rect x="52" y="-8" width="24" height="16" rx="4" fill="#9A3412"/>
-      <rect x="-76" y="-8" width="24" height="16" rx="4" fill="#9A3412"/>
-      <rect x="-8" y="-76" width="16" height="24" rx="4" transform="rotate(45)" fill="#9A3412"/>
-      <rect x="-8" y="-76" width="16" height="24" rx="4" transform="rotate(90)" fill="#9A3412"/>
-      <rect x="-8" y="-76" width="16" height="24" rx="4" transform="rotate(135)" fill="#9A3412"/>
-      <rect x="-8" y="-76" width="16" height="24" rx="4" transform="rotate(180)" fill="#9A3412"/>
-      <rect x="-8" y="-76" width="16" height="24" rx="4" transform="rotate(225)" fill="#9A3412"/>
-      <rect x="-8" y="-76" width="16" height="24" rx="4" transform="rotate(270)" fill="#9A3412"/>
-      <rect x="-8" y="-76" width="16" height="24" rx="4" transform="rotate(315)" fill="#9A3412"/>
-    </g>
-    <g id="gearSmall">
-      <circle r="34" fill="#78716C"/>
-      <circle r="27" fill="#292524"/>
-      <circle r="9" fill="#D6D3D1"/>
-      <rect x="-5" y="-48" width="10" height="16" rx="3" fill="#C2410C"/>
-      <rect x="-5" y="32" width="10" height="16" rx="3" fill="#C2410C"/>
-      <rect x="32" y="-5" width="16" height="10" rx="3" fill="#C2410C"/>
-      <rect x="-48" y="-5" width="16" height="10" rx="3" fill="#C2410C"/>
-      <rect x="-5" y="-48" width="10" height="16" rx="3" transform="rotate(45)" fill="#C2410C"/>
-      <rect x="-5" y="-48" width="10" height="16" rx="3" transform="rotate(90)" fill="#C2410C"/>
-      <rect x="-5" y="-48" width="10" height="16" rx="3" transform="rotate(135)" fill="#C2410C"/>
-      <rect x="-5" y="-48" width="10" height="16" rx="3" transform="rotate(180)" fill="#C2410C"/>
-      <rect x="-5" y="-48" width="10" height="16" rx="3" transform="rotate(225)" fill="#C2410C"/>
-      <rect x="-5" y="-48" width="10" height="16" rx="3" transform="rotate(270)" fill="#C2410C"/>
-      <rect x="-5" y="-48" width="10" height="16" rx="3" transform="rotate(315)" fill="#C2410C"/>
-    </g>
   </defs>
 
-  <g clip-path="url(#clip)">
-    <rect width="1600" height="780" fill="url(#bg)"/>
-    <rect x="20" y="20" width="1560" height="740" rx="34" fill="url(#frame)" stroke="#A16207" stroke-width="2"/>
-    <rect x="36" y="36" width="1528" height="708" rx="28" fill="none" stroke="#D97706" stroke-opacity="0.22"/>
-
-    <path d="M94 138H1506" stroke="#F59E0B" stroke-opacity="0.12" stroke-width="2" stroke-dasharray="10 10"/>
-    <path d="M94 690H1506" stroke="#F59E0B" stroke-opacity="0.12" stroke-width="2" stroke-dasharray="10 10"/>
-
-    <g opacity="0.88">
-      <use href="#gearLarge" transform="translate(1310 126)"/>
-      <use href="#gearSmall" transform="translate(1452 174)"/>
-      <use href="#gearLarge" transform="translate(202 650)"/>
-      <use href="#gearSmall" transform="translate(310 574)"/>
-    </g>
-
-    <text x="116" y="114" class="title">ROM</text>
-    <text x="116" y="156" class="subtitle">Rust-driven browser runtime built like a machine, not bundled like a browser.</text>
-
-    <g filter="url(#shadow)">
-      <rect x="214" y="196" width="1172" height="500" rx="30" fill="url(#metal)" stroke="#6B3E2E" stroke-width="2"/>
-      <circle cx="246" cy="228" r="7" fill="#F59E0B"/>
-      <circle cx="1354" cy="228" r="7" fill="#F59E0B"/>
-      <circle cx="246" cy="664" r="7" fill="#F59E0B"/>
-      <circle cx="1354" cy="664" r="7" fill="#F59E0B"/>
-
-      <rect x="284" y="244" width="1032" height="112" rx="22" fill="url(#runtime)" stroke="#F59E0B" stroke-opacity="0.26"/>
-      <text x="326" y="299" class="label">rom-runtime</text>
-      <text x="326" y="336" class="body">High-level runtime assembly, probes, compatibility harnesses, configuration</text>
-      <rect x="987" y="270" width="279" height="46" rx="23" fill="#2B1A14" stroke="#FDBA74" stroke-opacity="0.28"/>
-      <text x="1016" y="299" class="chip">surface_snapshot • fingerprint_probe</text>
-
-      <rect x="284" y="404" width="1032" height="112" rx="22" fill="url(#webapi)" stroke="#FB923C" stroke-opacity="0.22"/>
-      <text x="326" y="459" class="label">rom-webapi</text>
-      <text x="326" y="496" class="body">Host objects and browser APIs: fetch, DOM-ish globals, streams, workers, crypto</text>
-      <rect x="962" y="430" width="304" height="46" rx="23" fill="#2B1A14" stroke="#FDBA74" stroke-opacity="0.24"/>
-      <text x="994" y="459" class="chip">WebSocket • EventSource • WebCrypto</text>
-
-      <rect x="284" y="564" width="1032" height="78" rx="22" fill="url(#core)" stroke="#D1D5DB" stroke-opacity="0.18"/>
-      <text x="326" y="611" class="label">rom-core</text>
-      <text x="520" y="611" class="body">Embedded JavaScript engine wrapper, host bindings, execution lifecycle</text>
-    </g>
-
-    <path d="M800 356V404" stroke="#FDBA74" stroke-width="6" stroke-linecap="round" stroke-dasharray="10 10"/>
-    <path d="M800 516V564" stroke="#D6D3D1" stroke-width="6" stroke-linecap="round" stroke-dasharray="10 10"/>
-    <path d="M116 640H214" stroke="#C2410C" stroke-width="8" stroke-linecap="round"/>
-    <path d="M1386 640H1484" stroke="#C2410C" stroke-width="8" stroke-linecap="round"/>
-
-    <rect x="112" y="698" width="1376" height="38" rx="19" fill="#1C1917" stroke="#6B3E2E"/>
-    <text x="142" y="723" class="small">Design intent: a small, inspectable runtime that grows browser fidelity through measurable compatibility machinery.</text>
+  <rect width="100%" height="100%" fill="#0e1116" rx="16" />
+  <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+    <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#2a2a3a" stroke-width="0.5"/>
+  </pattern>
+  <rect width="100%" height="100%" fill="url(#grid)" rx="16"/>
+  
+  <g transform="translate(40, 30)">
+    <text x="0" y="0" class="title" dominant-baseline="hanging">ROM Workspace Architecture</text>
+    <text x="0" y="35" class="subtitle" dominant-baseline="hanging">A premium, modular stack for deterministic browser emulation</text>
   </g>
+
+  <rect x="40" y="110" width="840" height="260" rx="14" fill="url(#gradRuntime)" stroke="#9333ea" stroke-width="2" />
+  <rect x="40" y="110" width="180" height="38" rx="8" fill="#9333ea" />
+  <text x="58" y="135" class="badge">crates/rom-runtime</text>
+  <text x="235" y="135" class="box-text">High-level assembly, composes engine &amp; Web API</text>
+
+  <g transform="translate(70, 170)">
+    <rect x="0" y="0" width="370" height="170" rx="10" fill="url(#gradCore)" stroke="#f97316" stroke-width="1.8" />
+    <rect x="0" y="0" width="160" height="34" rx="8" fill="#f97316" />
+    <text x="14" y="23" class="badge">crates/rom-core</text>
+    
+    <text x="22" y="65" class="box-title">JS Engine Wrapper</text>
+    <circle cx="28" cy="92" r="5" fill="#f97316"/>
+    <text x="45" y="97" class="box-text">Lifecycle &amp; script execution</text>
+    <circle cx="28" cy="122" r="5" fill="#f97316"/>
+    <text x="45" y="127" class="box-text">Error handling &amp; memory</text>
+    <circle cx="28" cy="152" r="5" fill="#f97316"/>
+    <text x="45" y="157" class="box-text">Deterministic runtime context</text>
+    
+    <rect x="410" y="0" width="370" height="170" rx="10" fill="url(#gradApi)" stroke="#0d9488" stroke-width="1.8" />
+    <rect x="410" y="0" width="160" height="34" rx="8" fill="#0d9488" />
+    <text x="424" y="23" class="badge">crates/rom-webapi</text>
+
+    <text x="432" y="65" class="box-title">Browser API Surface</text>
+    <circle cx="438" cy="92" r="5" fill="#2dd4bf"/>
+    <text x="455" y="97" class="box-text">Networking (fetch, Streams, etc.)</text>
+    <circle cx="438" cy="122" r="5" fill="#2dd4bf"/>
+    <text x="455" y="127" class="box-text">Crypto, Validation, DOM Shims</text>
+    <circle cx="438" cy="152" r="5" fill="#2dd4bf"/>
+    <text x="455" y="157" class="box-text">Worker &amp; BroadcastChannel shims</text>
+  </g>
+
+  <path d="M 440 255 L 480 255" stroke="#f1f5f9" stroke-width="3" stroke-dasharray="6 4" marker-end="url(#premium_arrow)" />
+  
+  <defs>
+    <marker id="premium_arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#f1f5f9" />
+    </marker>
+  </defs>
 </svg>
