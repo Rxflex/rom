@@ -460,6 +460,64 @@ fn rejects_non_safelisted_methods_in_no_cors_mode() {
 }
 
 #[test]
+fn strips_non_safelisted_headers_in_no_cors_mode() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        let request = read_http_request(&mut stream);
+
+        assert!(request.contains("POST /opaque-headers HTTP/1.1"));
+        assert!(request.contains("accept-language: en-US"));
+        assert!(!request.contains("x-rom-test: blocked"));
+        assert!(!request.contains("content-type: application/json"));
+        assert!(!request.contains("content-type:"));
+
+        let response = concat!(
+            "HTTP/1.1 200 OK\r\n",
+            "Content-Type: text/plain\r\n",
+            "Content-Length: 2\r\n",
+            "\r\n",
+            "ok"
+        );
+
+        stream.write_all(response.as_bytes()).unwrap();
+        stream.flush().unwrap();
+    });
+
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let script = format!(
+        r#"
+        (async () => {{
+            const response = await fetch("http://{address}/opaque-headers", {{
+                method: "POST",
+                mode: "no-cors",
+                headers: {{
+                    "accept-language": "en-US",
+                    "content-type": "application/json",
+                    "x-rom-test": "blocked",
+                }},
+                body: "payload",
+            }});
+
+            return {{
+                type: response.type,
+                status: response.status,
+            }};
+        }})()
+        "#
+    );
+
+    let result = runtime.eval_async_as_string(&script).unwrap();
+    server.join().unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(value["type"], "opaque");
+    assert_eq!(value["status"], 0);
+}
+
+#[test]
 fn supports_redirect_modes() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();

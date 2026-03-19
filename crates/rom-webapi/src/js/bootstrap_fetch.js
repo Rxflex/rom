@@ -20,6 +20,7 @@
                     : normalizeBody(init.body, this.headers);
                 validateNoCorsRequestMode(this.method, this.mode);
                 validateRequestBody(this.method, this.__bodyIsNull);
+                sanitizeNoCorsRequestHeaders(this.headers, this.mode);
                 this.bodyUsed = false;
                 attachBodyState(this, this.__bodyBytes, { nullBody: this.__bodyIsNull });
                 return;
@@ -37,6 +38,7 @@
             this.__bodyBytes = normalizeBody(init.body, this.headers);
             validateNoCorsRequestMode(this.method, this.mode);
             validateRequestBody(this.method, this.__bodyIsNull);
+            sanitizeNoCorsRequestHeaders(this.headers, this.mode);
             this.bodyUsed = false;
             attachBodyState(this, this.__bodyBytes, { nullBody: this.__bodyIsNull });
         }
@@ -619,6 +621,18 @@
             throw new TypeError(
                 `Failed to construct 'Request': '${method}' is unsupported in no-cors mode.`,
             );
+        }
+    }
+
+    function sanitizeNoCorsRequestHeaders(headers, mode) {
+        if (mode !== "no-cors") {
+            return;
+        }
+
+        for (const [name, value] of headers) {
+            if (!isCorsSafelistedHeader(name, value)) {
+                headers.delete(name);
+            }
         }
     }
 
