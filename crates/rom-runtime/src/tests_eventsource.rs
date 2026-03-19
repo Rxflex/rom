@@ -334,3 +334,48 @@ fn validates_eventsource_constructor_url() {
 
     assert_eq!(value["name"], "SyntaxError");
 }
+
+#[test]
+fn normalizes_eventsource_init_dictionary() {
+    let runtime = RomRuntime::new(RuntimeConfig {
+        href: "http://example.test/base/".into(),
+        ..RuntimeConfig::default()
+    })
+    .unwrap();
+    let script = r#"
+        (() => {
+            const originalFetch = globalThis.fetch;
+            globalThis.fetch = () => new Promise(() => {});
+
+            try {
+                const source = new EventSource("/events", null);
+                const value = {
+                    withCredentials: source.withCredentials,
+                    url: source.url,
+                };
+                source.close();
+
+                try {
+                    new EventSource("/events", 1);
+                    value.primitive = "ok";
+                } catch (error) {
+                    value.primitive = {
+                        name: String(error.name),
+                        message: String(error.message),
+                    };
+                }
+
+                return JSON.stringify(value);
+            } finally {
+                globalThis.fetch = originalFetch;
+            }
+        })()
+    "#;
+
+    let result = runtime.eval_as_string(script).unwrap();
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+
+    assert_eq!(value["withCredentials"], false);
+    assert_eq!(value["url"], "http://example.test/events");
+    assert_eq!(value["primitive"]["name"], "TypeError");
+}
