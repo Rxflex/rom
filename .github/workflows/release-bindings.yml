@@ -1,0 +1,119 @@
+name: Release Bindings
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "bindings-v*"
+
+permissions:
+  contents: read
+
+jobs:
+  node-package:
+    name: npm package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Pack npm package
+        working-directory: bindings/gom-node
+        run: npm pack
+
+      - name: Upload npm artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-package
+          path: bindings/gom-node/*.tgz
+
+      - name: Publish to npm
+        if: startsWith(github.ref, 'refs/tags/') && secrets.NPM_TOKEN != ''
+        working-directory: bindings/gom-node
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
+
+  python-wheels:
+    name: python wheels (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          command: build
+          args: --manifest-path bindings/gom-python/Cargo.toml --release --out bindings/gom-python/dist
+
+      - name: Upload wheel artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-wheels-${{ matrix.os }}
+          path: bindings/gom-python/dist/*.whl
+
+  python-sdist:
+    name: python sdist
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --manifest-path bindings/gom-python/Cargo.toml --out bindings/gom-python/dist
+
+      - name: Upload sdist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-sdist
+          path: bindings/gom-python/dist/*.tar.gz
+
+  publish-python:
+    name: publish python
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') && secrets.PYPI_API_TOKEN != ''
+    needs:
+      - python-wheels
+      - python-sdist
+    permissions:
+      contents: read
+
+    steps:
+      - name: Download wheel artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: python-*
+          merge-multiple: true
+          path: dist
+
+      - name: Publish to PyPI
+        uses: PyO3/maturin-action@v1
+        env:
+          MATURIN_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        with:
+          command: upload
+          args: --non-interactive --skip-existing dist/*

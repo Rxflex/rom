@@ -6,11 +6,33 @@ build-backend = "maturin"
 name = "rom-runtime"
 version = "0.1.0"
 description = "Python wrapper for the ROM browser-like runtime"
-readme = "../../README.md"
+readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [{ name = "Rxflex" }]
+keywords = ["rom", "runtime", "browser", "web-api", "fingerprint"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Rust",
+  "Topic :: Internet",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.urls]
+Homepage = "https://github.com/Rxflex/rom"
+Repository = "https://github.com/Rxflex/rom"
+Issues = "https://github.com/Rxflex/rom/issues"
 
 [tool.maturin]
 python-source = "src"
 module-name = "rom._native"
+bindings = "pyo3"

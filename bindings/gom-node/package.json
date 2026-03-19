@@ -1,15 +1,47 @@
 {
   "name": "@rxflex/rom",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "description": "Node.js wrapper for the ROM browser-like runtime",
+  "license": "MIT",
+  "author": "Rxflex",
+  "homepage": "https://github.com/Rxflex/rom",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rxflex/rom.git",
+    "directory": "bindings/gom-node"
+  },
+  "bugs": {
+    "url": "https://github.com/Rxflex/rom/issues"
+  },
+  "keywords": [
+    "rom",
+    "runtime",
+    "browser",
+    "web-api",
+    "fingerprint"
+  ],
+  "sideEffects": false,
+  "main": "./src/index.js",
   "scripts": {
     "build:native": "node ./scripts/build-native.mjs --release",
-    "build:native:debug": "node ./scripts/build-native.mjs"
+    "build:native:debug": "node ./scripts/build-native.mjs",
+    "smoke": "node ./scripts/smoke.mjs",
+    "pack:check": "npm pack --dry-run"
   },
   "exports": {
     ".": "./src/index.js"
   },
-  "types": "./src/index.d.ts"
+  "types": "./src/index.d.ts",
+  "files": [
+    "README.md",
+    "src",
+    "scripts",
+    "native",
+    "Cargo.toml",
+    "build.rs"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
 }

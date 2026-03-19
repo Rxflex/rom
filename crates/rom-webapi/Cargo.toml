@@ -1,8 +1,11 @@
 [package]
 name = "rom-webapi"
+description = "Browser-facing Web API layer for the ROM runtime"
 version.workspace = true
 edition.workspace = true
+homepage.workspace = true
 license.workspace = true
+repository.workspace = true
 
 [dependencies]
 aes.workspace = true

@@ -1,8 +1,11 @@
 [package]
 name = "rom-node-native"
+description = "Native napi-rs bridge for the ROM Node.js bindings"
 version = "0.1.0"
 edition = "2024"
+homepage = "https://github.com/Rxflex/rom"
 license = "MIT"
+repository = "https://github.com/Rxflex/rom"
 
 [lib]
 name = "rom_node_native"
