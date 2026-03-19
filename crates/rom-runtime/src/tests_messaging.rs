@@ -61,6 +61,58 @@ fn supports_structured_clone_and_message_channel() {
 }
 
 #[test]
+fn supports_structured_clone_for_error_objects() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const original = new TypeError("boom");
+                original.code = "E_BANG";
+                const cloned = structuredClone(original);
+
+                const channel = new MessageChannel();
+                const delivered = await new Promise((resolve) => {
+                    channel.port2.onmessage = (event) => {
+                        resolve({
+                            isError: event.data instanceof Error,
+                            name: event.data.name,
+                            message: event.data.message,
+                            code: event.data.code,
+                            stackType: typeof event.data.stack,
+                        });
+                    };
+
+                    channel.port1.postMessage(original);
+                });
+
+                return {
+                    cloneIsError: cloned instanceof Error,
+                    cloneName: cloned.name,
+                    cloneMessage: cloned.message,
+                    cloneCode: cloned.code,
+                    cloneStackType: typeof cloned.stack,
+                    delivered,
+                };
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(value["cloneIsError"], true);
+    assert_eq!(value["cloneName"], "TypeError");
+    assert_eq!(value["cloneMessage"], "boom");
+    assert_eq!(value["cloneCode"], "E_BANG");
+    assert_eq!(value["cloneStackType"], "string");
+    assert_eq!(value["delivered"]["isError"], true);
+    assert_eq!(value["delivered"]["name"], "TypeError");
+    assert_eq!(value["delivered"]["message"], "boom");
+    assert_eq!(value["delivered"]["code"], "E_BANG");
+    assert_eq!(value["delivered"]["stackType"], "string");
+}
+
+#[test]
 fn supports_worker_blob_url_and_import_scripts() {
     let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
     let result = runtime

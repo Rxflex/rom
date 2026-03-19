@@ -466,6 +466,22 @@
             return new Date(value.getTime());
         }
 
+        if (value instanceof Error) {
+            const clone = new value.constructor(value.message);
+            seen.set(value, clone);
+            clone.name = value.name;
+
+            if ("stack" in value && value.stack !== undefined) {
+                clone.stack = String(value.stack);
+            }
+
+            for (const key of Object.keys(value)) {
+                clone[key] = cloneStructuredValue(value[key], seen);
+            }
+
+            return clone;
+        }
+
         if (value instanceof RegExp) {
             return new RegExp(value.source, value.flags);
         }
