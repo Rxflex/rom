@@ -25,6 +25,11 @@ fn supports_node_document_and_connection_helpers() {
                     textOwnerDocument: text.ownerDocument === document,
                     fragmentOwnerDocument: fragment.ownerDocument === document,
                     fragmentChildOwnerDocument: fragmentChild.ownerDocument === document,
+                    documentBaseURI: document.baseURI,
+                    childBaseURI: child.baseURI,
+                    textBaseURI: text.baseURI,
+                    fragmentBaseURI: fragment.baseURI,
+                    detachedBaseURI: detached.baseURI,
                     childRootNode: child.getRootNode() === document,
                     textRootNode: text.getRootNode({ composed: true }) === document,
                     fragmentRootNode: fragment.getRootNode() === fragment,
@@ -41,10 +46,12 @@ fn supports_node_document_and_connection_helpers() {
                 };
 
                 text.nodeValue = "updated";
+                history.pushState({ step: "base-uri" }, "", "/moved?query=1#hash");
                 host.remove();
 
                 return JSON.stringify({
                     beforeDetach,
+                    afterNavigationBaseURI: child.baseURI,
                     updatedText: text.textContent,
                     childConnectedAfterRemove: child.isConnected,
                     textConnectedAfterRemove: text.isConnected,
@@ -59,6 +66,20 @@ fn supports_node_document_and_connection_helpers() {
     assert_eq!(value["beforeDetach"]["textOwnerDocument"], true);
     assert_eq!(value["beforeDetach"]["fragmentOwnerDocument"], true);
     assert_eq!(value["beforeDetach"]["fragmentChildOwnerDocument"], true);
+    assert_eq!(
+        value["beforeDetach"]["documentBaseURI"],
+        "https://rom.local/"
+    );
+    assert_eq!(value["beforeDetach"]["childBaseURI"], "https://rom.local/");
+    assert_eq!(value["beforeDetach"]["textBaseURI"], "https://rom.local/");
+    assert_eq!(
+        value["beforeDetach"]["fragmentBaseURI"],
+        "https://rom.local/"
+    );
+    assert_eq!(
+        value["beforeDetach"]["detachedBaseURI"],
+        "https://rom.local/"
+    );
     assert_eq!(value["beforeDetach"]["childRootNode"], true);
     assert_eq!(value["beforeDetach"]["textRootNode"], true);
     assert_eq!(value["beforeDetach"]["fragmentRootNode"], true);
@@ -72,6 +93,10 @@ fn supports_node_document_and_connection_helpers() {
     assert_eq!(value["beforeDetach"]["detachedHasChildren"], false);
     assert_eq!(value["beforeDetach"]["elementNodeValue"], true);
     assert_eq!(value["beforeDetach"]["textNodeValue"], "hello");
+    assert_eq!(
+        value["afterNavigationBaseURI"],
+        "https://rom.local/moved?query=1#hash"
+    );
     assert_eq!(value["updatedText"], "updated");
     assert_eq!(value["childConnectedAfterRemove"], false);
     assert_eq!(value["textConnectedAfterRemove"], false);
