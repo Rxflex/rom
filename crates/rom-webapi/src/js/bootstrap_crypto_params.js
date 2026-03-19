@@ -442,7 +442,7 @@ function normalizeDeriveBitsLength(length) {
         );
     }
     const normalized = Number(length);
-    if (!Number.isInteger(normalized) || normalized % 8 !== 0) {
+    if (!Number.isInteger(normalized) || normalized < 0 || normalized % 8 !== 0) {
         throw createCryptoDomException(
             "OperationError",
             "deriveBits length must be a multiple of 8.",
