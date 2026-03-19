@@ -61,6 +61,44 @@
         return parsed.nodes;
     }
 
+    function replaceNodeWithNodes(node, replacementNodes) {
+        const parent = node?.parentNode ?? null;
+        if (!parent) {
+            return;
+        }
+
+        const index = parent.childNodes.indexOf(node);
+        if (index < 0) {
+            return;
+        }
+
+        const previousSibling = parent.childNodes[index - 1] ?? null;
+        const nextSibling = parent.childNodes[index + 1] ?? null;
+
+        for (const replacementNode of replacementNodes) {
+            if (replacementNode.parentNode) {
+                replacementNode.parentNode.removeChild(replacementNode);
+            }
+        }
+
+        parent.childNodes.splice(index, 1, ...replacementNodes);
+        node.parentNode = null;
+
+        for (const replacementNode of replacementNodes) {
+            replacementNode.parentNode = parent;
+            notifyIframeLoad(replacementNode);
+        }
+
+        notifyDomMutation({
+            type: "childList",
+            target: parent,
+            addedNodes: replacementNodes,
+            removedNodes: [node],
+            previousSibling,
+            nextSibling,
+        });
+    }
+
     class Node extends EventTarget {
         constructor(nodeType, nodeName) {
             super();
@@ -298,6 +336,14 @@
             for (const node of parseHtmlFragment(value)) {
                 this.appendChild(node);
             }
+        }
+
+        get outerHTML() {
+            return serializeNodeToHtml(this);
+        }
+
+        set outerHTML(value) {
+            replaceNodeWithNodes(this, parseHtmlFragment(value));
         }
 
         querySelector(selector) {
