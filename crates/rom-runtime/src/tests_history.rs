@@ -225,3 +225,62 @@ fn validates_history_same_origin_and_location_navigation_entries() {
     assert_eq!(result["afterForward"]["length"], 2);
     assert_eq!(result["afterForward"]["state"], serde_json::Value::Null);
 }
+
+#[test]
+fn dispatches_hashchange_for_location_navigation_and_history_traversal() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r##"
+            (async () => {
+                const events = [];
+                addEventListener("hashchange", (event) => {
+                    events.push({
+                        type: event.type,
+                        oldURL: event.oldURL,
+                        newURL: event.newURL,
+                        isHashChangeEvent: event instanceof HashChangeEvent,
+                    });
+                });
+
+                history.pushState({ step: 1 }, "", "/page#push");
+                location.assign("#assigned");
+                history.back();
+                history.forward();
+                history.replaceState({ step: 2 }, "", "/page#replaced");
+
+                return JSON.stringify({
+                    href: location.href,
+                    events,
+                });
+            })()
+            "##,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(value["href"], "https://rom.local/page#replaced");
+    assert_eq!(
+        value["events"],
+        serde_json::json!([
+            {
+                "type": "hashchange",
+                "oldURL": "https://rom.local/page#push",
+                "newURL": "https://rom.local/page#assigned",
+                "isHashChangeEvent": true
+            },
+            {
+                "type": "hashchange",
+                "oldURL": "https://rom.local/page#assigned",
+                "newURL": "https://rom.local/page#push",
+                "isHashChangeEvent": true
+            },
+            {
+                "type": "hashchange",
+                "oldURL": "https://rom.local/page#push",
+                "newURL": "https://rom.local/page#assigned",
+                "isHashChangeEvent": true
+            }
+        ])
+    );
+}
