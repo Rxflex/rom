@@ -252,6 +252,26 @@
             return this.childNodes[this.childNodes.length - 1] ?? null;
         }
 
+        get parentElement() {
+            return this.parentNode?.nodeType === 1 ? this.parentNode : null;
+        }
+
+        get previousSibling() {
+            if (!this.parentNode) {
+                return null;
+            }
+            const index = this.parentNode.childNodes.indexOf(this);
+            return index > 0 ? this.parentNode.childNodes[index - 1] : null;
+        }
+
+        get nextSibling() {
+            if (!this.parentNode) {
+                return null;
+            }
+            const index = this.parentNode.childNodes.indexOf(this);
+            return index >= 0 ? this.parentNode.childNodes[index + 1] ?? null : null;
+        }
+
         get textContent() {
             return this.childNodes.map((child) => child.textContent ?? "").join("");
         }
@@ -263,6 +283,17 @@
             if (value !== null && value !== undefined && value !== "") {
                 this.appendChild(new Text(value));
             }
+        }
+
+        contains(node) {
+            let current = node ?? null;
+            while (current) {
+                if (current === this) {
+                    return true;
+                }
+                current = current.parentNode ?? null;
+            }
+            return false;
         }
     }
 
@@ -364,6 +395,34 @@
 
         get children() {
             return this.childNodes.filter((node) => node.nodeType === 1);
+        }
+
+        get firstElementChild() {
+            return this.children[0] ?? null;
+        }
+
+        get lastElementChild() {
+            return this.children[this.children.length - 1] ?? null;
+        }
+
+        get childElementCount() {
+            return this.children.length;
+        }
+
+        get previousElementSibling() {
+            let current = this.previousSibling;
+            while (current && current.nodeType !== 1) {
+                current = current.previousSibling;
+            }
+            return current ?? null;
+        }
+
+        get nextElementSibling() {
+            let current = this.nextSibling;
+            while (current && current.nodeType !== 1) {
+                current = current.nextSibling;
+            }
+            return current ?? null;
         }
 
         get offsetWidth() {
