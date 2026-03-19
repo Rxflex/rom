@@ -1,0 +1,11 @@
+{
+  "name": "@rxflex/rom",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Node.js wrapper for the ROM browser-like runtime",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "types": "./src/index.d.ts"
+}

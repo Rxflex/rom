@@ -1,9 +1,11 @@
+use serde::{Deserialize, Serialize};
 use rom_webapi::{LocationConfig, NavigatorConfig, WebRuntimeConfig};
 use url::Url;
 
 use crate::error::Result;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
 pub struct RuntimeConfig {
     pub href: String,
     pub user_agent: String,

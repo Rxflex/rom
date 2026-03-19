@@ -21,6 +21,9 @@ The system is split into three layers:
 3. `rom-runtime`
    High-level environment assembly, configuration, validation, snapshots, future compatibility presets.
 
+Bindings sit on top of `rom-runtime`.
+The current external language strategy is a CLI bridge plus thin Node.js and Python wrappers, which keeps the Rust core stable while avoiding early lock-in to a single native extension toolchain.
+
 ## Delivery Phases
 
 ### Phase 0
