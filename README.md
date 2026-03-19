@@ -46,7 +46,7 @@ The result is a native Rust workspace that aims to feel browser-like at the API 
 - A Rust workspace with a lightweight embedded JavaScript engine.
 - A growing browser API compatibility layer.
 - A runtime designed around deterministic probes, snapshots, and acceptance harnesses.
-- A foundation for future JS and Python bindings on top of the Rust core.
+- A Rust core with JS and Python bindings that can use either native extensions or the CLI bridge.
 
 ## What ROM Is Not
 
@@ -154,11 +154,19 @@ echo "{\"command\":\"surface-snapshot\"}" | cargo run -p rom-runtime --bin rom_b
 ### Use the Node.js wrapper
 
 ```js
-import { RomRuntime } from "./bindings/gom-node/src/index.js";
+import { RomRuntime, hasNativeBinding } from "./bindings/gom-node/src/index.js";
 
 const runtime = new RomRuntime({ href: "https://example.test/" });
 const href = await runtime.evalAsync("(async () => location.href)()");
+console.log("native binding:", hasNativeBinding());
 console.log(href);
+```
+
+Optional native build:
+
+```bash
+cd bindings/gom-node
+npm run build:native
 ```
 
 ### Use the Python wrapper
@@ -167,10 +175,18 @@ console.log(href);
 import sys
 sys.path.insert(0, "bindings/gom-python/src")
 
-from rom import RomRuntime
+from rom import RomRuntime, has_native_binding
 
 runtime = RomRuntime({"href": "https://example.test/"})
+print("native binding:", has_native_binding())
 print(runtime.eval_async("(async () => location.href)()"))
+```
+
+Optional native build:
+
+```bash
+python -m pip install maturin
+python -m maturin develop --manifest-path bindings/gom-python/Cargo.toml
 ```
 
 ### Run the browser reference harness
@@ -197,7 +213,7 @@ That gives the project a measurable loop instead of an anecdotal one.
 - improve long-lived networking and worker fidelity
 - keep tightening browser-like exception and validation behavior
 - expand reference-driven compatibility checks
-- add external bindings on top of the Rust core once the runtime layer is stronger
+- strengthen the native JS/Python binding story on top of the shared bridge protocol
 
 ## Repository Map
 

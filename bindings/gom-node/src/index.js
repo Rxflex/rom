@@ -1,10 +1,12 @@
 import { execFile } from "node:child_process";
+import { loadNativeBridge } from "./native.js";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..", "..", "..");
+const nativeBridge = loadNativeBridge();
 
 function resolveBridgeCommand() {
   if (process.env.ROM_BRIDGE_BIN) {
@@ -22,7 +24,39 @@ function resolveBridgeCommand() {
   };
 }
 
-function runBridge(command, payload) {
+function parseBridgeResponse(stdout, stderr, error) {
+  const trimmed = stdout.trim();
+
+  if (!trimmed) {
+    throw error ?? new Error(`ROM bridge produced no output.\n${stderr}`);
+  }
+
+  let response;
+  try {
+    response = JSON.parse(trimmed);
+  } catch (parseError) {
+    throw new Error(
+      `ROM bridge returned invalid JSON: ${parseError.message}\n${stdout}\n${stderr}`,
+    );
+  }
+
+  if (error || !response.ok) {
+    throw new Error(response.error || error?.message || "ROM bridge command failed.");
+  }
+
+  return response.result;
+}
+
+function runNativeBridge(command, payload) {
+  if (!nativeBridge || typeof nativeBridge.executeBridge !== "function") {
+    return null;
+  }
+
+  const responseText = nativeBridge.executeBridge(JSON.stringify({ command, ...payload }));
+  return Promise.resolve(parseBridgeResponse(responseText, "", null));
+}
+
+function runCliBridge(command, payload) {
   const bridge = resolveBridgeCommand();
 
   return new Promise((resolve, reject) => {
@@ -35,38 +69,20 @@ function runBridge(command, payload) {
         maxBuffer: 10 * 1024 * 1024,
       },
       (error, stdout, stderr) => {
-        const trimmed = stdout.trim();
-        let response = null;
-
-        if (trimmed) {
-          try {
-            response = JSON.parse(trimmed);
-          } catch (parseError) {
-            reject(
-              new Error(
-                `ROM bridge returned invalid JSON: ${parseError.message}\n${stdout}\n${stderr}`,
-              ),
-            );
-            return;
-          }
+        try {
+          resolve(parseBridgeResponse(stdout, stderr, error));
+        } catch (bridgeError) {
+          reject(bridgeError);
         }
-
-        if (!response) {
-          reject(error ?? new Error(`ROM bridge produced no output.\n${stderr}`));
-          return;
-        }
-
-        if (error || !response.ok) {
-          reject(new Error(response.error || error?.message || "ROM bridge command failed."));
-          return;
-        }
-
-        resolve(response.result);
       },
     );
 
     child.stdin.end(JSON.stringify({ command, ...payload }));
   });
+}
+
+function runBridge(command, payload) {
+  return runNativeBridge(command, payload) ?? runCliBridge(command, payload);
 }
 
 export class RomRuntime {
@@ -106,4 +122,8 @@ export class RomRuntime {
 
 export function createRuntime(config = {}) {
   return new RomRuntime(config);
+}
+
+export function hasNativeBinding() {
+  return !!nativeBridge;
 }

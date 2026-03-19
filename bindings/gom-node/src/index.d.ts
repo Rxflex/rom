@@ -22,3 +22,4 @@ export declare class RomRuntime {
 }
 
 export declare function createRuntime(config?: RuntimeConfig): RomRuntime;
+export declare function hasNativeBinding(): boolean;

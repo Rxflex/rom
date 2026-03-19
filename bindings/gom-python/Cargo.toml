@@ -1,0 +1,16 @@
+[package]
+name = "rom-python-native"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[lib]
+name = "_native"
+path = "rust/lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.28.2", features = ["extension-module", "abi3-py39"] }
+rom-runtime = { path = "../../crates/rom-runtime" }
+
+[workspace]
