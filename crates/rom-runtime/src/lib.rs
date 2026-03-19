@@ -11,6 +11,8 @@ mod tests_cors;
 #[cfg(test)]
 mod tests_css;
 #[cfg(test)]
+mod tests_dom_mutations;
+#[cfg(test)]
 mod tests_events;
 #[cfg(test)]
 mod tests_eventsource;
