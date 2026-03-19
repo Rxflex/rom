@@ -23,6 +23,8 @@ mod tests_fragments;
 #[cfg(test)]
 mod tests_history;
 #[cfg(test)]
+mod tests_innerhtml;
+#[cfg(test)]
 mod tests_layout_observers;
 #[cfg(test)]
 mod tests_messaging;
