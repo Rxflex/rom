@@ -84,3 +84,65 @@ fn supports_dom_mutation_helper_methods() {
         ])
     );
 }
+
+#[test]
+fn supports_prepend_and_replace_children() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r##"
+            (async () => {
+                const root = document.createElement("div");
+                const tail = document.createElement("span");
+                tail.id = "tail";
+                tail.textContent = "tail";
+                root.append("body", tail);
+
+                const records = [];
+                const observer = new MutationObserver((entries) => {
+                    records.push(
+                        ...entries.map((entry) => ({
+                            added: Array.from(entry.addedNodes, (node) => node.nodeName),
+                            removed: Array.from(entry.removedNodes, (node) => node.nodeName),
+                        })),
+                    );
+                });
+                observer.observe(root, { childList: true });
+
+                const head = document.createElement("strong");
+                head.id = "head";
+                head.textContent = "head";
+                root.prepend(head, " ");
+
+                const replacement = document.createDocumentFragment();
+                const finalNode = document.createElement("em");
+                finalNode.id = "final";
+                finalNode.textContent = "done";
+                replacement.append("only-", finalNode);
+                root.replaceChildren(replacement);
+
+                await Promise.resolve();
+
+                return JSON.stringify({
+                    nodeNames: Array.from(root.childNodes, (node) => node.nodeName),
+                    childIds: Array.from(root.children, (node) => node.id),
+                    textContent: root.textContent,
+                    records,
+                });
+            })()
+            "##,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(value["nodeNames"], serde_json::json!(["#text", "EM"]));
+    assert_eq!(value["childIds"], serde_json::json!(["final"]));
+    assert_eq!(value["textContent"], "only-done");
+    assert_eq!(
+        value["records"],
+        serde_json::json!([
+            { "added": ["STRONG", "#text"], "removed": [] },
+            { "added": ["#text", "EM"], "removed": ["STRONG", "#text", "#text", "SPAN"] }
+        ])
+    );
+}

@@ -207,6 +207,15 @@
             }
         }
 
+        prepend(...nodes) {
+            mutateChildList(this, 0, nodes, []);
+        }
+
+        replaceChildren(...nodes) {
+            const removedNodes = this.childNodes.slice();
+            mutateChildList(this, 0, nodes, removedNodes);
+        }
+
         before(...nodes) {
             if (!this.parentNode) {
                 return;
