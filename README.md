@@ -145,6 +145,34 @@ cargo build
 cargo test
 ```
 
+### Use the CLI bridge directly
+
+```bash
+echo "{\"command\":\"surface-snapshot\"}" | cargo run -p rom-runtime --bin rom_bridge
+```
+
+### Use the Node.js wrapper
+
+```js
+import { RomRuntime } from "./bindings/gom-node/src/index.js";
+
+const runtime = new RomRuntime({ href: "https://example.test/" });
+const href = await runtime.evalAsync("(async () => location.href)()");
+console.log(href);
+```
+
+### Use the Python wrapper
+
+```python
+import sys
+sys.path.insert(0, "bindings/gom-python/src")
+
+from rom import RomRuntime
+
+runtime = RomRuntime({"href": "https://example.test/"})
+print(runtime.eval_async("(async () => location.href)()"))
+```
+
 ### Run the browser reference harness
 
 ```bash
@@ -175,14 +203,16 @@ That gives the project a measurable loop instead of an anecdotal one.
 
 ```text
 .
+├── bindings/
+│   ├── gom-node
+│   └── gom-python
 ├── crates/
 │   ├── rom-core
 │   ├── rom-runtime
 │   └── rom-webapi
 ├── docs/
 ├── fixtures/
-├── tools/
-└── bindings/
+└── tools/
 ```
 
 ## Open Source Notes
