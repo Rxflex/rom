@@ -36,6 +36,10 @@
             return escapeHtmlText(node.textContent ?? "");
         }
 
+        if (node.nodeType === 8) {
+            return `<!--${String(node.data ?? "").replace(/-->/g, "--&gt;")}-->`;
+        }
+
         if (node.nodeType === 11 || node.nodeType === 9) {
             return node.childNodes.map((child) => serializeNodeToHtml(child)).join("");
         }
@@ -386,7 +390,9 @@
         set nodeValue(_value) {}
 
         get textContent() {
-            return this.childNodes.map((child) => child.textContent ?? "").join("");
+            return this.childNodes
+                .map((child) => (child?.nodeType === 8 ? "" : child.textContent ?? ""))
+                .join("");
         }
 
         set textContent(value) {
@@ -529,6 +535,41 @@
             }
 
             return splitNode;
+        }
+    }
+
+    class Comment extends Node {
+        constructor(data = "") {
+            super(8, "#comment");
+            this.data = String(data);
+        }
+
+        cloneNode() {
+            const clone = new Comment(this.data);
+            clone.__ownerDocument = this.ownerDocument;
+            return clone;
+        }
+
+        get textContent() {
+            return this.data;
+        }
+
+        set textContent(value) {
+            const oldValue = this.data;
+            this.data = String(value);
+            notifyDomMutation({
+                type: "characterData",
+                target: this,
+                oldValue,
+            });
+        }
+
+        get nodeValue() {
+            return this.data;
+        }
+
+        set nodeValue(value) {
+            this.textContent = value;
         }
     }
 
@@ -1092,6 +1133,12 @@
 
         createTextNode(data) {
             const node = new Text(data);
+            assignOwnerDocumentToSubtree(node, this);
+            return node;
+        }
+
+        createComment(data) {
+            const node = new Comment(data);
             assignOwnerDocumentToSubtree(node, this);
             return node;
         }
