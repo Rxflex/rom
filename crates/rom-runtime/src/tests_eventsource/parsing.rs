@@ -24,6 +24,12 @@ fn supports_utf8_text_encoding_and_decoding() {
                 ),
                 nullOptionsEncoding: new TextDecoder(" UTF-8 ", null).encoding,
                 nullOptionsFatal: new TextDecoder(" UTF-8 ", null).fatal,
+                aliasDecoded: new TextDecoder(" unicode-1-1-utf-8 ").decode(
+                    Uint8Array.from([104, 195, 169])
+                ),
+                legacyAliasDecoded: new TextDecoder("x-unicode20utf8").decode(
+                    Uint8Array.from([104, 195, 169])
+                ),
                 fullEncodeInto,
                 fullBuffer: Array.from(fullBuffer),
                 partialEncodeInto,
@@ -41,6 +47,8 @@ fn supports_utf8_text_encoding_and_decoding() {
     assert_eq!(value["bomIncluded"], "\u{feff}hi");
     assert_eq!(value["nullOptionsEncoding"], "utf-8");
     assert_eq!(value["nullOptionsFatal"], false);
+    assert_eq!(value["aliasDecoded"], "hé");
+    assert_eq!(value["legacyAliasDecoded"], "hé");
     assert_eq!(value["fullEncodeInto"], serde_json::json!({ "read": 4, "written": 7 }));
     assert_eq!(
         value["fullBuffer"],

@@ -250,8 +250,27 @@ fn closes_eventsource_on_fatal_http_failure_without_reconnect() {
             match listener.accept() {
                 Ok((mut stream, _)) => {
                     accepted += 1;
+                    stream.set_nonblocking(true).unwrap();
                     let mut buffer = [0_u8; 2048];
-                    let read = stream.read(&mut buffer).unwrap();
+                    let read_deadline = Instant::now() + Duration::from_millis(100);
+                    let read = loop {
+                        match stream.read(&mut buffer) {
+                            Ok(read) if read > 0 => break read,
+                            Ok(_) => {
+                                if Instant::now() >= read_deadline {
+                                    panic!("timed out waiting for EventSource request bytes");
+                                }
+                                thread::sleep(Duration::from_millis(5));
+                            }
+                            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                                if Instant::now() >= read_deadline {
+                                    panic!("timed out waiting for EventSource request bytes");
+                                }
+                                thread::sleep(Duration::from_millis(5));
+                            }
+                            Err(error) => panic!("unexpected read error: {error}"),
+                        }
+                    };
                     let request = String::from_utf8_lossy(&buffer[..read]);
 
                     assert!(request.contains("GET /events HTTP/1.1"));
