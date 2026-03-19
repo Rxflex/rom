@@ -208,3 +208,124 @@ fn supports_redirect_modes() {
     assert_eq!(value["manualUrl"], "");
     assert_eq!(value["errorMessage"], "Failed to fetch");
 }
+
+#[test]
+fn supports_no_cors_opaque_response_semantics() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+
+    let server = thread::spawn(move || {
+        for _ in 0..3 {
+            let (mut stream, _) = listener.accept().unwrap();
+            let request = read_http_request(&mut stream);
+
+            if request.contains("GET /opaque HTTP/1.1") {
+                let response = concat!(
+                    "HTTP/1.1 200 OK\r\n",
+                    "Content-Type: text/plain\r\n",
+                    "X-Hidden: secret\r\n",
+                    "Content-Length: 6\r\n",
+                    "\r\n",
+                    "opaque"
+                );
+                stream.write_all(response.as_bytes()).unwrap();
+                stream.flush().unwrap();
+                continue;
+            }
+
+            if request.contains("GET /manual HTTP/1.1") {
+                let response = concat!(
+                    "HTTP/1.1 302 Found\r\n",
+                    "Location: /redirected\r\n",
+                    "Content-Length: 0\r\n",
+                    "\r\n"
+                );
+                stream.write_all(response.as_bytes()).unwrap();
+                stream.flush().unwrap();
+                continue;
+            }
+
+            if request.contains("GET /error HTTP/1.1") {
+                let response = concat!(
+                    "HTTP/1.1 301 Moved Permanently\r\n",
+                    "Location: /blocked\r\n",
+                    "Content-Length: 0\r\n",
+                    "\r\n"
+                );
+                stream.write_all(response.as_bytes()).unwrap();
+                stream.flush().unwrap();
+            }
+        }
+    });
+
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let script = format!(
+        r#"
+        (async () => {{
+            const opaque = await fetch("http://{address}/opaque", {{ mode: "no-cors" }});
+            const clone = opaque.clone();
+            const manual = await fetch("http://{address}/manual", {{
+                mode: "no-cors",
+                redirect: "manual",
+            }});
+
+            let errorMessage = "";
+            try {{
+                await fetch("http://{address}/error", {{
+                    mode: "no-cors",
+                    redirect: "error",
+                }});
+            }} catch (error) {{
+                errorMessage = String(error.message ?? error);
+            }}
+
+            let invalidStatusName = "";
+            try {{
+                new Response("x", {{ status: 0 }});
+            }} catch (error) {{
+                invalidStatusName = error.name;
+            }}
+
+            return {{
+                opaqueType: opaque.type,
+                opaqueStatus: opaque.status,
+                opaqueOk: opaque.ok,
+                opaqueUrl: opaque.url,
+                opaqueBodyIsNull: opaque.body === null,
+                opaqueHeaderCount: Array.from(opaque.headers).length,
+                opaqueContentType: opaque.headers.get("content-type"),
+                opaqueText: await opaque.text(),
+                opaqueBodyUsed: opaque.bodyUsed,
+                cloneBodyIsNull: clone.body === null,
+                cloneText: await clone.text(),
+                manualType: manual.type,
+                manualStatus: manual.status,
+                manualBodyIsNull: manual.body === null,
+                errorMessage,
+                invalidStatusName,
+            }};
+        }})()
+        "#
+    );
+
+    let result = runtime.eval_async_as_string(&script).unwrap();
+    server.join().unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(value["opaqueType"], "opaque");
+    assert_eq!(value["opaqueStatus"], 0);
+    assert_eq!(value["opaqueOk"], false);
+    assert_eq!(value["opaqueUrl"], "");
+    assert_eq!(value["opaqueBodyIsNull"], true);
+    assert_eq!(value["opaqueHeaderCount"], 0);
+    assert_eq!(value["opaqueContentType"], serde_json::Value::Null);
+    assert_eq!(value["opaqueText"], "");
+    assert_eq!(value["opaqueBodyUsed"], true);
+    assert_eq!(value["cloneBodyIsNull"], true);
+    assert_eq!(value["cloneText"], "");
+    assert_eq!(value["manualType"], "opaqueredirect");
+    assert_eq!(value["manualStatus"], 0);
+    assert_eq!(value["manualBodyIsNull"], true);
+    assert_eq!(value["errorMessage"], "Failed to fetch");
+    assert_eq!(value["invalidStatusName"], "RangeError");
+}

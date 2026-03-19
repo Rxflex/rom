@@ -347,11 +347,11 @@
         };
     }
 
-    function attachBodyState(target, bytes) {
+    function attachBodyState(target, bytes, init = {}) {
         const bodyState = createBodyState(bytes);
         bodyState.owner = target;
         target.__bodyState = bodyState;
-        target.body = new ReadableStream({ __bodyState: bodyState });
+        target.body = init.nullBody ? null : new ReadableStream({ __bodyState: bodyState });
     }
 
     function consumeBody(target, reader) {
