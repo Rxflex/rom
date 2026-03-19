@@ -8,10 +8,7 @@ use aes::{
         },
     },
 };
-use aes_gcm::{
-    AesGcm,
-    aead::AeadInPlace,
-};
+use aes_gcm::{AesGcm, aead::AeadInPlace};
 
 pub(crate) fn encrypt_aes_gcm(
     secret: &[u8],
@@ -23,44 +20,20 @@ pub(crate) fn encrypt_aes_gcm(
     let nonce = prepare_nonce(iv)?;
     match (secret.len(), normalize_tag_length(tag_length)?) {
         (16, 96) => encrypt_aes_gcm_with_tag::<Aes128, U12>(secret, nonce, additional_data, data),
-        (16, 104) => {
-            encrypt_aes_gcm_with_tag::<Aes128, U13>(secret, nonce, additional_data, data)
-        }
-        (16, 112) => {
-            encrypt_aes_gcm_with_tag::<Aes128, U14>(secret, nonce, additional_data, data)
-        }
-        (16, 120) => {
-            encrypt_aes_gcm_with_tag::<Aes128, U15>(secret, nonce, additional_data, data)
-        }
-        (16, 128) => {
-            encrypt_aes_gcm_with_tag::<Aes128, U16>(secret, nonce, additional_data, data)
-        }
+        (16, 104) => encrypt_aes_gcm_with_tag::<Aes128, U13>(secret, nonce, additional_data, data),
+        (16, 112) => encrypt_aes_gcm_with_tag::<Aes128, U14>(secret, nonce, additional_data, data),
+        (16, 120) => encrypt_aes_gcm_with_tag::<Aes128, U15>(secret, nonce, additional_data, data),
+        (16, 128) => encrypt_aes_gcm_with_tag::<Aes128, U16>(secret, nonce, additional_data, data),
         (24, 96) => encrypt_aes_gcm_with_tag::<Aes192, U12>(secret, nonce, additional_data, data),
-        (24, 104) => {
-            encrypt_aes_gcm_with_tag::<Aes192, U13>(secret, nonce, additional_data, data)
-        }
-        (24, 112) => {
-            encrypt_aes_gcm_with_tag::<Aes192, U14>(secret, nonce, additional_data, data)
-        }
-        (24, 120) => {
-            encrypt_aes_gcm_with_tag::<Aes192, U15>(secret, nonce, additional_data, data)
-        }
-        (24, 128) => {
-            encrypt_aes_gcm_with_tag::<Aes192, U16>(secret, nonce, additional_data, data)
-        }
+        (24, 104) => encrypt_aes_gcm_with_tag::<Aes192, U13>(secret, nonce, additional_data, data),
+        (24, 112) => encrypt_aes_gcm_with_tag::<Aes192, U14>(secret, nonce, additional_data, data),
+        (24, 120) => encrypt_aes_gcm_with_tag::<Aes192, U15>(secret, nonce, additional_data, data),
+        (24, 128) => encrypt_aes_gcm_with_tag::<Aes192, U16>(secret, nonce, additional_data, data),
         (32, 96) => encrypt_aes_gcm_with_tag::<Aes256, U12>(secret, nonce, additional_data, data),
-        (32, 104) => {
-            encrypt_aes_gcm_with_tag::<Aes256, U13>(secret, nonce, additional_data, data)
-        }
-        (32, 112) => {
-            encrypt_aes_gcm_with_tag::<Aes256, U14>(secret, nonce, additional_data, data)
-        }
-        (32, 120) => {
-            encrypt_aes_gcm_with_tag::<Aes256, U15>(secret, nonce, additional_data, data)
-        }
-        (32, 128) => {
-            encrypt_aes_gcm_with_tag::<Aes256, U16>(secret, nonce, additional_data, data)
-        }
+        (32, 104) => encrypt_aes_gcm_with_tag::<Aes256, U13>(secret, nonce, additional_data, data),
+        (32, 112) => encrypt_aes_gcm_with_tag::<Aes256, U14>(secret, nonce, additional_data, data),
+        (32, 120) => encrypt_aes_gcm_with_tag::<Aes256, U15>(secret, nonce, additional_data, data),
+        (32, 128) => encrypt_aes_gcm_with_tag::<Aes256, U16>(secret, nonce, additional_data, data),
         (16 | 24 | 32, other) => Err(format!("Unsupported AES-GCM tagLength: {other}")),
         (other, _) => Err(format!(
             "Unsupported AES-GCM raw key length: {} bits",
@@ -79,44 +52,20 @@ pub(crate) fn decrypt_aes_gcm(
     let nonce = prepare_nonce(iv)?;
     match (secret.len(), normalize_tag_length(tag_length)?) {
         (16, 96) => decrypt_aes_gcm_with_tag::<Aes128, U12>(secret, nonce, additional_data, data),
-        (16, 104) => {
-            decrypt_aes_gcm_with_tag::<Aes128, U13>(secret, nonce, additional_data, data)
-        }
-        (16, 112) => {
-            decrypt_aes_gcm_with_tag::<Aes128, U14>(secret, nonce, additional_data, data)
-        }
-        (16, 120) => {
-            decrypt_aes_gcm_with_tag::<Aes128, U15>(secret, nonce, additional_data, data)
-        }
-        (16, 128) => {
-            decrypt_aes_gcm_with_tag::<Aes128, U16>(secret, nonce, additional_data, data)
-        }
+        (16, 104) => decrypt_aes_gcm_with_tag::<Aes128, U13>(secret, nonce, additional_data, data),
+        (16, 112) => decrypt_aes_gcm_with_tag::<Aes128, U14>(secret, nonce, additional_data, data),
+        (16, 120) => decrypt_aes_gcm_with_tag::<Aes128, U15>(secret, nonce, additional_data, data),
+        (16, 128) => decrypt_aes_gcm_with_tag::<Aes128, U16>(secret, nonce, additional_data, data),
         (24, 96) => decrypt_aes_gcm_with_tag::<Aes192, U12>(secret, nonce, additional_data, data),
-        (24, 104) => {
-            decrypt_aes_gcm_with_tag::<Aes192, U13>(secret, nonce, additional_data, data)
-        }
-        (24, 112) => {
-            decrypt_aes_gcm_with_tag::<Aes192, U14>(secret, nonce, additional_data, data)
-        }
-        (24, 120) => {
-            decrypt_aes_gcm_with_tag::<Aes192, U15>(secret, nonce, additional_data, data)
-        }
-        (24, 128) => {
-            decrypt_aes_gcm_with_tag::<Aes192, U16>(secret, nonce, additional_data, data)
-        }
+        (24, 104) => decrypt_aes_gcm_with_tag::<Aes192, U13>(secret, nonce, additional_data, data),
+        (24, 112) => decrypt_aes_gcm_with_tag::<Aes192, U14>(secret, nonce, additional_data, data),
+        (24, 120) => decrypt_aes_gcm_with_tag::<Aes192, U15>(secret, nonce, additional_data, data),
+        (24, 128) => decrypt_aes_gcm_with_tag::<Aes192, U16>(secret, nonce, additional_data, data),
         (32, 96) => decrypt_aes_gcm_with_tag::<Aes256, U12>(secret, nonce, additional_data, data),
-        (32, 104) => {
-            decrypt_aes_gcm_with_tag::<Aes256, U13>(secret, nonce, additional_data, data)
-        }
-        (32, 112) => {
-            decrypt_aes_gcm_with_tag::<Aes256, U14>(secret, nonce, additional_data, data)
-        }
-        (32, 120) => {
-            decrypt_aes_gcm_with_tag::<Aes256, U15>(secret, nonce, additional_data, data)
-        }
-        (32, 128) => {
-            decrypt_aes_gcm_with_tag::<Aes256, U16>(secret, nonce, additional_data, data)
-        }
+        (32, 104) => decrypt_aes_gcm_with_tag::<Aes256, U13>(secret, nonce, additional_data, data),
+        (32, 112) => decrypt_aes_gcm_with_tag::<Aes256, U14>(secret, nonce, additional_data, data),
+        (32, 120) => decrypt_aes_gcm_with_tag::<Aes256, U15>(secret, nonce, additional_data, data),
+        (32, 128) => decrypt_aes_gcm_with_tag::<Aes256, U16>(secret, nonce, additional_data, data),
         (16 | 24 | 32, other) => Err(format!("Unsupported AES-GCM tagLength: {other}")),
         (other, _) => Err(format!(
             "Unsupported AES-GCM raw key length: {} bits",
@@ -135,8 +84,8 @@ where
     Aes: BlockCipher + BlockEncrypt + BlockSizeUser<BlockSize = U16> + KeyInit,
     TagSize: aes_gcm::TagSize,
 {
-    let cipher = AesGcm::<Aes, U12, TagSize>::new_from_slice(secret)
-        .map_err(|error| error.to_string())?;
+    let cipher =
+        AesGcm::<Aes, U12, TagSize>::new_from_slice(secret).map_err(|error| error.to_string())?;
     let mut buffer = data.to_vec();
     let tag = cipher
         .encrypt_in_place_detached(nonce, additional_data, &mut buffer)
@@ -156,8 +105,8 @@ where
     TagSize: aes_gcm::TagSize,
 {
     let tag_len = TagSize::to_usize();
-    let cipher = AesGcm::<Aes, U12, TagSize>::new_from_slice(secret)
-        .map_err(|error| error.to_string())?;
+    let cipher =
+        AesGcm::<Aes, U12, TagSize>::new_from_slice(secret).map_err(|error| error.to_string())?;
     let split = data
         .len()
         .checked_sub(tag_len)

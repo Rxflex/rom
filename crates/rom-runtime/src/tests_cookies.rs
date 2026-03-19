@@ -86,10 +86,10 @@ fn supports_cookie_roundtrip_between_document_and_fetch() {
                     }
                 }
 
-                if let Some(total) = expected_total {
-                    if buffer.len() >= total {
-                        break;
-                    }
+                if let Some(total) = expected_total
+                    && buffer.len() >= total
+                {
+                    break;
                 }
             }
 

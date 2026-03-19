@@ -2,10 +2,7 @@ use aes::{
     Aes128, Aes192, Aes256,
     cipher::{
         BlockEncrypt, BlockSizeUser, KeyInit as BlockKeyInit,
-        generic_array::{
-            GenericArray,
-            typenum::U16,
-        },
+        generic_array::{GenericArray, typenum::U16},
     },
 };
 use aes_kw::{KekAes128, KekAes192, KekAes256};
@@ -82,12 +79,12 @@ pub(crate) fn import_aes_jwk(value: serde_json::Value, algorithm: &str) -> Resul
         )
     })?;
 
-    if let Some(actual_alg) = jwk.alg.as_deref() {
-        if actual_alg != expected_alg {
-            return Err(format!(
-                "JWK alg mismatch: expected {expected_alg}, got {actual_alg}"
-            ));
-        }
+    if let Some(actual_alg) = jwk.alg.as_deref()
+        && actual_alg != expected_alg
+    {
+        return Err(format!(
+            "JWK alg mismatch: expected {expected_alg}, got {actual_alg}"
+        ));
     }
 
     Ok(secret)
