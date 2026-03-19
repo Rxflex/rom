@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Contribution Guide
+    url: https://github.com/Rxflex/rom/blob/main/CONTRIBUTING.md
+    about: Read the contribution workflow and expectations before opening larger changes.
+  - name: Security Policy
+    url: https://github.com/Rxflex/rom/blob/main/SECURITY.md
+    about: Please report suspected vulnerabilities privately.
