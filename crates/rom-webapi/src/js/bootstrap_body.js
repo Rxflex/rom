@@ -241,7 +241,6 @@
     FileReader.EMPTY = 0;
     FileReader.LOADING = 1;
     FileReader.DONE = 2;
-
     class ReadableStream {
         constructor(init = {}) {
             this.__bodyState = init.__bodyState ?? createBodyState([]);
@@ -266,7 +265,7 @@
                     }
 
                     state.disturbed = true;
-                    state.owner.bodyUsed = true;
+                    if (state.owner) state.owner.bodyUsed = true;
                     const chunk = Uint8Array.from(state.bytes);
                     return Promise.resolve(
                         chunk.length === 0
@@ -279,11 +278,26 @@
                 },
                 cancel() {
                     state.disturbed = true;
-                    state.owner.bodyUsed = true;
+                    if (state.owner) state.owner.bodyUsed = true;
                     state.readerLocked = false;
                     return Promise.resolve();
                 },
             };
+        }
+
+        cancel() {
+            if (this.locked) {
+                return Promise.reject(new TypeError("ReadableStream is locked."));
+            }
+            return this.getReader().cancel();
+        }
+        tee() {
+            if (this.locked || this.__bodyState.disturbed) {
+                throw new TypeError("ReadableStream has already been read.");
+            }
+            this.__bodyState.readerLocked = true;
+            const bytes = this.__bodyState.bytes.slice();
+            return [new ReadableStream({ __bodyState: createBodyState(bytes) }), new ReadableStream({ __bodyState: createBodyState(bytes) })];
         }
     }
 

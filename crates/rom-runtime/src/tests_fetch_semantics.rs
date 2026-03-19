@@ -329,3 +329,93 @@ fn supports_no_cors_opaque_response_semantics() {
     assert_eq!(value["errorMessage"], "Failed to fetch");
     assert_eq!(value["invalidStatusName"], "RangeError");
 }
+
+#[test]
+fn supports_readable_stream_cancel_and_tee_semantics() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const response = new Response("tee-body");
+                const [left, right] = response.body.tee();
+
+                let cloneError = "";
+                try {
+                    response.clone();
+                } catch (error) {
+                    cloneError = String(error.message ?? error);
+                }
+
+                const leftChunk = await left.getReader().read();
+                const rightChunk = await right.getReader().read();
+
+                const cancelResponse = new Response("cancel-me");
+                await cancelResponse.body.cancel();
+
+                let cancelTextError = "";
+                try {
+                    await cancelResponse.text();
+                } catch (error) {
+                    cancelTextError = String(error.message ?? error);
+                }
+
+                const lockedResponse = new Response("locked");
+                const lockedReader = lockedResponse.body.getReader();
+                let lockedCancelName = "";
+                try {
+                    await lockedResponse.body.cancel();
+                } catch (error) {
+                    lockedCancelName = error.name;
+                }
+                lockedReader.releaseLock();
+
+                const cloneable = new Request("https://rom.local/upload", {
+                    method: "POST",
+                    body: "cloneable",
+                });
+                const cloneableReader = cloneable.body.getReader();
+                cloneableReader.releaseLock();
+                const cloned = cloneable.clone();
+
+                const disturbed = new Response("disturbed");
+                const disturbedReader = disturbed.body.getReader();
+                await disturbedReader.read();
+                disturbedReader.releaseLock();
+                let disturbedTeeName = "";
+                try {
+                    disturbed.body.tee();
+                } catch (error) {
+                    disturbedTeeName = error.name;
+                }
+
+                return {
+                    leftText: new TextDecoder().decode(leftChunk.value),
+                    rightText: new TextDecoder().decode(rightChunk.value),
+                    cloneError,
+                    cancelBodyUsed: cancelResponse.bodyUsed,
+                    cancelTextError,
+                    lockedCancelName,
+                    clonedText: await cloned.text(),
+                    originalText: await cloneable.text(),
+                    disturbedTeeName,
+                };
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(value["leftText"], "tee-body");
+    assert_eq!(value["rightText"], "tee-body");
+    assert_eq!(
+        value["cloneError"],
+        "Failed to execute 'clone' on 'Response': body has already been used."
+    );
+    assert_eq!(value["cancelBodyUsed"], true);
+    assert_eq!(value["cancelTextError"], "Body has already been read.");
+    assert_eq!(value["lockedCancelName"], "TypeError");
+    assert_eq!(value["clonedText"], "cloneable");
+    assert_eq!(value["originalText"], "cloneable");
+    assert_eq!(value["disturbedTeeName"], "TypeError");
+}
