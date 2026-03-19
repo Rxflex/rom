@@ -142,3 +142,82 @@ fn validates_and_preserves_webcrypto_hmac_key_lengths() {
     assert_eq!(value["importedRawLength"], 4);
     assert_eq!(value["verified"], true);
 }
+
+#[test]
+fn validates_webcrypto_derive_key_target_lengths() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const encoder = new TextEncoder();
+                const baseKey = await crypto.subtle.importKey(
+                    "raw",
+                    encoder.encode("password"),
+                    "PBKDF2",
+                    false,
+                    ["deriveBits", "deriveKey"],
+                );
+                const salt = encoder.encode("salt");
+
+                async function captureError(action) {
+                    try {
+                        await action();
+                        return null;
+                    } catch (error) {
+                        return { name: String(error.name), message: String(error.message) };
+                    }
+                }
+
+                const derivedDefaultHmac = await crypto.subtle.deriveKey(
+                    { name: "PBKDF2", salt, iterations: 1000, hash: "SHA-256" },
+                    baseKey,
+                    { name: "HMAC", hash: "SHA-256" },
+                    true,
+                    ["sign", "verify"],
+                );
+
+                return {
+                    missingAesLength: await captureError(() =>
+                        crypto.subtle.deriveKey(
+                            { name: "PBKDF2", salt, iterations: 1000, hash: "SHA-256" },
+                            baseKey,
+                            { name: "AES-GCM" },
+                            true,
+                            ["encrypt", "decrypt"],
+                        ),
+                    ),
+                    invalidAesLength: await captureError(() =>
+                        crypto.subtle.deriveKey(
+                            { name: "PBKDF2", salt, iterations: 1000, hash: "SHA-256" },
+                            baseKey,
+                            { name: "AES-GCM", length: 64 },
+                            true,
+                            ["encrypt", "decrypt"],
+                        ),
+                    ),
+                    invalidHmacLength: await captureError(() =>
+                        crypto.subtle.deriveKey(
+                            { name: "PBKDF2", salt, iterations: 1000, hash: "SHA-256" },
+                            baseKey,
+                            { name: "HMAC", hash: "SHA-256", length: 0 },
+                            true,
+                            ["sign", "verify"],
+                        ),
+                    ),
+                    derivedDefaultHmacLength: derivedDefaultHmac.algorithm.length,
+                    derivedDefaultHmacHash: derivedDefaultHmac.algorithm.hash.name,
+                };
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+
+    assert_eq!(value["missingAesLength"]["name"], "TypeError");
+    assert_eq!(value["invalidAesLength"]["name"], "OperationError");
+    assert_eq!(value["invalidHmacLength"]["name"], "OperationError");
+    assert_eq!(value["derivedDefaultHmacLength"], 512);
+    assert_eq!(value["derivedDefaultHmacHash"], "SHA-256");
+}
