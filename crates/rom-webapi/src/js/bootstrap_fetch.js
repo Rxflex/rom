@@ -5,6 +5,7 @@
                 this.url = init.url ?? input.url;
                 this.method = normalizeRequestMethod(init.method ?? input.method ?? "GET");
                 this.headers = new Headers(init.headers ?? input.headers);
+                sanitizeRequestHeaders(this.headers);
                 this.signal = init.signal ?? input.signal ?? null;
                 this.credentials = normalizeRequestCredentials(
                     init.credentials ?? input.credentials ?? "same-origin",
@@ -27,6 +28,7 @@
             this.url = new URL(String(input), location.href).href;
             this.method = normalizeRequestMethod(init.method ?? "GET");
             this.headers = new Headers(init.headers);
+            sanitizeRequestHeaders(this.headers);
             this.signal = init.signal ?? null;
             this.credentials = normalizeRequestCredentials(init.credentials ?? "same-origin");
             this.mode = normalizeRequestMode(init.mode ?? "cors");
@@ -400,10 +402,14 @@
     }
 
     function buildBasicResponse(response) {
+        const headers = response.headers.filter((entry) =>
+            !isForbiddenResponseHeader(entry.name),
+        );
+
         return new Response(response.body, {
             status: response.status,
             statusText: response.status_text,
-            headers: response.headers.map((entry) => [entry.name, entry.value]),
+            headers: headers.map((entry) => [entry.name, entry.value]),
             __redirected: response.redirected,
             __url: response.url,
             __type: "basic",
@@ -482,7 +488,7 @@
 
     function isCorsExposedHeader(name, exposedHeaders) {
         const normalized = String(name).toLowerCase();
-        if (normalized === "set-cookie" || normalized === "set-cookie2") {
+        if (isForbiddenResponseHeader(normalized)) {
             return false;
         }
 
@@ -496,6 +502,24 @@
             normalized === "pragma" ||
             exposedHeaders.has(normalized)
         );
+    }
+
+    function sanitizeRequestHeaders(headers) {
+        for (const [name] of headers) {
+            if (isForbiddenRequestHeader(name)) {
+                headers.delete(name);
+            }
+        }
+    }
+
+    function isForbiddenRequestHeader(name) {
+        const normalized = String(name).toLowerCase();
+        return normalized === "cookie" || normalized === "cookie2";
+    }
+
+    function isForbiddenResponseHeader(name) {
+        const normalized = String(name).toLowerCase();
+        return normalized === "set-cookie" || normalized === "set-cookie2";
     }
 
     function validateRequestBody(method, isNullBody) {
