@@ -179,6 +179,8 @@
             this.__ready = false;
             this.__failed = false;
             this.__scheduledTimers = new Set();
+            this.__messageQueue = [];
+            this.__messageDispatchTimer = null;
             this.__url = new URL(String(specifier), location.href).href;
             this.__scope = createWorkerScope(this, this.__url);
             queueMicrotask(() => {
@@ -198,6 +200,7 @@
                 try {
                     executeWorkerSource(this.__scope, source);
                     this.__ready = true;
+                    this.__scheduleMessageDispatch();
                 } catch (_error) {
                     this.__failed = true;
                 }
@@ -217,10 +220,37 @@
                 ports: [],
             });
 
-            queueMicrotask(() => {
-                if (this.__terminated || this.__failed || !this.__ready) {
-                    return;
-                }
+            this.__messageQueue.push(event);
+            this.__scheduleMessageDispatch();
+        }
+
+        terminate() {
+            terminateWorker(this);
+        }
+
+        __scheduleMessageDispatch() {
+            if (
+                this.__terminated ||
+                this.__failed ||
+                !this.__ready ||
+                this.__messageDispatchTimer !== null
+            ) {
+                return;
+            }
+
+            this.__messageDispatchTimer = setTimeout(() => {
+                this.__messageDispatchTimer = null;
+                this.__drainMessageQueue();
+            }, 0);
+        }
+
+        __drainMessageQueue() {
+            if (this.__terminated || this.__failed || !this.__ready) {
+                return;
+            }
+
+            while (this.__messageQueue.length > 0) {
+                const event = this.__messageQueue.shift();
 
                 try {
                     if (typeof this.__scope.onmessage === "function") {
@@ -231,11 +261,11 @@
                 } catch (error) {
                     dispatchWorkerError(this, error);
                 }
-            });
-        }
 
-        terminate() {
-            terminateWorker(this);
+                if (this.__terminated || this.__failed) {
+                    return;
+                }
+            }
         }
     }
 
@@ -373,6 +403,11 @@
         }
 
         worker.__terminated = true;
+        worker.__messageQueue = [];
+        if (worker.__messageDispatchTimer !== null) {
+            clearTimeout(worker.__messageDispatchTimer);
+            worker.__messageDispatchTimer = null;
+        }
         for (const timerId of worker.__scheduledTimers) {
             clearTimeout(timerId);
             clearInterval(timerId);

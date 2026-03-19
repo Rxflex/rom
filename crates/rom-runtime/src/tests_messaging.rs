@@ -159,6 +159,42 @@ fn starts_message_ports_and_drains_queued_messages() {
 }
 
 #[test]
+fn queues_worker_messages_until_startup_microtasks_finish() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const workerUrl = URL.createObjectURL(
+                    new Blob(
+                        [
+                            "queueMicrotask(() => {",
+                            "  self.onmessage = (event) => {",
+                            "    postMessage(`ready:${event.data}`);",
+                            "  };",
+                            "});",
+                        ],
+                        { type: "text/javascript" },
+                    ),
+                );
+
+                const worker = new Worker(workerUrl);
+                const received = await new Promise((resolve, reject) => {
+                    worker.onmessage = (event) => resolve(event.data);
+                    worker.onerror = (event) => reject(String(event.error?.message ?? event.error ?? "worker error"));
+                    worker.postMessage("boot");
+                });
+
+                return received;
+            })()
+            "#,
+        )
+        .unwrap();
+
+    assert_eq!(result, "ready:boot");
+}
+
+#[test]
 fn reports_worker_startup_errors_as_async_events() {
     let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
     let result = runtime
