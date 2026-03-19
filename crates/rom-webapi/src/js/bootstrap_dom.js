@@ -239,6 +239,28 @@
         return typeof href === "string" ? href : "about:blank";
     }
 
+    function normalizeCharacterDataOffset(offset, dataLength) {
+        const numericOffset = Number(offset);
+        const normalizedOffset = Number.isFinite(numericOffset)
+            ? Math.trunc(numericOffset)
+            : 0;
+
+        if (normalizedOffset < 0 || normalizedOffset > dataLength) {
+            throw new DOMException(
+                "The offset is outside the character data bounds.",
+                "IndexSizeError",
+            );
+        }
+
+        return normalizedOffset;
+    }
+
+    function substringCharacterData(data, offset, count) {
+        const normalizedOffset = normalizeCharacterDataOffset(offset, data.length);
+        const normalizedCount = Math.max(0, Number.isFinite(Number(count)) ? Math.trunc(Number(count)) : 0);
+        return data.slice(normalizedOffset, normalizedOffset + normalizedCount);
+    }
+
     function ownStyleKeys(style) {
         return Object.keys(style ?? {}).filter((key) => typeof style[key] !== "function");
     }
@@ -584,6 +606,14 @@
             this.textContent = value;
         }
 
+        get length() {
+            return this.data.length;
+        }
+
+        substringData(offset, count) {
+            return substringCharacterData(this.data, offset, count);
+        }
+
         get wholeText() {
             const segments = [this.data];
 
@@ -603,18 +633,7 @@
         }
 
         splitText(offset) {
-            const numericOffset = Number(offset);
-            const normalizedOffset = Number.isFinite(numericOffset)
-                ? Math.trunc(numericOffset)
-                : 0;
-
-            if (normalizedOffset < 0 || normalizedOffset > this.data.length) {
-                throw new DOMException(
-                    "The offset is outside the text node bounds.",
-                    "IndexSizeError",
-                );
-            }
-
+            const normalizedOffset = normalizeCharacterDataOffset(offset, this.data.length);
             const prefix = this.data.slice(0, normalizedOffset);
             const suffix = this.data.slice(normalizedOffset);
             const splitNode = new Text(suffix);
@@ -662,6 +681,14 @@
 
         set nodeValue(value) {
             this.textContent = value;
+        }
+
+        get length() {
+            return this.data.length;
+        }
+
+        substringData(offset, count) {
+            return substringCharacterData(this.data, offset, count);
         }
     }
 
