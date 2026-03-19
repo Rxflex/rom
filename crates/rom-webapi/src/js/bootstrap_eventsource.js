@@ -215,7 +215,9 @@
                     }
                     break;
                 case "retry":
-                    current.retry = Number.parseInt(value, 10);
+                    if (/^[0-9]+$/.test(value)) {
+                        current.retry = Number.parseInt(value, 10);
+                    }
                     break;
                 default:
                     break;
