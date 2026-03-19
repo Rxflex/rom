@@ -589,9 +589,203 @@
         error: (...args) => g.__rom_console_error(args.map(String).join(" ")),
     };
 
-    const CSS = {
-        supports() {
+    function supportsCssLength(value) {
+        const normalized = String(value).trim().toLowerCase();
+        return (
+            normalized === "0" ||
+            normalized === "auto" ||
+            normalized === "normal" ||
+            /^-?\d+(\.\d+)?(px|em|rem|vw|vh|vmin|vmax|%)$/.test(normalized) ||
+            /^calc\(.+\)$/.test(normalized) ||
+            /^var\(.+\)$/.test(normalized)
+        );
+    }
+
+    function supportsCssColor(value) {
+        const normalized = String(value).trim().toLowerCase();
+        return (
+            /^#[0-9a-f]{3,8}$/.test(normalized) ||
+            /^(rgb|rgba|hsl|hsla|oklch|lab|lch)\(.+\)$/.test(normalized) ||
+            /^var\(.+\)$/.test(normalized) ||
+            /^(transparent|currentcolor|black|white|red|green|blue|gray|grey)$/.test(
+                normalized,
+            )
+        );
+    }
+
+    function supportsCssTime(value) {
+        const normalized = String(value).trim().toLowerCase();
+        return /^-?\d+(\.\d+)?(ms|s)$/.test(normalized) || /^var\(.+\)$/.test(normalized);
+    }
+
+    function supportsCssTransform(value) {
+        const normalized = String(value).trim();
+        return (
+            normalized === "none" ||
+            /^var\(.+\)$/.test(normalized) ||
+            /^[a-zA-Z-]+\(.+\)$/.test(normalized)
+        );
+    }
+
+    function supportsCssPropertyValue(property, value) {
+        const normalizedProperty = String(property).trim().toLowerCase();
+        const normalizedValue = String(value).trim();
+        if (!normalizedProperty || !normalizedValue) {
             return false;
+        }
+
+        if (normalizedProperty.startsWith("--")) {
+            return true;
+        }
+
+        switch (normalizedProperty) {
+            case "display":
+                return /^(none|block|inline|inline-block|flex|grid|contents)$/.test(
+                    normalizedValue.toLowerCase(),
+                );
+            case "position":
+                return /^(static|relative|absolute|fixed|sticky)$/.test(
+                    normalizedValue.toLowerCase(),
+                );
+            case "opacity": {
+                const numeric = Number(normalizedValue);
+                return Number.isFinite(numeric) && numeric >= 0 && numeric <= 1;
+            }
+            case "transform":
+                return supportsCssTransform(normalizedValue);
+            case "transition-duration":
+            case "animation-duration":
+                return supportsCssTime(normalizedValue);
+            case "color":
+            case "background":
+            case "background-color":
+            case "border-color":
+            case "outline-color":
+                return supportsCssColor(normalizedValue);
+            case "width":
+            case "height":
+            case "min-width":
+            case "min-height":
+            case "max-width":
+            case "max-height":
+            case "margin":
+            case "margin-top":
+            case "margin-right":
+            case "margin-bottom":
+            case "margin-left":
+            case "padding":
+            case "padding-top":
+            case "padding-right":
+            case "padding-bottom":
+            case "padding-left":
+            case "top":
+            case "right":
+            case "bottom":
+            case "left":
+            case "font-size":
+            case "border-radius":
+                return supportsCssLength(normalizedValue);
+            default:
+                return false;
+        }
+    }
+
+    function splitCssCondition(expression, operator) {
+        const parts = [];
+        let depth = 0;
+        let start = 0;
+
+        for (let index = 0; index < expression.length; index += 1) {
+            const character = expression[index];
+            if (character === "(") {
+                depth += 1;
+            } else if (character === ")") {
+                depth = Math.max(0, depth - 1);
+            }
+
+            if (
+                depth === 0 &&
+                expression.slice(index, index + operator.length) === operator
+            ) {
+                parts.push(expression.slice(start, index).trim());
+                start = index + operator.length;
+                index += operator.length - 1;
+            }
+        }
+
+        if (parts.length === 0) {
+            return null;
+        }
+
+        parts.push(expression.slice(start).trim());
+        return parts;
+    }
+
+    function unwrapCssCondition(expression) {
+        let normalized = expression.trim();
+        while (
+            normalized.startsWith("(") &&
+            normalized.endsWith(")") &&
+            hasBalancedCssParentheses(normalized.slice(1, -1))
+        ) {
+            normalized = normalized.slice(1, -1).trim();
+        }
+        return normalized;
+    }
+
+    function hasBalancedCssParentheses(expression) {
+        let depth = 0;
+        for (const character of expression) {
+            if (character === "(") {
+                depth += 1;
+            } else if (character === ")") {
+                depth -= 1;
+                if (depth < 0) {
+                    return false;
+                }
+            }
+        }
+        return depth === 0;
+    }
+
+    function evaluateCssSupportsCondition(conditionText) {
+        const condition = unwrapCssCondition(String(conditionText));
+        if (!condition) {
+            return false;
+        }
+
+        if (condition.startsWith("not ")) {
+            return !evaluateCssSupportsCondition(condition.slice(4));
+        }
+
+        const orParts = splitCssCondition(condition, " or ");
+        if (orParts) {
+            return orParts.some((part) => evaluateCssSupportsCondition(part));
+        }
+
+        const andParts = splitCssCondition(condition, " and ");
+        if (andParts) {
+            return andParts.every((part) => evaluateCssSupportsCondition(part));
+        }
+
+        const declaration = unwrapCssCondition(condition);
+        const separatorIndex = declaration.indexOf(":");
+        if (separatorIndex < 0) {
+            return false;
+        }
+
+        const property = declaration.slice(0, separatorIndex).trim();
+        const value = declaration.slice(separatorIndex + 1).trim();
+        return supportsCssPropertyValue(property, value);
+    }
+
+    const CSS = {
+        supports(propertyOrConditionText, value = undefined) {
+            if (value !== undefined) {
+                return supportsCssPropertyValue(propertyOrConditionText, value);
+            }
+
+            return evaluateCssSupportsCondition(propertyOrConditionText);
         },
     };
 
