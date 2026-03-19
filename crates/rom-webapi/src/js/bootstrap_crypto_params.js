@@ -78,6 +78,11 @@ function validateDataOperationAlgorithm(algorithm, dataLength) {
         case "AES-GCM":
             validateAesGcmParams(algorithm);
             break;
+        default:
+            throw createCryptoDomException(
+                "InvalidAccessError",
+                `Unsupported data operation algorithm: ${algorithm.name}`,
+            );
     }
 }
 

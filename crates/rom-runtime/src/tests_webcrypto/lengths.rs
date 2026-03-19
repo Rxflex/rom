@@ -408,3 +408,45 @@ fn validates_webcrypto_wrap_and_unwrap_algorithms() {
     assert_eq!(value["wrapUnsupported"]["name"], "NotSupportedError");
     assert_eq!(value["unwrapUnsupported"]["name"], "NotSupportedError");
 }
+
+#[test]
+fn validates_webcrypto_encrypt_and_decrypt_algorithms() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const key = await crypto.subtle.generateKey(
+                    { name: "AES-GCM", length: 128 },
+                    true,
+                    ["encrypt", "decrypt"],
+                );
+                const payload = new Uint8Array([1, 2, 3, 4]);
+
+                async function captureError(action) {
+                    try {
+                        await action();
+                        return null;
+                    } catch (error) {
+                        return { name: String(error.name), message: String(error.message) };
+                    }
+                }
+
+                return {
+                    encryptUnsupported: await captureError(() =>
+                        crypto.subtle.encrypt("PBKDF2", key, payload),
+                    ),
+                    decryptUnsupported: await captureError(() =>
+                        crypto.subtle.decrypt("PBKDF2", key, payload),
+                    ),
+                };
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+
+    assert_eq!(value["encryptUnsupported"]["name"], "InvalidAccessError");
+    assert_eq!(value["decryptUnsupported"]["name"], "InvalidAccessError");
+}
