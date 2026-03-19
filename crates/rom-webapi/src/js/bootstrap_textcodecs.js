@@ -37,7 +37,7 @@
         constructor(label = "utf-8", options = {}) {
             const normalizedLabel = String(label).trim().toLowerCase();
             const normalizedOptions = options == null ? {} : Object(options);
-            if (normalizedLabel !== "utf-8" && normalizedLabel !== "utf8") {
+            if (!isUtf8Label(normalizedLabel)) {
                 throw new RangeError(`Unsupported encoding: ${label}`);
             }
 
@@ -219,4 +219,18 @@
 
     function isUtf8ContinuationByte(value) {
         return Number.isInteger(value) && (value & 0xc0) === 0x80;
+    }
+
+    function isUtf8Label(label) {
+        switch (label) {
+            case "unicode-1-1-utf-8":
+            case "unicode11utf8":
+            case "unicode20utf8":
+            case "utf-8":
+            case "utf8":
+            case "x-unicode20utf8":
+                return true;
+            default:
+                return false;
+        }
     }
