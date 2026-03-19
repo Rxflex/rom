@@ -1,4 +1,9 @@
 use crate::{RomRuntime, RuntimeConfig};
+use std::{
+    io::{Read, Write},
+    net::TcpListener,
+    thread,
+};
 
 #[test]
 fn supports_structured_clone_and_message_channel() {
@@ -167,6 +172,88 @@ fn reports_worker_startup_errors_as_async_events() {
     assert_eq!(value["startupError"]["isError"], true);
     assert_eq!(value["startupError"]["targetMatches"], true);
     assert_eq!(value["messages"], serde_json::json!([]));
+}
+
+#[test]
+fn reports_worker_script_load_failures_as_async_events() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        let mut buffer = Vec::new();
+        let mut chunk = [0_u8; 1024];
+
+        loop {
+            let read = stream.read(&mut chunk).unwrap();
+            if read == 0 {
+                break;
+            }
+
+            buffer.extend_from_slice(&chunk[..read]);
+
+            if buffer.windows(4).any(|window| window == b"\r\n\r\n") {
+                break;
+            }
+        }
+
+        let request = String::from_utf8_lossy(&buffer);
+        assert!(request.contains("GET /missing-worker.js HTTP/1.1"));
+
+        let response = concat!(
+            "HTTP/1.1 404 Not Found\r\n",
+            "Content-Type: text/plain\r\n",
+            "Content-Length: 7\r\n",
+            "\r\n",
+            "missing"
+        );
+
+        stream.write_all(response.as_bytes()).unwrap();
+        stream.flush().unwrap();
+    });
+
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let script = format!(
+        r#"
+        (async () => {{
+            let constructorError = "";
+            let startupError = null;
+
+            try {{
+                const worker = new Worker("http://{address}/missing-worker.js");
+                worker.onerror = (event) => {{
+                    startupError = {{
+                        type: event.type,
+                        message: event.error?.message ?? "",
+                        isError: event.error instanceof Error,
+                        targetMatches: event.target === worker,
+                    }};
+                }};
+                await new Promise((resolve) => setTimeout(resolve, 0));
+            }} catch (error) {{
+                constructorError = String(error.message ?? error);
+            }}
+
+            return {{
+                constructorError,
+                startupError,
+            }};
+        }})()
+        "#
+    );
+
+    let result = runtime.eval_async_as_string(&script).unwrap();
+    server.join().unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(value["constructorError"], "");
+    assert_eq!(value["startupError"]["type"], "error");
+    assert_eq!(
+        value["startupError"]["message"],
+        "Failed to construct 'Worker': unable to load script."
+    );
+    assert_eq!(value["startupError"]["isError"], true);
+    assert_eq!(value["startupError"]["targetMatches"], true);
 }
 
 #[test]

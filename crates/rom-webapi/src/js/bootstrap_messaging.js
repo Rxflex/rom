@@ -138,9 +138,17 @@
             this.__scheduledTimers = new Set();
             this.__url = new URL(String(specifier), location.href).href;
             this.__scope = createWorkerScope(this, this.__url);
-            const source = resolveWorkerSource(this.__url);
             queueMicrotask(() => {
                 if (this.__terminated) {
+                    return;
+                }
+
+                let source = "";
+                try {
+                    source = resolveWorkerSource(this.__url);
+                } catch (error) {
+                    this.__failed = true;
+                    dispatchWorkerError(this, error);
                     return;
                 }
 
