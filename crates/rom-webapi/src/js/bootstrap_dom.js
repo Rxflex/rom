@@ -7,6 +7,15 @@
         }
     }
 
+    function notifyIframeLoad(node) {
+        if (
+            node instanceof HTMLIFrameElement &&
+            typeof node.onload === "function"
+        ) {
+            Promise.resolve().then(() => node.onload());
+        }
+    }
+
     class Node extends EventTarget {
         constructor(nodeType, nodeName) {
             super();
@@ -17,6 +26,32 @@
         }
 
         appendChild(node) {
+            if (node instanceof DocumentFragment) {
+                const addedNodes = node.childNodes.slice();
+                if (!addedNodes.length) {
+                    return node;
+                }
+
+                const previousSibling = this.lastChild;
+                node.childNodes = [];
+                for (const child of addedNodes) {
+                    child.parentNode = this;
+                    this.childNodes.push(child);
+                    notifyIframeLoad(child);
+                }
+
+                notifyDomMutation({
+                    type: "childList",
+                    target: this,
+                    addedNodes,
+                    removedNodes: [],
+                    previousSibling,
+                    nextSibling: null,
+                });
+
+                return node;
+            }
+
             if (node.parentNode) {
                 node.parentNode.removeChild(node);
             }
@@ -31,13 +66,7 @@
                 previousSibling,
                 nextSibling: null,
             });
-
-            if (
-                node instanceof HTMLIFrameElement &&
-                typeof node.onload === "function"
-            ) {
-                Promise.resolve().then(() => node.onload());
-            }
+            notifyIframeLoad(node);
 
             return node;
         }
@@ -311,6 +340,42 @@
         }
     }
 
+    class DocumentFragment extends Node {
+        constructor() {
+            super(11, "#document-fragment");
+        }
+
+        cloneNode(deep = false) {
+            const clone = new DocumentFragment();
+            if (deep) {
+                for (const child of this.childNodes) {
+                    clone.appendChild(child.cloneNode(true));
+                }
+            }
+            return clone;
+        }
+
+        querySelector(selector) {
+            return querySelectorFrom(this, String(selector));
+        }
+
+        querySelectorAll(selector) {
+            return querySelectorAllFrom(this, String(selector));
+        }
+
+        append(...nodes) {
+            for (const node of nodes) {
+                this.appendChild(
+                    typeof node === "string" ? new Text(node) : node,
+                );
+            }
+        }
+
+        get children() {
+            return this.childNodes.filter((node) => node.nodeType === 1);
+        }
+    }
+
     class Document extends Node {
         constructor() {
             super(9, "#document");
@@ -345,7 +410,7 @@
         }
 
         createDocumentFragment() {
-            return new Element("fragment");
+            return new DocumentFragment();
         }
 
         querySelector(selector) {
@@ -369,6 +434,8 @@
             return querySelectorFrom(this, `#${id}`);
         }
     }
+
+    g.DocumentFragment = DocumentFragment;
 
     class Storage {
         constructor() {

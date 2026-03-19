@@ -19,6 +19,8 @@ mod tests_fetch_semantics;
 #[cfg(test)]
 mod tests_file_reader;
 #[cfg(test)]
+mod tests_fragments;
+#[cfg(test)]
 mod tests_history;
 #[cfg(test)]
 mod tests_layout_observers;
