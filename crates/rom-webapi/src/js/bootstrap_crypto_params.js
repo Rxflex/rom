@@ -25,6 +25,25 @@ function validateGenerateKeyAlgorithm(algorithm) {
     }
 }
 
+function resolveDerivedKeyLengthBits(algorithm) {
+    const algorithmName = String(algorithm.name ?? "").toUpperCase();
+    switch (algorithmName) {
+        case "HMAC":
+            validateGenerateKeyAlgorithm(algorithm);
+            return algorithm.length === undefined
+                ? defaultHmacLengthBits(algorithm.hash)
+                : Number(algorithm.length);
+        case "AES-CTR":
+        case "AES-CBC":
+        case "AES-GCM":
+        case "AES-KW":
+            validateGenerateKeyAlgorithm(algorithm);
+            return Number(algorithm.length);
+        default:
+            throw new TypeError(`Unsupported deriveKey target: ${algorithm.name}`);
+    }
+}
+
 function normalizeCryptoKeyUsages(algorithm, keyUsages) {
     const usages = Array.from(keyUsages ?? [], String);
     validateCryptoKeyUsages(algorithm, usages);
@@ -276,6 +295,19 @@ function normalizeAesKeyLength(algorithmName, length, errorName) {
     }
 
     return normalizedLength;
+}
+
+function defaultHmacLengthBits(hash) {
+    switch (normalizeHashName(hash).toUpperCase()) {
+        case "SHA-1":
+        case "SHA-256":
+            return 512;
+        case "SHA-384":
+        case "SHA-512":
+            return 1024;
+        default:
+            throw new TypeError(`Unsupported HMAC hash: ${hash}`);
+    }
 }
 
 function expectedJwkAlgorithm(algorithmName, algorithm, secretLength) {

@@ -168,7 +168,7 @@
             assertCryptoKey(baseKey);
             assertCryptoKeyUsage(baseKey, "deriveKey");
             const normalizedAlgorithm = normalizeAlgorithmObject(derivedKeyAlgorithm);
-            const lengthBits = getDerivedKeyLengthBits(normalizedAlgorithm);
+            const lengthBits = resolveDerivedKeyLengthBits(normalizedAlgorithm);
             const response = JSON.parse(
                 g.__rom_subtle_derive_bits(
                     JSON.stringify({
@@ -440,43 +440,6 @@
 
     function toOptionalByteArray(value) {
         return value === undefined || value === null ? null : toByteArray(value);
-    }
-
-    function getDerivedKeyLengthBits(algorithm) {
-        const normalizedName = String(algorithm.name ?? "").toUpperCase();
-        if (
-            normalizedName === "AES-CTR" ||
-            normalizedName === "AES-CBC" ||
-            normalizedName === "AES-GCM" ||
-            normalizedName === "AES-KW"
-        ) {
-            if (algorithm.length === undefined) {
-                throw new TypeError(`Derived ${algorithm.name} key requires algorithm.length`);
-            }
-            return Number(algorithm.length);
-        }
-
-        if (normalizedName === "HMAC") {
-            if (algorithm.length !== undefined) {
-                return Number(algorithm.length);
-            }
-            return defaultHmacLengthBits(algorithm.hash);
-        }
-
-        throw new TypeError(`Unsupported deriveKey target: ${algorithm.name}`);
-    }
-
-    function defaultHmacLengthBits(hash) {
-        switch (normalizeHashName(hash).toUpperCase()) {
-            case "SHA-1":
-            case "SHA-256":
-                return 512;
-            case "SHA-384":
-            case "SHA-512":
-                return 1024;
-            default:
-                throw new TypeError(`Unsupported HMAC hash: ${hash}`);
-        }
     }
 
     function createCryptoDomException(name, message) {
