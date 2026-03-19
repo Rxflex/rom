@@ -474,6 +474,33 @@
         set nodeValue(value) {
             this.textContent = value;
         }
+
+        splitText(offset) {
+            const numericOffset = Number(offset);
+            const normalizedOffset = Number.isFinite(numericOffset)
+                ? Math.trunc(numericOffset)
+                : 0;
+
+            if (normalizedOffset < 0 || normalizedOffset > this.data.length) {
+                throw new DOMException(
+                    "The offset is outside the text node bounds.",
+                    "IndexSizeError",
+                );
+            }
+
+            const prefix = this.data.slice(0, normalizedOffset);
+            const suffix = this.data.slice(normalizedOffset);
+            const splitNode = new Text(suffix);
+            splitNode.__ownerDocument = this.ownerDocument;
+
+            this.textContent = prefix;
+
+            if (this.parentNode) {
+                this.parentNode.insertBefore(splitNode, this.nextSibling);
+            }
+
+            return splitNode;
+        }
     }
 
     class DOMTokenList {
