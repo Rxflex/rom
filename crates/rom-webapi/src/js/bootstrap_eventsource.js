@@ -1,6 +1,7 @@
     class EventSource extends EventTarget {
         constructor(url, init = {}) {
             super();
+            init = normalizeEventSourceInit(init);
             this.url = parseEventSourceUrl(url);
             this.withCredentials = Boolean(init.withCredentials);
             this.readyState = EventSource.CONNECTING;
@@ -253,4 +254,17 @@
             syntaxError.name = "SyntaxError";
             throw syntaxError;
         }
+    }
+
+    function normalizeEventSourceInit(init) {
+        if (init === undefined || init === null) {
+            return {};
+        }
+
+        const type = typeof init;
+        if (type !== "object" && type !== "function") {
+            throw new TypeError("EventSourceInit must be an object.");
+        }
+
+        return init;
     }
