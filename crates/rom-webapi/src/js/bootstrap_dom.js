@@ -157,6 +157,44 @@
         );
     }
 
+    function collectElementDescendants(root, predicate) {
+        const matches = [];
+
+        walk(root, (node) => {
+            if (node?.nodeType === 1 && predicate(node)) {
+                matches.push(node);
+            }
+            return false;
+        });
+
+        return matches;
+    }
+
+    function getElementsByTagNameFrom(root, tagName) {
+        const normalized = String(tagName).toLowerCase();
+        return collectElementDescendants(root, (node) => (
+            normalized === "*" || node.tagName.toLowerCase() === normalized
+        ));
+    }
+
+    function getElementsByClassNameFrom(root, classNames) {
+        const requiredTokens = String(classNames)
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean);
+
+        if (!requiredTokens.length) {
+            return [];
+        }
+
+        return collectElementDescendants(root, (node) => {
+            const classTokens = (node.className ?? "")
+                .split(/\s+/)
+                .filter(Boolean);
+            return requiredTokens.every((token) => classTokens.includes(token));
+        });
+    }
+
     class Node extends EventTarget {
         constructor(nodeType, nodeName) {
             super();
@@ -721,6 +759,14 @@
             return querySelectorAllFrom(this, String(selector));
         }
 
+        getElementsByTagName(tagName) {
+            return getElementsByTagNameFrom(this, tagName);
+        }
+
+        getElementsByClassName(classNames) {
+            return getElementsByClassNameFrom(this, classNames);
+        }
+
         append(...nodes) {
             for (const node of nodes) {
                 this.appendChild(
@@ -827,6 +873,14 @@
             return querySelectorAllFrom(this, String(selector));
         }
 
+        getElementsByTagName(tagName) {
+            return getElementsByTagNameFrom(this, tagName);
+        }
+
+        getElementsByClassName(classNames) {
+            return getElementsByClassNameFrom(this, classNames);
+        }
+
         append(...nodes) {
             for (const node of nodes) {
                 this.appendChild(
@@ -896,6 +950,14 @@
 
         getElementById(id) {
             return querySelectorFrom(this, `#${id}`);
+        }
+
+        getElementsByTagName(tagName) {
+            return getElementsByTagNameFrom(this, tagName);
+        }
+
+        getElementsByClassName(classNames) {
+            return getElementsByClassNameFrom(this, classNames);
         }
     }
 
