@@ -475,6 +475,24 @@
             this.textContent = value;
         }
 
+        get wholeText() {
+            const segments = [this.data];
+
+            let previous = this.previousSibling;
+            while (previous?.nodeType === 3) {
+                segments.unshift(previous.data);
+                previous = previous.previousSibling;
+            }
+
+            let next = this.nextSibling;
+            while (next?.nodeType === 3) {
+                segments.push(next.data);
+                next = next.nextSibling;
+            }
+
+            return segments.join("");
+        }
+
         splitText(offset) {
             const numericOffset = Number(offset);
             const normalizedOffset = Number.isFinite(numericOffset)

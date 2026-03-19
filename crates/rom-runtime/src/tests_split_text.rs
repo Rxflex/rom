@@ -32,8 +32,16 @@ fn supports_text_split_text_semantics() {
                 });
 
                 const tail = text.splitText(2);
+                const wholeBeforeNormalize = text.wholeText;
                 const detached = document.createTextNode("xyz");
                 const detachedTail = detached.splitText(1);
+
+                const segmented = document.createElement("section");
+                const left = document.createTextNode("left-");
+                const middle = document.createTextNode("mid");
+                const boundary = document.createElement("span");
+                const right = document.createTextNode("-right");
+                segmented.append(left, middle, boundary, right);
 
                 let errorName = null;
                 try {
@@ -51,9 +59,16 @@ fn supports_text_split_text_semantics() {
                     tailPreviousSibling: tail.previousSibling === text,
                     tailNextSibling: tail.nextSibling === null,
                     tailOwnerDocument: tail.ownerDocument === document,
+                    wholeBeforeNormalize,
+                    headWholeText: text.wholeText,
+                    tailWholeText: tail.wholeText,
                     detachedData: detached.data,
                     detachedTailData: detachedTail.data,
                     detachedTailParent: detachedTail.parentNode === null,
+                    detachedWholeText: detached.wholeText,
+                    detachedTailWholeText: detachedTail.wholeText,
+                    middleWholeText: middle.wholeText,
+                    rightWholeText: right.wholeText,
                     errorName,
                     records,
                 });
@@ -69,9 +84,16 @@ fn supports_text_split_text_semantics() {
     assert_eq!(value["tailPreviousSibling"], true);
     assert_eq!(value["tailNextSibling"], true);
     assert_eq!(value["tailOwnerDocument"], true);
+    assert_eq!(value["wholeBeforeNormalize"], "abcdef");
+    assert_eq!(value["headWholeText"], "abcdef");
+    assert_eq!(value["tailWholeText"], "abcdef");
     assert_eq!(value["detachedData"], "x");
     assert_eq!(value["detachedTailData"], "yz");
     assert_eq!(value["detachedTailParent"], true);
+    assert_eq!(value["detachedWholeText"], "x");
+    assert_eq!(value["detachedTailWholeText"], "yz");
+    assert_eq!(value["middleWholeText"], "left-mid");
+    assert_eq!(value["rightWholeText"], "-right");
     assert_eq!(value["errorName"], "IndexSizeError");
     assert_eq!(
         value["records"],
