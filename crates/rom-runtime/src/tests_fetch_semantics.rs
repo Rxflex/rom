@@ -406,6 +406,60 @@ fn applies_bodyinit_content_types_and_string_coercion() {
 }
 
 #[test]
+fn rejects_non_safelisted_methods_in_no_cors_mode() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const allowedMethod = new Request("https://rom.local/post", {
+                    method: "POST",
+                    mode: "no-cors",
+                }).method;
+
+                let putError = "";
+                try {
+                    new Request("https://rom.local/put", {
+                        method: "PUT",
+                        mode: "no-cors",
+                    });
+                } catch (error) {
+                    putError = String(error.message ?? error);
+                }
+
+                let patchError = "";
+                try {
+                    await fetch("https://rom.local/patch", {
+                        method: "PATCH",
+                        mode: "no-cors",
+                    });
+                } catch (error) {
+                    patchError = String(error.message ?? error);
+                }
+
+                return {
+                    allowedMethod,
+                    putError,
+                    patchError,
+                };
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(value["allowedMethod"], "POST");
+    assert_eq!(
+        value["putError"],
+        "Failed to construct 'Request': 'PUT' is unsupported in no-cors mode."
+    );
+    assert_eq!(
+        value["patchError"],
+        "Failed to construct 'Request': 'PATCH' is unsupported in no-cors mode."
+    );
+}
+
+#[test]
 fn supports_redirect_modes() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();
