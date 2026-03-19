@@ -228,6 +228,13 @@
         }
     }
 
+    function getBaseUriForNode(node) {
+        const documentNode = node?.nodeType === 9 ? node : node?.ownerDocument ?? null;
+        const defaultView = documentNode?.defaultView ?? null;
+        const href = defaultView?.location?.href;
+        return typeof href === "string" ? href : "about:blank";
+    }
+
     class Node extends EventTarget {
         constructor(nodeType, nodeName) {
             super();
@@ -366,6 +373,10 @@
                 current = current.parentNode ?? null;
             }
             return false;
+        }
+
+        get baseURI() {
+            return getBaseUriForNode(this);
         }
 
         get nodeValue() {
