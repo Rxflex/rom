@@ -33,6 +33,8 @@ mod tests_parsing;
 #[cfg(test)]
 mod tests_performance;
 #[cfg(test)]
+mod tests_selectors;
+#[cfg(test)]
 mod tests_timers;
 #[cfg(test)]
 mod tests_viewport;

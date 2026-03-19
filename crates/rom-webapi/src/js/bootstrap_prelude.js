@@ -213,13 +213,184 @@
         if (!node || node.nodeType !== 1) {
             return false;
         }
-        if (selector.startsWith("#")) {
-            return node.id === selector.slice(1);
+
+        const parsed = parseSimpleSelector(selector);
+        if (!parsed) {
+            return false;
         }
-        if (selector.startsWith(".")) {
-            return node.className.split(/\s+/).filter(Boolean).includes(selector.slice(1));
+
+        if (parsed.tagName !== null && parsed.tagName !== "*" && node.tagName.toLowerCase() !== parsed.tagName) {
+            return false;
         }
-        return node.tagName.toLowerCase() === selector.toLowerCase();
+
+        if (parsed.id !== null && node.id !== parsed.id) {
+            return false;
+        }
+
+        const classNames = node.className.split(/\s+/).filter(Boolean);
+        for (const className of parsed.classNames) {
+            if (!classNames.includes(className)) {
+                return false;
+            }
+        }
+
+        for (const attribute of parsed.attributes) {
+            if (!node.hasAttribute(attribute.name)) {
+                return false;
+            }
+
+            if (attribute.value !== null && node.getAttribute(attribute.name) !== attribute.value) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    function parseSimpleSelector(selector) {
+        const source = String(selector ?? "").trim();
+        if (!source || /\s/.test(source)) {
+            return null;
+        }
+
+        let index = 0;
+        let tagName = null;
+        let id = null;
+        const classNames = [];
+        const attributes = [];
+
+        if (source[index] === "*") {
+            tagName = "*";
+            index += 1;
+        } else if (isIdentifierStart(source[index])) {
+            const identifier = readSelectorIdentifier(source, index);
+            tagName = identifier.value.toLowerCase();
+            index = identifier.nextIndex;
+        }
+
+        while (index < source.length) {
+            const token = source[index];
+            if (token === "#") {
+                const identifier = readSelectorIdentifier(source, index + 1);
+                if (!identifier.value) {
+                    return null;
+                }
+                id = identifier.value;
+                index = identifier.nextIndex;
+                continue;
+            }
+
+            if (token === ".") {
+                const identifier = readSelectorIdentifier(source, index + 1);
+                if (!identifier.value) {
+                    return null;
+                }
+                classNames.push(identifier.value);
+                index = identifier.nextIndex;
+                continue;
+            }
+
+            if (token === "[") {
+                const attribute = readSelectorAttribute(source, index + 1);
+                if (!attribute) {
+                    return null;
+                }
+                attributes.push(attribute.attribute);
+                index = attribute.nextIndex;
+                continue;
+            }
+
+            return null;
+        }
+
+        return {
+            tagName,
+            id,
+            classNames,
+            attributes,
+        };
+    }
+
+    function readSelectorIdentifier(source, startIndex) {
+        let index = startIndex;
+        while (index < source.length && isIdentifierCharacter(source[index])) {
+            index += 1;
+        }
+
+        return {
+            value: source.slice(startIndex, index),
+            nextIndex: index,
+        };
+    }
+
+    function readSelectorAttribute(source, startIndex) {
+        let index = startIndex;
+        while (index < source.length && /\s/.test(source[index])) {
+            index += 1;
+        }
+
+        const nameIdentifier = readSelectorIdentifier(source, index);
+        if (!nameIdentifier.value) {
+            return null;
+        }
+
+        index = nameIdentifier.nextIndex;
+        while (index < source.length && /\s/.test(source[index])) {
+            index += 1;
+        }
+
+        let value = null;
+        if (source[index] === "=") {
+            index += 1;
+            while (index < source.length && /\s/.test(source[index])) {
+                index += 1;
+            }
+
+            if (source[index] === "\"" || source[index] === "'") {
+                const quote = source[index];
+                index += 1;
+                const valueStart = index;
+                while (index < source.length && source[index] !== quote) {
+                    index += 1;
+                }
+                if (index >= source.length) {
+                    return null;
+                }
+                value = source.slice(valueStart, index);
+                index += 1;
+            } else {
+                const valueIdentifier = readSelectorIdentifier(source, index);
+                if (!valueIdentifier.value) {
+                    return null;
+                }
+                value = valueIdentifier.value;
+                index = valueIdentifier.nextIndex;
+            }
+
+            while (index < source.length && /\s/.test(source[index])) {
+                index += 1;
+            }
+        }
+
+        if (source[index] !== "]") {
+            return null;
+        }
+
+        return {
+            attribute: {
+                name: nameIdentifier.value,
+                value,
+            },
+            nextIndex: index + 1,
+        };
+    }
+
+    function isIdentifierStart(character) {
+        return typeof character === "string" && /[A-Za-z_]/.test(character);
+    }
+
+    function isIdentifierCharacter(character) {
+        return typeof character === "string" && /[A-Za-z0-9_-]/.test(character);
     }
 
     function querySelectorFrom(root, selector) {
