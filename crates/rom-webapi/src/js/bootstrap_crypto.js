@@ -25,6 +25,7 @@
         async generateKey(algorithm, extractable, keyUsages) {
             const normalizedAlgorithm = normalizeAlgorithmObject(algorithm);
             const usages = normalizeCryptoKeyUsages(normalizedAlgorithm, keyUsages);
+            validateGenerateKeyAlgorithm(normalizedAlgorithm);
             const response = JSON.parse(
                 g.__rom_subtle_generate_key(
                     JSON.stringify({

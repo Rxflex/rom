@@ -7,8 +7,8 @@ mod types;
 use std::{
     collections::HashMap,
     sync::{
-        Arc, Mutex,
         atomic::{AtomicU64, Ordering},
+        Arc, Mutex,
     },
 };
 
@@ -61,13 +61,14 @@ impl CryptoHost {
                     .length
                     .map(|length| length.div_ceil(8))
                     .unwrap_or_else(|| default_hmac_key_length(hash));
+                let length_bits = payload.algorithm.length.unwrap_or(byte_length * 8);
                 let mut secret = vec![0_u8; byte_length];
                 getrandom::fill(&mut secret).map_err(|error| error.to_string())?;
 
                 self.store_key(CryptoKeyRecord {
                     extractable: payload.extractable,
                     key_type: "secret".to_owned(),
-                    algorithm: build_hmac_algorithm(hash, secret.len()),
+                    algorithm: build_hmac_algorithm(hash, length_bits),
                     usages: payload.usages,
                     material: KeyMaterial::Hmac { secret, hash },
                 })
@@ -169,11 +170,12 @@ impl CryptoHost {
                     "jwk" => import_hmac_jwk(payload.key_data, hash)?,
                     other => return Err(format!("Unsupported key import format: {other}")),
                 };
+                let length_bits = payload.algorithm.length.unwrap_or(secret.len() * 8);
 
                 self.store_key(CryptoKeyRecord {
                     extractable: payload.extractable,
                     key_type: "secret".to_owned(),
-                    algorithm: build_hmac_algorithm(hash, secret.len()),
+                    algorithm: build_hmac_algorithm(hash, length_bits),
                     usages: payload.usages,
                     material: KeyMaterial::Hmac { secret, hash },
                 })

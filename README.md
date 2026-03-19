@@ -39,6 +39,7 @@ The browser surface now also includes an initial web data stack:
 - `PBKDF2` `importKey()`, `deriveBits()`, `deriveKey()` with browser-like parameter validation
 - `HKDF` `importKey()`, `deriveBits()`, `deriveKey()` with browser-like parameter validation
 - `SubtleCrypto.importKey()` / `exportKey()` current `raw` / `jwk` flows with browser-like edge validation
+- browser-like AES/HMAC secret-key length validation for current `generateKey()` / `importKey()` flows
 - current secret-key `importKey("jwk", ...)` flow with browser-like JWK content validation
 - secret-key `keyUsages` validation for `generateKey()` / `importKey()` / derived and unwrapped secret keys
 - `SubtleCrypto.wrapKey()` and `SubtleCrypto.unwrapKey()` via the current secret-key flow, including `AES-KW`
