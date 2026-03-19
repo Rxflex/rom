@@ -9,6 +9,8 @@ mod tests_cookies;
 #[cfg(test)]
 mod tests_cors;
 #[cfg(test)]
+mod tests_css;
+#[cfg(test)]
 mod tests_events;
 #[cfg(test)]
 mod tests_eventsource;
