@@ -55,6 +55,8 @@ mod tests_performance;
 #[cfg(test)]
 mod tests_selectors;
 #[cfg(test)]
+mod tests_split_text;
+#[cfg(test)]
 mod tests_timers;
 #[cfg(test)]
 mod tests_viewport;
