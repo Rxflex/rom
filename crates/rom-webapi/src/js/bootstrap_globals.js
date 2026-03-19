@@ -97,7 +97,26 @@
         history.state = cloneHistoryState(entry.state);
     }
 
-    function updateHistoryEntry(mode, state, nextHref) {
+    function dispatchHashChangeIfNeeded(previousHref, nextHref) {
+        const previous = new URL(previousHref);
+        const next = new URL(nextHref);
+        if (
+            previous.origin === next.origin &&
+            previous.pathname === next.pathname &&
+            previous.search === next.search &&
+            previous.hash !== next.hash
+        ) {
+            dispatchWindowEvent(
+                new HashChangeEvent("hashchange", {
+                    oldURL: previous.href,
+                    newURL: next.href,
+                }),
+            );
+        }
+    }
+
+    function updateHistoryEntry(mode, state, nextHref, dispatchHashChange = false) {
+        const previousHref = location.href;
         const entry = {
             href: resolveHistoryHref(nextHref),
             state: cloneHistoryState(state),
@@ -112,13 +131,16 @@
         }
 
         syncHistoryState(entry);
+        if (dispatchHashChange) {
+            dispatchHashChangeIfNeeded(previousHref, entry.href);
+        }
     }
 
     function navigateLocation(mode, nextHref) {
         const nextState = mode === "replace"
             ? historyEntries[currentHistoryIndex]?.state ?? null
             : null;
-        updateHistoryEntry(mode, nextState, nextHref);
+        updateHistoryEntry(mode, nextState, nextHref, true);
     }
 
     function traverseHistory(delta) {
@@ -131,6 +153,7 @@
             return;
         }
 
+        const previousHref = location.href;
         currentHistoryIndex = nextIndex;
         const entry = historyEntries[currentHistoryIndex];
         syncHistoryState(entry);
@@ -139,6 +162,7 @@
                 state: cloneHistoryState(entry.state),
             }),
         );
+        dispatchHashChangeIfNeeded(previousHref, entry.href);
     }
 
     const viewport = createViewportState();
@@ -819,6 +843,14 @@
         }
     }
 
+    class HashChangeEvent extends Event {
+        constructor(type, init = {}) {
+            super(type, init);
+            this.oldURL = String(init.oldURL ?? "");
+            this.newURL = String(init.newURL ?? "");
+        }
+    }
+
     class Image {}
 
     class Audio {
@@ -874,6 +906,7 @@
     g.removeEventListener = EventTarget.prototype.removeEventListener.bind(g);
     g.dispatchEvent = (event) => dispatchWindowEvent(event);
     g.onpopstate = null;
+    g.onhashchange = null;
     g.document = document;
     g.navigator = navigator;
     g.location = location;
@@ -898,6 +931,7 @@
     g.HTMLButtonElement = HTMLButtonElement;
     g.CompositionEvent = CompositionEvent;
     g.PopStateEvent = PopStateEvent;
+    g.HashChangeEvent = HashChangeEvent;
     g.MessageChannel = MessageChannel;
     g.MessagePort = MessagePort;
     g.MessageEvent = MessageEvent;
