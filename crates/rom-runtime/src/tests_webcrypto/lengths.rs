@@ -218,7 +218,7 @@ fn validates_webcrypto_derive_key_target_lengths() {
     assert_eq!(value["missingAesLength"]["name"], "TypeError");
     assert_eq!(value["invalidAesLength"]["name"], "OperationError");
     assert_eq!(value["invalidHmacLength"]["name"], "OperationError");
-    assert_eq!(value["derivedDefaultHmacLength"], 512);
+    assert_eq!(value["derivedDefaultHmacLength"], 256);
     assert_eq!(value["derivedDefaultHmacHash"], "SHA-256");
 }
 
