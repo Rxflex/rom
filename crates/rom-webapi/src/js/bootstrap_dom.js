@@ -401,6 +401,36 @@
         hasChildNodes() {
             return this.childNodes.length > 0;
         }
+
+        normalize() {
+            let index = 0;
+            while (index < this.childNodes.length) {
+                const child = this.childNodes[index];
+
+                if (child?.nodeType === 3) {
+                    if (child.data === "") {
+                        this.removeChild(child);
+                        continue;
+                    }
+
+                    while (
+                        this.childNodes[index + 1]?.nodeType === 3
+                    ) {
+                        const nextText = this.childNodes[index + 1];
+                        child.textContent = child.data + nextText.data;
+                        this.removeChild(nextText);
+                    }
+
+                    index += 1;
+                    continue;
+                }
+
+                if (typeof child?.normalize === "function") {
+                    child.normalize();
+                }
+                index += 1;
+            }
+        }
     }
 
     class Text extends Node {

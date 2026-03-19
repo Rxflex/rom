@@ -47,6 +47,8 @@ mod tests_navigator;
 #[cfg(test)]
 mod tests_node_helpers;
 #[cfg(test)]
+mod tests_normalize;
+#[cfg(test)]
 mod tests_parsing;
 #[cfg(test)]
 mod tests_performance;
