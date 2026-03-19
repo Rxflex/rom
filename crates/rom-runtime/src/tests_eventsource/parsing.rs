@@ -44,6 +44,30 @@ fn supports_utf8_text_encoding_and_decoding() {
                         return String(error.name);
                     }
                 })(),
+                streamFirstChunk: (() => {
+                    const decoder = new TextDecoder();
+                    return decoder.decode(Uint8Array.from([240, 159]), { stream: true });
+                })(),
+                streamSecondChunk: (() => {
+                    const decoder = new TextDecoder();
+                    decoder.decode(Uint8Array.from([240, 159]), { stream: true });
+                    return decoder.decode(Uint8Array.from([153, 130, 65]), { stream: true });
+                })(),
+                streamFlush: (() => {
+                    const decoder = new TextDecoder();
+                    decoder.decode(Uint8Array.from([240, 159]), { stream: true });
+                    decoder.decode(Uint8Array.from([153, 130, 65]), { stream: true });
+                    return decoder.decode();
+                })(),
+                bomStreamParts: (() => {
+                    const decoder = new TextDecoder();
+                    return [
+                        decoder.decode(Uint8Array.from([239]), { stream: true }),
+                        decoder.decode(Uint8Array.from([187]), { stream: true }),
+                        decoder.decode(Uint8Array.from([191, 104, 105]), { stream: true }),
+                        decoder.decode(),
+                    ];
+                })(),
                 fullEncodeInto,
                 fullBuffer: Array.from(fullBuffer),
                 partialEncodeInto,
@@ -66,6 +90,10 @@ fn supports_utf8_text_encoding_and_decoding() {
     assert_eq!(value["truncatedReplacement"], "\u{fffd}");
     assert_eq!(value["continuationReplacement"], "\u{fffd}A");
     assert_eq!(value["fatalErrorName"], "TypeError");
+    assert_eq!(value["streamFirstChunk"], "");
+    assert_eq!(value["streamSecondChunk"], "🙂A");
+    assert_eq!(value["streamFlush"], "");
+    assert_eq!(value["bomStreamParts"], serde_json::json!(["", "", "hi", ""]));
     assert_eq!(value["fullEncodeInto"], serde_json::json!({ "read": 4, "written": 7 }));
     assert_eq!(
         value["fullBuffer"],
