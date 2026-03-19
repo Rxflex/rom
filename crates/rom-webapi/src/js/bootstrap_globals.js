@@ -262,10 +262,19 @@
                 throw new TypeError("Failed to observe performance timeline.");
             }
 
+            const hasEntryTypes = Array.isArray(options.entryTypes);
+            const hasType = options.type !== undefined;
+            const hasBuffered = options.buffered !== undefined;
+            if (hasEntryTypes && (hasType || hasBuffered)) {
+                throw new TypeError(
+                    "PerformanceObserver cannot mix entryTypes with type or buffered.",
+                );
+            }
+
             let entryTypes = [];
-            if (Array.isArray(options.entryTypes)) {
+            if (hasEntryTypes) {
                 entryTypes = options.entryTypes.map(String);
-            } else if (options.type !== undefined) {
+            } else if (hasType) {
                 entryTypes = [String(options.type)];
             }
 
@@ -274,6 +283,10 @@
             }
 
             this.__entryTypes = entryTypes.filter(isSupportedPerformanceEntryType);
+            if (hasType && options.buffered) {
+                const bufferedEntries = getPerformanceEntries(this.__entryTypes[0]);
+                enqueuePerformanceObserverRecords(this, bufferedEntries);
+            }
         }
 
         disconnect() {
@@ -328,25 +341,33 @@
                 continue;
             }
 
-            observer.__records.push(entry);
-            if (observer.__scheduled) {
-                continue;
+            enqueuePerformanceObserverRecords(observer, [entry]);
+        }
+    }
+
+    function enqueuePerformanceObserverRecords(observer, records) {
+        if (!records.length) {
+            return;
+        }
+
+        observer.__records.push(...records);
+        if (observer.__scheduled) {
+            return;
+        }
+
+        observer.__scheduled = true;
+        queueMicrotask(() => {
+            observer.__scheduled = false;
+            if (!observer.__records.length || !observer.__entryTypes.length) {
+                observer.__records = [];
+                return;
             }
 
-            observer.__scheduled = true;
-            queueMicrotask(() => {
-                observer.__scheduled = false;
-                if (!observer.__records.length || !observer.__entryTypes.length) {
-                    observer.__records = [];
-                    return;
-                }
-
-                observer.callback(
-                    new PerformanceObserverEntryList(observer.takeRecords()),
-                    observer,
-                );
-            });
-        }
+            observer.callback(
+                new PerformanceObserverEntryList(observer.takeRecords()),
+                observer,
+            );
+        });
     }
 
     function getPerformanceEntries(type = null, name = null) {
