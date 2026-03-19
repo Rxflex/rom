@@ -484,7 +484,10 @@ fn dispatches_websocket_error_before_abnormal_close() {
     server.join().unwrap();
 
     let value: serde_json::Value = serde_json::from_str(&result).unwrap();
-    assert_eq!(value["events"], serde_json::json!(["open", "error", "close"]));
+    assert_eq!(
+        value["events"],
+        serde_json::json!(["open", "error", "close"])
+    );
     assert_eq!(value["code"], 1006);
     assert_eq!(value["wasClean"], false);
     assert_eq!(value["readyState"], 3);
@@ -519,10 +522,9 @@ fn validates_websocket_protocol_negotiation_and_argument_types() {
     let invalid_server = thread::spawn(move || {
         let (stream, _) = invalid_listener.accept().unwrap();
         let callback = |_: &Request, mut response: Response| {
-            response.headers_mut().insert(
-                "Sec-WebSocket-Protocol",
-                HeaderValue::from_static("bogus"),
-            );
+            response
+                .headers_mut()
+                .insert("Sec-WebSocket-Protocol", HeaderValue::from_static("bogus"));
             Ok(response)
         };
         let mut websocket = accept_hdr(stream, callback).unwrap();

@@ -374,8 +374,14 @@ fn validates_webcrypto_import_export_edge_cases() {
 
     assert_eq!(value["exportNonExtractable"]["name"], "InvalidAccessError");
     assert_eq!(value["wrapNonExtractable"]["name"], "InvalidAccessError");
-    assert_eq!(value["exportUnsupportedFormat"]["name"], "NotSupportedError");
-    assert_eq!(value["importUnsupportedFormat"]["name"], "NotSupportedError");
+    assert_eq!(
+        value["exportUnsupportedFormat"]["name"],
+        "NotSupportedError"
+    );
+    assert_eq!(
+        value["importUnsupportedFormat"]["name"],
+        "NotSupportedError"
+    );
     assert_eq!(value["importInvalidJwkData"]["name"], "TypeError");
     assert_eq!(value["exportUnsupportedJwk"]["name"], "NotSupportedError");
 }

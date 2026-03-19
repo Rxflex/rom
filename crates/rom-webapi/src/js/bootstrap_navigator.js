@@ -8,9 +8,15 @@
     }
 
     class Permissions {
+        constructor(permissionState) {
+            this.__permissionState = permissionState;
+        }
+
         query(descriptor = {}) {
             const name = String(descriptor.name ?? "");
-            return Promise.resolve(new PermissionStatus(name, permissionStateFor(name)));
+            return Promise.resolve(
+                new PermissionStatus(name, this.__permissionState.get(name) ?? "prompt"),
+            );
         }
     }
 
@@ -166,14 +172,19 @@
     class InputDeviceInfo extends MediaDeviceInfo {}
 
     class MediaDevices extends EventTarget {
-        constructor(devices) {
+        constructor(devices, permissionState) {
             super();
             this.ondevicechange = null;
             this.__devices = devices;
+            this.__permissionState = permissionState;
         }
 
         enumerateDevices() {
-            return Promise.resolve(this.__devices.map(cloneMediaDevice));
+            return Promise.resolve(
+                this.__devices.map((device) =>
+                    cloneMediaDevice(device, shouldRevealDeviceLabel(device, this.__permissionState)),
+                ),
+            );
         }
 
         getSupportedConstraints() {
@@ -193,9 +204,11 @@
             const tracks = [];
 
             if (normalized.audio) {
+                this.__permissionState.set("microphone", "granted");
                 tracks.push(new MediaStreamTrack("audio", "Default Audio Input"));
             }
             if (normalized.video) {
+                this.__permissionState.set("camera", "granted");
                 tracks.push(new MediaStreamTrack("video", "Default Video Input"));
             }
             if (!tracks.length) {
@@ -304,9 +317,10 @@
     }
 
     function createNavigator(navigatorConfig) {
+        const permissionState = createPermissionState();
         const mimeTypes = createDefaultMimeTypes();
         const plugins = createDefaultPlugins(mimeTypes);
-        const mediaDevices = createDefaultMediaDevices();
+        const mediaDevices = createDefaultMediaDevices(permissionState);
         const userAgentData = createNavigatorUAData(navigatorConfig);
 
         return {
@@ -327,7 +341,7 @@
             userAgentData,
             plugins,
             mimeTypes,
-            permissions: new Permissions(),
+            permissions: new Permissions(permissionState),
             mediaDevices,
             pdfViewerEnabled: true,
         };
@@ -347,12 +361,12 @@
         ]);
     }
 
-    function createDefaultMediaDevices() {
+    function createDefaultMediaDevices(permissionState) {
         return new MediaDevices([
             new InputDeviceInfo("audioinput", "Default Audio Input", "audioinput-default", "media-group"),
             new InputDeviceInfo("videoinput", "Default Video Input", "videoinput-default", "media-group"),
             new MediaDeviceInfo("audiooutput", "Default Audio Output", "audiooutput-default", "media-group"),
-        ]);
+        ], permissionState);
     }
 
     function createNavigatorUAData(navigatorConfig) {
@@ -397,11 +411,12 @@
         return Boolean(value);
     }
 
-    function cloneMediaDevice(device) {
+    function cloneMediaDevice(device, revealLabel) {
+        const label = revealLabel ? device.label : "";
         if (device instanceof InputDeviceInfo) {
-            return new InputDeviceInfo(device.kind, device.label, device.deviceId, device.groupId);
+            return new InputDeviceInfo(device.kind, label, device.deviceId, device.groupId);
         }
-        return new MediaDeviceInfo(device.kind, device.label, device.deviceId, device.groupId);
+        return new MediaDeviceInfo(device.kind, label, device.deviceId, device.groupId);
     }
 
     function cloneBrandEntry(entry) {
@@ -435,14 +450,22 @@
         return "Unknown";
     }
 
-    function permissionStateFor(name) {
-        switch (name) {
-            case "notifications":
-                return "default";
-            case "camera":
-            case "microphone":
-                return "granted";
-            default:
-                return "prompt";
+    function createPermissionState() {
+        return new Map([
+            ["camera", "prompt"],
+            ["microphone", "prompt"],
+            ["notifications", "default"],
+        ]);
+    }
+
+    function shouldRevealDeviceLabel(device, permissionState) {
+        if (device.kind === "audioinput" || device.kind === "audiooutput") {
+            return permissionState.get("microphone") === "granted";
         }
+
+        if (device.kind === "videoinput") {
+            return permissionState.get("camera") === "granted";
+        }
+
+        return false;
     }

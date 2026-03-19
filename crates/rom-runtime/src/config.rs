@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use rom_webapi::{LocationConfig, NavigatorConfig, WebRuntimeConfig};
+use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::error::Result;
