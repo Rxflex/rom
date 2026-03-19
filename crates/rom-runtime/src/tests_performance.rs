@@ -111,3 +111,56 @@ fn supports_performance_observer_and_missing_mark_errors() {
     assert_eq!(value["missingMarkError"], "SyntaxError");
     assert_eq!(value["taken"], serde_json::json!(["queued"]));
 }
+
+#[test]
+fn supports_buffered_performance_observer_and_observe_guards() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                performance.clearMarks();
+                performance.clearMeasures();
+
+                performance.mark("before-observer");
+                performance.mark("before-observer-2");
+
+                const deliveries = [];
+                const observer = new PerformanceObserver((list) => {
+                    deliveries.push(list.getEntries().map((entry) => entry.name));
+                });
+                observer.observe({ type: "mark", buffered: true });
+                await Promise.resolve();
+
+                performance.mark("after-observer");
+                await Promise.resolve();
+
+                let mixedOptionsError = null;
+                try {
+                    observer.observe({
+                        entryTypes: ["mark"],
+                        type: "measure",
+                        buffered: true,
+                    });
+                } catch (error) {
+                    mixedOptionsError = error.name;
+                }
+
+                observer.disconnect();
+
+                return JSON.stringify({
+                    deliveries,
+                    mixedOptionsError,
+                });
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(
+        value["deliveries"],
+        serde_json::json!([["before-observer", "before-observer-2"], ["after-observer"]])
+    );
+    assert_eq!(value["mixedOptionsError"], "TypeError");
+}
