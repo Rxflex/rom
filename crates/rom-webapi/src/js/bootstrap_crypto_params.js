@@ -94,6 +94,9 @@ function validateWrapOperationAlgorithm(algorithm, dataLength) {
             validateDataOperationAlgorithm(algorithm, dataLength);
             break;
         case "AES-KW":
+            if (dataLength < 16 || dataLength % 8 !== 0) {
+                throw createCryptoDomException("OperationError", "AES-KW payload must be 64-bit aligned and at least 128 bits.");
+            }
             break;
         default:
             throw createCryptoDomException(
