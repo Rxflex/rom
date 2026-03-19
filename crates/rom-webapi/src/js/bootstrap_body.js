@@ -368,6 +368,10 @@
         target.body = init.nullBody ? null : new ReadableStream({ __bodyState: bodyState });
     }
 
+    function hasBodyValue(value) {
+        return value !== undefined && value !== null;
+    }
+
     function consumeBody(target, reader) {
         if (target.bodyUsed || target.__bodyState?.readerLocked) {
             return Promise.reject(new TypeError("Body has already been read."));
