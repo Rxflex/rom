@@ -13,6 +13,11 @@ fn supports_utf8_text_encoding_and_decoding() {
             encoded: Array.from(new TextEncoder().encode("hé🙂")),
             decoded: new TextDecoder().decode(Uint8Array.from([104, 195, 169, 240, 159, 153, 130])),
             bomDecoded: new TextDecoder().decode(Uint8Array.from([239, 187, 191, 104, 105])),
+            bomIncluded: new TextDecoder(" utf8 ", { ignoreBOM: true }).decode(
+                Uint8Array.from([239, 187, 191, 104, 105])
+            ),
+            nullOptionsEncoding: new TextDecoder(" UTF-8 ", null).encoding,
+            nullOptionsFatal: new TextDecoder(" UTF-8 ", null).fatal,
         }))()
     "#;
 
@@ -22,6 +27,9 @@ fn supports_utf8_text_encoding_and_decoding() {
     assert_eq!(value["encoded"], serde_json::json!([104, 195, 169, 240, 159, 153, 130]));
     assert_eq!(value["decoded"], "hé🙂");
     assert_eq!(value["bomDecoded"], "hi");
+    assert_eq!(value["bomIncluded"], "\u{feff}hi");
+    assert_eq!(value["nullOptionsEncoding"], "utf-8");
+    assert_eq!(value["nullOptionsFatal"], false);
 }
 
 #[test]

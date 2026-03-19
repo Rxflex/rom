@@ -226,14 +226,15 @@
 
     const textDecoderFactory = class TextDecoder {
         constructor(label = "utf-8", options = {}) {
-            const normalizedLabel = String(label).toLowerCase();
+            const normalizedLabel = String(label).trim().toLowerCase();
+            const normalizedOptions = options == null ? {} : Object(options);
             if (normalizedLabel !== "utf-8" && normalizedLabel !== "utf8") {
                 throw new RangeError(`Unsupported encoding: ${label}`);
             }
 
             defineReadOnly(this, "encoding", "utf-8");
-            defineReadOnly(this, "fatal", Boolean(options.fatal));
-            defineReadOnly(this, "ignoreBOM", Boolean(options.ignoreBOM));
+            defineReadOnly(this, "fatal", Boolean(normalizedOptions.fatal));
+            defineReadOnly(this, "ignoreBOM", Boolean(normalizedOptions.ignoreBOM));
         }
 
         decode(input = new Uint8Array()) {
