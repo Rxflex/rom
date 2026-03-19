@@ -186,7 +186,7 @@
         const text = String(input);
         const normalizedInput = text.startsWith("\uFEFF") ? text.slice(1) : text;
 
-        for (const rawLine of normalizedInput.split(/\r?\n/)) {
+        for (const rawLine of normalizedInput.split(/\r\n|[\r\n]/)) {
             if (rawLine === "") {
                 flushEventSourceEntry(entries, current);
                 current = createEventSourceEntry();
