@@ -179,6 +179,84 @@ fn enforces_request_body_method_guards_and_null_body_surfaces() {
 }
 
 #[test]
+fn rejects_reusing_consumed_request_bodies_without_override() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const source = new Request("https://rom.local/source", {
+                    method: "POST",
+                    body: "payload",
+                });
+                await source.text();
+
+                let constructorError = "";
+                try {
+                    new Request(source);
+                } catch (error) {
+                    constructorError = String(error.message ?? error);
+                }
+
+                let fetchError = "";
+                try {
+                    await fetch(source);
+                } catch (error) {
+                    fetchError = String(error.message ?? error);
+                }
+
+                const overrideSource = new Request("https://rom.local/override", {
+                    method: "POST",
+                    body: "payload",
+                });
+                await overrideSource.text();
+                const rebuilt = new Request(overrideSource, {
+                    method: "POST",
+                    body: "fresh",
+                });
+
+                const lockedSource = new Request("https://rom.local/locked", {
+                    method: "POST",
+                    body: "payload",
+                });
+                const reader = lockedSource.body.getReader();
+
+                let lockedError = "";
+                try {
+                    new Request(lockedSource);
+                } catch (error) {
+                    lockedError = String(error.message ?? error);
+                }
+                reader.releaseLock();
+
+                return {
+                    constructorError,
+                    fetchError,
+                    rebuiltText: await rebuilt.text(),
+                    lockedError,
+                };
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(
+        value["constructorError"],
+        "Failed to construct 'Request': Cannot construct a Request from a Request with a used body."
+    );
+    assert_eq!(
+        value["fetchError"],
+        "Failed to construct 'Request': Cannot construct a Request from a Request with a used body."
+    );
+    assert_eq!(value["rebuiltText"], "fresh");
+    assert_eq!(
+        value["lockedError"],
+        "Failed to construct 'Request': Cannot construct a Request from a Request with a used body."
+    );
+}
+
+#[test]
 fn supports_redirect_modes() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();
