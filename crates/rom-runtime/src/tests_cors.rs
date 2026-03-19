@@ -40,10 +40,10 @@ fn read_http_request(stream: &mut std::net::TcpStream) -> String {
             }
         }
 
-        if let Some(total) = expected_total {
-            if buffer.len() >= total {
-                break;
-            }
+        if let Some(total) = expected_total
+            && buffer.len() >= total
+        {
+            break;
         }
     }
 

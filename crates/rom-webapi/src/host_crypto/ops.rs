@@ -1,4 +1,4 @@
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
 use pbkdf2::pbkdf2_hmac;
@@ -264,12 +264,11 @@ fn import_jwk_oct_secret(
     if jwk.kty != "oct" {
         return Err(format!("Unsupported JWK kty for {label}"));
     }
-    if let Some(expected) = expected_alg {
-        if let Some(alg) = jwk.alg.as_deref() {
-            if alg != expected {
-                return Err(format!("JWK alg mismatch: expected {expected}, got {alg}"));
-            }
-        }
+    if let Some(expected) = expected_alg
+        && let Some(alg) = jwk.alg.as_deref()
+        && alg != expected
+    {
+        return Err(format!("JWK alg mismatch: expected {expected}, got {alg}"));
     }
     URL_SAFE_NO_PAD
         .decode(jwk.k.as_bytes())

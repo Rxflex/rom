@@ -9,9 +9,11 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 use tungstenite::{
-    protocol::{CloseFrame, frame::Utf8Bytes, frame::coding::CloseCode},
-    Connector, Message, WebSocket, client::IntoClientRequest, client_tls_with_config,
+    Connector, Message, WebSocket,
+    client::IntoClientRequest,
+    client_tls_with_config,
     handshake::client::Response,
+    protocol::{CloseFrame, frame::Utf8Bytes, frame::coding::CloseCode},
     stream::MaybeTlsStream,
 };
 use url::Url;
@@ -94,8 +96,7 @@ impl WebSocketHost {
         let payload: WebSocketConnectPayload =
             serde_json::from_str(payload).map_err(|error| error.to_string())?;
         let request = build_request(&payload)?;
-        let (mut socket, response) =
-            connect_socket(request, connect_stream(&payload.url)?, None)?;
+        let (mut socket, response) = connect_socket(request, connect_stream(&payload.url)?, None)?;
         set_nonblocking(socket.get_mut())?;
 
         let socket_id = format!(
@@ -245,7 +246,9 @@ impl WebSocketHost {
     }
 }
 
-fn build_request(payload: &WebSocketConnectPayload) -> Result<tungstenite::http::Request<()>, String> {
+fn build_request(
+    payload: &WebSocketConnectPayload,
+) -> Result<tungstenite::http::Request<()>, String> {
     let mut request = payload
         .url
         .as_str()
@@ -255,11 +258,9 @@ fn build_request(payload: &WebSocketConnectPayload) -> Result<tungstenite::http:
     if !payload.protocols.is_empty() {
         request.headers_mut().insert(
             "Sec-WebSocket-Protocol",
-            payload
-                .protocols
-                .join(", ")
-                .parse()
-                .map_err(|error: tungstenite::http::header::InvalidHeaderValue| error.to_string())?,
+            payload.protocols.join(", ").parse().map_err(
+                |error: tungstenite::http::header::InvalidHeaderValue| error.to_string(),
+            )?,
         );
     }
 
@@ -321,19 +322,16 @@ fn extract_protocol(response: &Response) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{Connector, WebSocketConnectPayload, build_request, connect_socket, connect_stream, set_nonblocking};
+    use super::{
+        Connector, WebSocketConnectPayload, build_request, connect_socket, connect_stream,
+        set_nonblocking,
+    };
     use rcgen::generate_simple_self_signed;
     use rustls::{
         ClientConfig, RootCertStore, ServerConfig, ServerConnection, StreamOwned,
-        pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer},
+        pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer},
     };
-    use std::{
-        io::ErrorKind,
-        net::TcpListener,
-        sync::Once,
-        sync::Arc,
-        thread,
-    };
+    use std::{io::ErrorKind, net::TcpListener, sync::Arc, sync::Once, thread};
     use tungstenite::{Message, accept};
 
     fn install_rustls_provider() {
@@ -349,7 +347,7 @@ mod tests {
         install_rustls_provider();
 
         let certified = generate_simple_self_signed(vec!["localhost".to_owned()]).unwrap();
-        let certificate = CertificateDer::from(certified.cert.der().clone());
+        let certificate = certified.cert.der().clone();
         let private_key = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(
             certified.signing_key.serialize_der(),
         ));
@@ -388,7 +386,8 @@ mod tests {
         })
         .unwrap();
         let stream = connect_stream(&format!("wss://localhost:{}/socket", address.port())).unwrap();
-        let (mut socket, _) = connect_socket(request, stream, Some(Connector::Rustls(client_config))).unwrap();
+        let (mut socket, _) =
+            connect_socket(request, stream, Some(Connector::Rustls(client_config))).unwrap();
 
         set_nonblocking(socket.get_mut()).unwrap();
 

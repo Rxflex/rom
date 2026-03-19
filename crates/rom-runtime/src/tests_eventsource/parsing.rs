@@ -79,7 +79,10 @@ fn supports_utf8_text_encoding_and_decoding() {
     let result = runtime.eval_as_string(script).unwrap();
     let value: serde_json::Value = serde_json::from_str(&result).unwrap();
 
-    assert_eq!(value["encoded"], serde_json::json!([104, 195, 169, 240, 159, 153, 130]));
+    assert_eq!(
+        value["encoded"],
+        serde_json::json!([104, 195, 169, 240, 159, 153, 130])
+    );
     assert_eq!(value["decoded"], "hé🙂");
     assert_eq!(value["bomDecoded"], "hi");
     assert_eq!(value["bomIncluded"], "\u{feff}hi");
@@ -93,13 +96,22 @@ fn supports_utf8_text_encoding_and_decoding() {
     assert_eq!(value["streamFirstChunk"], "");
     assert_eq!(value["streamSecondChunk"], "🙂A");
     assert_eq!(value["streamFlush"], "");
-    assert_eq!(value["bomStreamParts"], serde_json::json!(["", "", "hi", ""]));
-    assert_eq!(value["fullEncodeInto"], serde_json::json!({ "read": 4, "written": 7 }));
+    assert_eq!(
+        value["bomStreamParts"],
+        serde_json::json!(["", "", "hi", ""])
+    );
+    assert_eq!(
+        value["fullEncodeInto"],
+        serde_json::json!({ "read": 4, "written": 7 })
+    );
     assert_eq!(
         value["fullBuffer"],
         serde_json::json!([104, 195, 169, 240, 159, 153, 130, 0])
     );
-    assert_eq!(value["partialEncodeInto"], serde_json::json!({ "read": 1, "written": 1 }));
+    assert_eq!(
+        value["partialEncodeInto"],
+        serde_json::json!({ "read": 1, "written": 1 })
+    );
     assert_eq!(value["partialBuffer"], serde_json::json!([65, 0, 0, 0]));
 }
 

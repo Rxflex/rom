@@ -8,9 +8,9 @@ mod tests_cookies;
 #[cfg(test)]
 mod tests_cors;
 #[cfg(test)]
-mod tests_eventsource;
-#[cfg(test)]
 mod tests_events;
+#[cfg(test)]
+mod tests_eventsource;
 #[cfg(test)]
 mod tests_fetch_semantics;
 #[cfg(test)]
@@ -28,11 +28,11 @@ mod tests_parsing;
 #[cfg(test)]
 mod tests_timers;
 #[cfg(test)]
+mod tests_viewport;
+#[cfg(test)]
 mod tests_webcrypto;
 #[cfg(test)]
 mod tests_websocket;
-#[cfg(test)]
-mod tests_viewport;
 
 pub use compat::{
     CanvasSurface, FingerprintCanvas, FingerprintMedia, FingerprintObservers, FingerprintProbe,
@@ -225,10 +225,10 @@ mod tests {
                     }
                 }
 
-                if let Some(total) = expected_total {
-                    if buffer.len() >= total {
-                        break;
-                    }
+                if let Some(total) = expected_total
+                    && buffer.len() >= total
+                {
+                    break;
                 }
             }
 
@@ -256,30 +256,29 @@ mod tests {
             ..RuntimeConfig::default()
         })
         .unwrap();
-        let script = format!(
-            r#"
-            (async () => {{
-                const request = new Request("/echo", {{
+        let script = r#"
+            (async () => {
+                const request = new Request("/echo", {
                     method: "POST",
-                    headers: new Headers({{
+                    headers: new Headers({
                         "content-type": "application/json",
                         "x-rom-test": "yes",
-                    }}),
-                    body: JSON.stringify({{ hello: "world" }}),
-                }});
+                    }),
+                    body: JSON.stringify({ hello: "world" }),
+                });
                 const response = await fetch(request);
                 const data = await response.json();
 
-                return {{
+                return {
                     ok: response.ok,
                     status: response.status,
                     contentType: response.headers.get("content-type"),
                     replyHeader: response.headers.get("x-rom-reply"),
                     received: data.received === true,
-                }};
-            }})()
+                };
+            })()
             "#
-        );
+        .to_string();
 
         let result = runtime.eval_async_as_string(&script).unwrap();
 
@@ -499,10 +498,10 @@ mod tests {
                     }
                 }
 
-                if let Some(total) = expected_total {
-                    if buffer.len() >= total {
-                        break;
-                    }
+                if let Some(total) = expected_total
+                    && buffer.len() >= total
+                {
+                    break;
                 }
             }
 
@@ -530,24 +529,23 @@ mod tests {
             ..RuntimeConfig::default()
         })
         .unwrap();
-        let script = format!(
-            r#"
-            (async () => {{
+        let script = r#"
+            (async () => {
                 const body = new FormData();
                 body.append("alpha", "1");
-                body.append("file", new File(["payload"], "payload.txt", {{ type: "text/plain" }}));
-                const response = await fetch("/upload", {{
+                body.append("file", new File(["payload"], "payload.txt", { type: "text/plain" }));
+                const response = await fetch("/upload", {
                     method: "POST",
                     body,
-                }});
+                });
 
-                return {{
+                return {
                     ok: response.ok,
                     status: response.status,
-                }};
-            }})()
+                };
+            })()
             "#
-        );
+        .to_string();
 
         let result = runtime.eval_async_as_string(&script).unwrap();
 
