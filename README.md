@@ -186,6 +186,7 @@ ROM is experimental, but it is being built in the open with a clear technical di
 If you care about browser emulation, deterministic runtime design, anti-bot research tooling, or compatibility-first Web API implementation, this repo is meant to be inspectable and hackable.
 
 Issues, design discussion, and focused contributions are welcome.
+Start with [CONTRIBUTING.md](./CONTRIBUTING.md) and use [SECURITY.md](./SECURITY.md) for vulnerability reports.
 
 ## License
 
