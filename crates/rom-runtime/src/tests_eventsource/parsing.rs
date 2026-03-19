@@ -30,6 +30,20 @@ fn supports_utf8_text_encoding_and_decoding() {
                 legacyAliasDecoded: new TextDecoder("x-unicode20utf8").decode(
                     Uint8Array.from([104, 195, 169])
                 ),
+                truncatedReplacement: new TextDecoder().decode(Uint8Array.from([240, 159, 153])),
+                continuationReplacement: new TextDecoder().decode(
+                    Uint8Array.from([240, 159, 153, 65])
+                ),
+                fatalErrorName: (() => {
+                    try {
+                        new TextDecoder("utf-8", { fatal: true }).decode(
+                            Uint8Array.from([240, 159, 153])
+                        );
+                        return "ok";
+                    } catch (error) {
+                        return String(error.name);
+                    }
+                })(),
                 fullEncodeInto,
                 fullBuffer: Array.from(fullBuffer),
                 partialEncodeInto,
@@ -49,6 +63,9 @@ fn supports_utf8_text_encoding_and_decoding() {
     assert_eq!(value["nullOptionsFatal"], false);
     assert_eq!(value["aliasDecoded"], "hé");
     assert_eq!(value["legacyAliasDecoded"], "hé");
+    assert_eq!(value["truncatedReplacement"], "\u{fffd}");
+    assert_eq!(value["continuationReplacement"], "\u{fffd}A");
+    assert_eq!(value["fatalErrorName"], "TypeError");
     assert_eq!(value["fullEncodeInto"], serde_json::json!({ "read": 4, "written": 7 }));
     assert_eq!(
         value["fullBuffer"],
