@@ -132,13 +132,13 @@
             }
 
             const sequence = readUtf8Sequence(bytes, index);
-            if (sequence === null) {
+            if (sequence === null || "invalidLength" in sequence) {
                 if (fatal) {
                     throw new TypeError("The encoded data was not valid utf-8.");
                 }
 
                 codeUnits.push(0xfffd);
-                index += 1;
+                index += sequence?.invalidLength ?? 1;
                 continue;
             }
 
@@ -161,6 +161,10 @@
 
         if (first >= 0xc2 && first <= 0xdf) {
             const second = bytes[index + 1];
+            if (second === undefined) {
+                return { invalidLength: 1 };
+            }
+
             if (!isUtf8ContinuationByte(second)) {
                 return null;
             }
@@ -174,13 +178,21 @@
         if (first >= 0xe0 && first <= 0xef) {
             const second = bytes[index + 1];
             const third = bytes[index + 2];
+            if (second === undefined) {
+                return { invalidLength: 1 };
+            }
             if (
                 !isUtf8ContinuationByte(second) ||
-                !isUtf8ContinuationByte(third) ||
                 (first === 0xe0 && second < 0xa0) ||
                 (first === 0xed && second >= 0xa0)
             ) {
                 return null;
+            }
+            if (third === undefined) {
+                return { invalidLength: 2 };
+            }
+            if (!isUtf8ContinuationByte(third)) {
+                return { invalidLength: 2 };
             }
 
             return {
@@ -194,14 +206,27 @@
             const second = bytes[index + 1];
             const third = bytes[index + 2];
             const fourth = bytes[index + 3];
+            if (second === undefined) {
+                return { invalidLength: 1 };
+            }
             if (
                 !isUtf8ContinuationByte(second) ||
-                !isUtf8ContinuationByte(third) ||
-                !isUtf8ContinuationByte(fourth) ||
                 (first === 0xf0 && second < 0x90) ||
                 (first === 0xf4 && second >= 0x90)
             ) {
                 return null;
+            }
+            if (third === undefined) {
+                return { invalidLength: 2 };
+            }
+            if (!isUtf8ContinuationByte(third)) {
+                return { invalidLength: 2 };
+            }
+            if (fourth === undefined) {
+                return { invalidLength: 3 };
+            }
+            if (!isUtf8ContinuationByte(fourth)) {
+                return { invalidLength: 3 };
             }
 
             return {
