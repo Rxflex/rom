@@ -48,6 +48,8 @@ Config keys use the Rust runtime field names, so use snake_case such as `cors_en
 npm run build:native
 ```
 
+`npm pack` and `npm publish` now run the native release build automatically via `prepack`, and the produced `rom_node_native.node` is included in the published tarball for the platform that performed the publish.
+
 ## Common methods
 
 - `eval(script)`

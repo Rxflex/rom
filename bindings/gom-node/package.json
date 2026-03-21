@@ -24,6 +24,7 @@
   "sideEffects": false,
   "main": "./src/index.js",
   "scripts": {
+    "prepack": "node ./scripts/build-native.mjs --release",
     "build:native": "node ./scripts/build-native.mjs --release",
     "build:native:debug": "node ./scripts/build-native.mjs",
     "smoke": "node ./scripts/smoke.mjs",
@@ -35,6 +36,7 @@
   "types": "./src/index.d.ts",
   "files": [
     "README.md",
+    "rom_node_native.node",
     "src",
     "scripts",
     "native",
