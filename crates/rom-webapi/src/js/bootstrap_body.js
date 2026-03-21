@@ -387,19 +387,25 @@
 
         for (const part of parts) {
             if (part instanceof Blob) {
-                bytes.push(...part.__bytes);
+                appendBytes(bytes, part.__bytes);
             } else if (part instanceof Uint8Array) {
-                bytes.push(...part);
+                appendBytes(bytes, part);
             } else if (part instanceof ArrayBuffer) {
-                bytes.push(...new Uint8Array(part));
+                appendBytes(bytes, new Uint8Array(part));
             } else if (Array.isArray(part)) {
-                bytes.push(...part);
+                appendBytes(bytes, part);
             } else {
-                bytes.push(...new TextEncoder().encode(String(part)));
+                appendBytes(bytes, new TextEncoder().encode(String(part)));
             }
         }
 
         return bytes;
+    }
+
+    function appendBytes(target, source) {
+        for (const value of source) {
+            target.push(Number(value) & 0xff);
+        }
     }
 
     function normalizeBody(body, headers) {

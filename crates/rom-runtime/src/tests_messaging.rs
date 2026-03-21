@@ -560,3 +560,55 @@ fn rejects_transfer_lists_for_current_structured_clone_and_messaging_model() {
     assert_eq!(value["messagePortTransfer"], "TypeError");
     assert_eq!(value["workerTransfer"], "TypeError");
 }
+
+#[test]
+fn supports_large_base64_worker_data_urls() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const prefixLength = 200000;
+                const prefix = "/*" + "x".repeat(prefixLength) + "*/\n";
+                const scriptBlob = new Blob(
+                    [
+                        prefix,
+                        "self.onmessage = (event) => {",
+                        "  postMessage({ echoed: event.data, prefixLength: ",
+                        String(prefixLength),
+                        " });",
+                        "};",
+                    ],
+                    { type: "text/javascript" },
+                );
+
+                const workerUrl = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.readAsDataURL(scriptBlob);
+                });
+
+                return await new Promise((resolve, reject) => {
+                    const worker = new Worker(workerUrl);
+                    worker.onmessage = (event) =>
+                        resolve({
+                            echoed: event.data.echoed,
+                            prefixLength: event.data.prefixLength,
+                            hasDataUrlPrefix: workerUrl.startsWith("data:text/javascript;base64,"),
+                            urlLength: workerUrl.length,
+                        });
+                    worker.onerror = (event) =>
+                        reject(String(event.error?.message ?? event.error ?? "worker error"));
+                    worker.postMessage("ok");
+                });
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(value["echoed"], "ok");
+    assert_eq!(value["prefixLength"], 200000);
+    assert_eq!(value["hasDataUrlPrefix"], true);
+    assert!(value["urlLength"].as_u64().unwrap_or(0) > 250000);
+}
