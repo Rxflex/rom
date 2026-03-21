@@ -76,7 +76,11 @@ fn supports_cors_simple_requests() {
         stream.flush().unwrap();
     });
 
-    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let runtime = RomRuntime::new(RuntimeConfig {
+        cors_enabled: true,
+        ..RuntimeConfig::default()
+    })
+    .unwrap();
     let script = format!(
         r#"
         (async () => {{
@@ -180,7 +184,11 @@ fn supports_cors_preflight_and_credentials() {
         }
     });
 
-    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let runtime = RomRuntime::new(RuntimeConfig {
+        cors_enabled: true,
+        ..RuntimeConfig::default()
+    })
+    .unwrap();
     let script = format!(
         r#"
         (async () => {{
@@ -242,7 +250,11 @@ fn rejects_cors_response_without_allow_origin() {
         stream.flush().unwrap();
     });
 
-    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let runtime = RomRuntime::new(RuntimeConfig {
+        cors_enabled: true,
+        ..RuntimeConfig::default()
+    })
+    .unwrap();
     let script = format!(
         r#"
         (async () => {{
@@ -289,7 +301,11 @@ fn does_not_send_or_store_cross_origin_cookies_with_default_credentials() {
         stream.flush().unwrap();
     });
 
-    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let runtime = RomRuntime::new(RuntimeConfig {
+        cors_enabled: true,
+        ..RuntimeConfig::default()
+    })
+    .unwrap();
     let script = format!(
         r#"
         (async () => {{
@@ -308,4 +324,54 @@ fn does_not_send_or_store_cross_origin_cookies_with_default_credentials() {
     let value: serde_json::Value = serde_json::from_str(&result).unwrap();
     assert_eq!(value["text"], "ok");
     assert_eq!(value["documentCookie"], "");
+}
+
+#[test]
+fn disables_cors_enforcement_by_default() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        let request = read_http_request(&mut stream);
+
+        assert!(request.contains("GET /open HTTP/1.1"));
+        assert!(!request.contains("origin: https://rom.local"));
+
+        let response = concat!(
+            "HTTP/1.1 200 OK\r\n",
+            "Content-Type: application/json\r\n",
+            "X-Secret: visible\r\n",
+            "Content-Length: 11\r\n",
+            "\r\n",
+            "{\"ok\":true}"
+        );
+
+        stream.write_all(response.as_bytes()).unwrap();
+        stream.flush().unwrap();
+    });
+
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let script = format!(
+        r#"
+        (async () => {{
+            const response = await fetch("http://{address}/open");
+            return {{
+                ok: response.ok,
+                type: response.type,
+                secret: response.headers.get("x-secret"),
+                body: await response.json(),
+            }};
+        }})()
+        "#
+    );
+
+    let result = runtime.eval_async_as_string(&script).unwrap();
+    server.join().unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(value["ok"], true);
+    assert_eq!(value["type"], "basic");
+    assert_eq!(value["secret"], "visible");
+    assert_eq!(value["body"]["ok"], true);
 }

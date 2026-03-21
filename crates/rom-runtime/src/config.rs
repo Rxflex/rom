@@ -16,6 +16,8 @@ pub struct RuntimeConfig {
     pub hardware_concurrency: u16,
     pub device_memory: f64,
     pub webdriver: bool,
+    pub cors_enabled: bool,
+    pub proxy_url: Option<String>,
 }
 
 impl Default for RuntimeConfig {
@@ -30,6 +32,8 @@ impl Default for RuntimeConfig {
             hardware_concurrency: 8,
             device_memory: 8.0,
             webdriver: false,
+            cors_enabled: false,
+            proxy_url: None,
         }
     }
 }
@@ -76,6 +80,10 @@ impl RuntimeConfig {
                 pathname,
                 search,
                 hash,
+            },
+            fetch: rom_webapi::FetchConfig {
+                cors_enabled: self.cors_enabled,
+                proxy_url: self.proxy_url.clone(),
             },
         })
     }

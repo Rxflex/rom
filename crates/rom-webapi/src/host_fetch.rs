@@ -1,5 +1,9 @@
+mod client;
+mod proxy;
+
 use serde::{Deserialize, Serialize};
-use ureq::{RequestExt, ResponseExt, http};
+
+use self::client::execute_request;
 
 #[derive(Debug, Deserialize)]
 pub struct FetchRequestPayload {
@@ -7,6 +11,8 @@ pub struct FetchRequestPayload {
     pub method: String,
     #[serde(default = "default_redirect_mode")]
     pub redirect_mode: String,
+    #[serde(default)]
+    pub proxy_url: Option<String>,
     #[serde(default)]
     pub headers: Vec<HeaderEntry>,
     #[serde(default)]
@@ -37,63 +43,143 @@ fn default_redirect_mode() -> String {
 pub fn perform_fetch(payload: &str) -> Result<String, String> {
     let request: FetchRequestPayload =
         serde_json::from_str(payload).map_err(|error| error.to_string())?;
-    let method = request
-        .method
-        .parse::<http::Method>()
-        .map_err(|error| error.to_string())?;
+    let response = execute_request(&request)?;
 
-    let mut builder = http::Request::builder()
-        .method(method)
-        .uri(request.url.as_str());
+    serde_json::to_string(&response).map_err(|error| error.to_string())
+}
 
-    for header in &request.headers {
-        builder = builder.header(header.name.as_str(), header.value.as_str());
+#[cfg(test)]
+mod tests {
+    use super::perform_fetch;
+    use rcgen::generate_simple_self_signed;
+    use rustls::{
+        ServerConfig, ServerConnection, StreamOwned,
+        pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer},
+    };
+    use std::{
+        io::{Read, Write, copy},
+        net::{Shutdown, TcpListener, TcpStream},
+        sync::{Arc, Once},
+        thread,
+    };
+
+    fn read_http_message(stream: &mut impl Read) -> String {
+        let mut buffer = Vec::new();
+        let mut chunk = [0_u8; 1024];
+
+        loop {
+            let read = stream.read(&mut chunk).unwrap();
+            if read == 0 {
+                break;
+            }
+
+            buffer.extend_from_slice(&chunk[..read]);
+            if buffer.windows(4).any(|window| window == b"\r\n\r\n") {
+                break;
+            }
+        }
+
+        String::from_utf8_lossy(&buffer).into_owned()
     }
 
-    let http_request = builder
-        .body(request.body.clone())
-        .map_err(|error| error.to_string())?;
+    fn install_rustls_provider() {
+        static INIT: Once = Once::new();
 
-    let max_redirects = if request.redirect_mode == "follow" {
-        10
-    } else {
-        0
-    };
-    let mut response = http_request
-        .with_default_agent()
-        .configure()
-        .http_status_as_error(false)
-        .max_redirects(max_redirects)
-        .save_redirect_history(true)
-        .run()
-        .map_err(|error| error.to_string())?;
+        INIT.call_once(|| {
+            let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+        });
+    }
 
-    let final_url = response.get_uri().to_string();
-    let redirected = final_url != request.url;
-    let status = response.status();
-    let status_text = status.canonical_reason().unwrap_or("").to_owned();
-    let is_redirect_response = status.is_redirection();
-    let headers = response
-        .headers()
-        .iter()
-        .map(|(name, value)| HeaderEntry {
-            name: name.to_string(),
-            value: value.to_str().unwrap_or_default().to_owned(),
-        })
-        .collect();
-    let body = response
-        .body_mut()
-        .read_to_vec()
-        .map_err(|error| error.to_string())?;
+    #[test]
+    fn supports_https_fetch_through_http_connect_proxy() {
+        install_rustls_provider();
 
-    serde_json::to_string(&FetchResponsePayload {
-        url: final_url,
-        status: status.as_u16(),
-        status_text,
-        redirected,
-        is_redirect_response,
-        headers,
-        body,
-    })
-    .map_err(|error| error.to_string())
+        let certified = generate_simple_self_signed(vec!["localhost".to_owned()]).unwrap();
+        let certificate = certified.cert.der().clone();
+        let private_key = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(
+            certified.signing_key.serialize_der(),
+        ));
+
+        let server_config = Arc::new(
+            ServerConfig::builder()
+                .with_no_client_auth()
+                .with_single_cert(vec![certificate], private_key)
+                .unwrap(),
+        );
+
+        let https_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let https_address = https_listener.local_addr().unwrap();
+
+        let https_server = thread::spawn(move || {
+            let (stream, _) = https_listener.accept().unwrap();
+            let connection = ServerConnection::new(server_config).unwrap();
+            let mut tls_stream = StreamOwned::new(connection, stream);
+
+            let request = read_http_message(&mut tls_stream);
+            assert!(request.contains("GET /secure HTTP/1.1"));
+
+            let response = concat!(
+                "HTTP/1.1 200 OK\r\n",
+                "Content-Type: text/plain\r\n",
+                "Content-Length: 5\r\n",
+                "\r\n",
+                "proxy"
+            );
+
+            tls_stream.write_all(response.as_bytes()).unwrap();
+            tls_stream.flush().unwrap();
+        });
+
+        let proxy_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let proxy_address = proxy_listener.local_addr().unwrap();
+
+        let proxy_server = thread::spawn(move || {
+            let (mut inbound, _) = proxy_listener.accept().unwrap();
+            let connect_request = read_http_message(&mut inbound);
+            assert!(connect_request.contains(&format!(
+                "CONNECT localhost:{} HTTP/1.1",
+                https_address.port()
+            )));
+            assert!(connect_request.contains("Proxy-Authorization: Basic dXNlcjpwYXNz"));
+
+            inbound
+                .write_all(b"HTTP/1.1 200 Connection Established\r\n\r\n")
+                .unwrap();
+            inbound.flush().unwrap();
+
+            let mut outbound = TcpStream::connect(https_address).unwrap();
+            let mut inbound_reader = inbound.try_clone().unwrap();
+            let mut outbound_reader = outbound.try_clone().unwrap();
+
+            let upstream = thread::spawn(move || {
+                let _ = copy(&mut inbound_reader, &mut outbound);
+                let _ = outbound.shutdown(Shutdown::Write);
+            });
+
+            let downstream = thread::spawn(move || {
+                let _ = copy(&mut outbound_reader, &mut inbound);
+            });
+
+            upstream.join().unwrap();
+            downstream.join().unwrap();
+        });
+
+        let payload = serde_json::json!({
+            "url": format!("https://localhost:{}/secure", https_address.port()),
+            "method": "GET",
+            "redirect_mode": "follow",
+            "proxy_url": format!("http://user:pass@127.0.0.1:{}", proxy_address.port()),
+            "headers": [],
+            "body": [],
+        });
+
+        let response = perform_fetch(&payload.to_string()).unwrap();
+        let value: serde_json::Value = serde_json::from_str(&response).unwrap();
+
+        proxy_server.join().unwrap();
+        https_server.join().unwrap();
+
+        assert_eq!(value["status"], 200);
+        assert_eq!(value["body"], serde_json::json!([112, 114, 111, 120, 121]));
+    }
 }

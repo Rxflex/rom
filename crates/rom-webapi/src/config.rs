@@ -25,7 +25,14 @@ pub struct LocationConfig {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct FetchConfig {
+    pub cors_enabled: bool,
+    pub proxy_url: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct WebRuntimeConfig {
     pub navigator: NavigatorConfig,
     pub location: LocationConfig,
+    pub fetch: FetchConfig,
 }
