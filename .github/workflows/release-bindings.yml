@@ -69,6 +69,8 @@ jobs:
     name: npm package
     runs-on: ubuntu-latest
     needs: release-meta
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
     steps:
       - name: Checkout
@@ -91,10 +93,10 @@ jobs:
           path: bindings/gom-node/*.tgz
 
       - name: Publish to npm
-        if: startsWith(github.ref, 'refs/tags/') && secrets.NPM_TOKEN != ''
+        if: ${{ env.NPM_TOKEN != '' }}
         working-directory: bindings/gom-node
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}
         run: npm publish --access public
 
   python-wheels:
