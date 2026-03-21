@@ -96,23 +96,23 @@ jobs:
 
       - name: Build native addon
         working-directory: bindings/gom-node
-        run: node ./scripts/build-native.mjs --release --output .release-inputs/prebuilds/${{ matrix.prebuild_id }}/rom_node_native.node
+        run: node ./scripts/build-native.mjs --release --output release-inputs/prebuilds/${{ matrix.prebuild_id }}/rom_node_native.node
 
       - name: Copy release asset
         working-directory: bindings/gom-node
-        run: node -e "const fs=require('node:fs'); fs.mkdirSync('.release-assets',{recursive:true}); fs.copyFileSync('.release-inputs/prebuilds/${{ matrix.prebuild_id }}/rom_node_native.node','.release-assets/rom_node_native-${{ matrix.prebuild_id }}.node');"
+        run: node -e "const fs=require('node:fs'); fs.mkdirSync('release-assets',{recursive:true}); fs.copyFileSync('release-inputs/prebuilds/${{ matrix.prebuild_id }}/rom_node_native.node','release-assets/rom_node_native-${{ matrix.prebuild_id }}.node');"
 
       - name: Upload package prebuild
         uses: actions/upload-artifact@v4
         with:
           name: node-prebuild-package-${{ matrix.prebuild_id }}
-          path: bindings/gom-node/.release-inputs
+          path: bindings/gom-node/release-inputs
 
       - name: Upload release asset
         uses: actions/upload-artifact@v4
         with:
           name: node-prebuild-asset-${{ matrix.prebuild_id }}
-          path: bindings/gom-node/.release-assets/rom_node_native-${{ matrix.prebuild_id }}.node
+          path: bindings/gom-node/release-assets/rom_node_native-${{ matrix.prebuild_id }}.node
 
   node-package:
     name: npm package
@@ -139,11 +139,11 @@ jobs:
         with:
           pattern: node-prebuild-package-*
           merge-multiple: true
-          path: bindings/gom-node/.release-inputs
+          path: bindings/gom-node/release-inputs
 
       - name: Stage multi-platform prebuilds
         working-directory: bindings/gom-node
-        run: npm run stage:prebuilds -- --source .release-inputs/prebuilds --output prebuilds
+        run: npm run stage:prebuilds -- --source release-inputs/prebuilds --output prebuilds
 
       - name: Pack npm package
         working-directory: bindings/gom-node
