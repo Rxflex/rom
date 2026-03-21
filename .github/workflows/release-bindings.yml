@@ -153,12 +153,14 @@ jobs:
   publish-python:
     name: publish python
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/') && secrets.PYPI_API_TOKEN != ''
+    if: startsWith(github.ref, 'refs/tags/')
     needs:
       - python-wheels
       - python-sdist
     permissions:
       contents: read
+    env:
+      PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
 
     steps:
       - name: Download wheel artifacts
@@ -169,9 +171,10 @@ jobs:
           path: dist
 
       - name: Publish to PyPI
+        if: ${{ env.PYPI_API_TOKEN != '' }}
         uses: PyO3/maturin-action@v1
         env:
-          MATURIN_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+          MATURIN_PYPI_TOKEN: ${{ env.PYPI_API_TOKEN }}
         with:
           command: upload
           args: --non-interactive --skip-existing dist/*
