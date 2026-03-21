@@ -8,6 +8,9 @@ export interface RuntimeConfig {
   hardware_concurrency?: number;
   device_memory?: number;
   webdriver?: boolean;
+  cors_enabled?: boolean;
+  proxy_url?: string | null;
+  cookie_store?: string | null;
 }
 
 export declare class RomRuntime {

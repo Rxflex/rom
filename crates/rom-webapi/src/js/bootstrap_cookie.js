@@ -1,4 +1,5 @@
     const cookieJar = createCookieJar();
+    const initialCookieStore = ((g.__rom_config ?? {}).fetch ?? {}).cookieStore ?? null;
 
     function createCookieJar() {
         const cookies = new Map();
@@ -188,6 +189,61 @@
 
                 return result.sort((left, right) => right.path.length - left.path.length);
             },
+
+            importState(serializedState) {
+                if (serializedState === null || serializedState === undefined || serializedState === "") {
+                    return;
+                }
+
+                let entries;
+                try {
+                    entries = JSON.parse(String(serializedState));
+                } catch {
+                    return;
+                }
+
+                if (!Array.isArray(entries)) {
+                    return;
+                }
+
+                for (const entry of entries) {
+                    const cookie = normalizeCookieEntry(entry);
+                    if (!cookie || isExpired(cookie.expiresAt)) {
+                        continue;
+                    }
+
+                    cookies.set(
+                        buildCookieKey(cookie.name, cookie.domain, cookie.path, cookie.hostOnly),
+                        cookie,
+                    );
+                }
+            },
+
+            exportState() {
+                const now = Date.now();
+                const result = [];
+
+                for (const [key, cookie] of cookies.entries()) {
+                    if (isExpired(cookie.expiresAt, now)) {
+                        cookies.delete(key);
+                        continue;
+                    }
+
+                    result.push({
+                        name: cookie.name,
+                        value: cookie.value,
+                        domain: cookie.domain,
+                        hostOnly: cookie.hostOnly,
+                        path: cookie.path,
+                        secure: cookie.secure,
+                        httpOnly: cookie.httpOnly,
+                        sameSite: cookie.sameSite,
+                        expiresAt: cookie.expiresAt,
+                    });
+                }
+
+                return JSON.stringify(result);
+            },
         };
     }
 
@@ -323,6 +379,54 @@
         return expiresAt !== null && expiresAt <= now;
     }
 
+    function normalizeCookieEntry(entry) {
+        if (!entry || typeof entry !== "object") {
+            return null;
+        }
+
+        const name = String(entry.name ?? "");
+        if (!name) {
+            return null;
+        }
+
+        const domain = String(entry.domain ?? "").toLowerCase();
+        if (!domain) {
+            return null;
+        }
+
+        const path = String(entry.path ?? "/");
+        if (!path.startsWith("/")) {
+            return null;
+        }
+
+        return {
+            name,
+            value: String(entry.value ?? ""),
+            domain,
+            hostOnly: Boolean(entry.hostOnly),
+            path,
+            secure: Boolean(entry.secure),
+            httpOnly: Boolean(entry.httpOnly),
+            sameSite: normalizeSameSite(entry.sameSite),
+            expiresAt: normalizeExpiresAt(entry.expiresAt),
+        };
+    }
+
+    function normalizeExpiresAt(value) {
+        if (value === null || value === undefined) {
+            return null;
+        }
+
+        const numeric = Number(value);
+        return Number.isFinite(numeric) ? numeric : null;
+    }
+
     function bindDocumentCookie(targetDocument, targetLocation) {
         cookieJar.bindDocumentCookie(targetDocument, targetLocation);
     }
+
+    if (initialCookieStore !== null && initialCookieStore !== undefined && initialCookieStore !== "") {
+        cookieJar.importState(initialCookieStore);
+    }
+
+    g.__rom_export_cookie_store = () => cookieJar.exportState();

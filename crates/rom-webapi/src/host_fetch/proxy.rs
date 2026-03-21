@@ -3,10 +3,34 @@ use std::env;
 use url::Url;
 
 #[derive(Clone, Debug)]
+pub enum ProxyKind {
+    Http,
+    Socks5,
+}
+
+#[derive(Clone, Debug)]
+pub struct ProxyCredentials {
+    pub username: String,
+    pub password: String,
+}
+
+#[derive(Clone, Debug)]
 pub struct ProxyConfig {
+    pub kind: ProxyKind,
     pub host: String,
     pub port: u16,
     pub authorization: Option<String>,
+    pub credentials: Option<ProxyCredentials>,
+}
+
+impl ProxyConfig {
+    pub fn uses_http_connect(&self) -> bool {
+        matches!(self.kind, ProxyKind::Http)
+    }
+
+    pub fn uses_absolute_form_for_http(&self) -> bool {
+        matches!(self.kind, ProxyKind::Http)
+    }
 }
 
 pub fn resolve_proxy(
@@ -78,9 +102,7 @@ fn host_matches_no_proxy(host: &str, entry: &str) -> bool {
 
 fn parse_proxy_url(proxy_url: &str) -> Result<ProxyConfig, String> {
     let parsed = Url::parse(proxy_url).map_err(|error| error.to_string())?;
-    if parsed.scheme() != "http" {
-        return Err("Only http:// proxies are currently supported.".to_owned());
-    }
+    let kind = parse_proxy_kind(parsed.scheme())?;
 
     let host = parsed
         .host_str()
@@ -89,20 +111,38 @@ fn parse_proxy_url(proxy_url: &str) -> Result<ProxyConfig, String> {
     let port = parsed
         .port_or_known_default()
         .ok_or_else(|| "Proxy URL is missing port.".to_owned())?;
-    let authorization = if parsed.username().is_empty() {
+    let credentials = if parsed.username().is_empty() {
         None
     } else {
-        let credentials = format!(
-            "{}:{}",
-            parsed.username(),
-            parsed.password().unwrap_or_default()
-        );
-        Some(format!("Basic {}", STANDARD.encode(credentials)))
+        Some(ProxyCredentials {
+            username: parsed.username().to_owned(),
+            password: parsed.password().unwrap_or_default().to_owned(),
+        })
     };
+    let authorization = credentials.as_ref().and_then(|credentials| {
+        matches!(kind, ProxyKind::Http).then(|| {
+            let basic = format!("{}:{}", credentials.username, credentials.password);
+            format!("Basic {}", STANDARD.encode(basic))
+        })
+    });
 
     Ok(ProxyConfig {
+        kind,
         host,
         port,
         authorization,
+        credentials,
     })
+}
+
+fn parse_proxy_kind(scheme: &str) -> Result<ProxyKind, String> {
+    if scheme.eq_ignore_ascii_case("http") {
+        return Ok(ProxyKind::Http);
+    }
+
+    if scheme.eq_ignore_ascii_case("socks5") || scheme.eq_ignore_ascii_case("socks5h") {
+        return Ok(ProxyKind::Socks5);
+    }
+
+    Err("Only http://, socks5://, and socks5h:// proxies are currently supported.".to_owned())
 }

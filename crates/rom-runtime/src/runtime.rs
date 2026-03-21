@@ -38,4 +38,8 @@ impl RomRuntime {
     pub fn eval_async_as_string(&self, script: &str) -> Result<String> {
         Ok(self.core.eval_async_as_string(script)?)
     }
+
+    pub fn export_cookie_store(&self) -> Result<String> {
+        Ok(self.core.eval_as_string("__rom_export_cookie_store()")?)
+    }
 }
