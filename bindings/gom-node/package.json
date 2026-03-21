@@ -27,6 +27,7 @@
     "prepack": "node ./scripts/build-native.mjs --release",
     "build:native": "node ./scripts/build-native.mjs --release",
     "build:native:debug": "node ./scripts/build-native.mjs",
+    "stage:prebuilds": "node ./scripts/stage-prebuilds.mjs",
     "smoke": "node ./scripts/smoke.mjs",
     "pack:check": "npm pack --dry-run"
   },
@@ -36,7 +37,7 @@
   "types": "./src/index.d.ts",
   "files": [
     "README.md",
-    "rom_node_native.node",
+    "prebuilds",
     "src",
     "scripts",
     "native",

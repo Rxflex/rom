@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { detectNativePrebuildId } from "./platform.js";
 
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
@@ -16,6 +17,12 @@ function candidatePaths() {
   }
 
   candidates.push(path.join(packageRoot, "rom_node_native.node"));
+
+  const prebuildId = detectNativePrebuildId();
+  if (prebuildId !== null) {
+    candidates.push(path.join(packageRoot, "prebuilds", prebuildId, "rom_node_native.node"));
+  }
+
   return candidates;
 }
 

@@ -50,6 +50,8 @@ python -m pip install maturin
 python -m maturin build --manifest-path bindings/gom-python/Cargo.toml --release
 ```
 
+Tagged GitHub releases build and publish wheels for Linux, Windows, and macOS, plus an sdist for source installs.
+
 ## Common methods
 
 - `eval()`
