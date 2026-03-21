@@ -6,6 +6,7 @@ on:
       - "bindings-v*"
 
 permissions:
+  id-token: write
   contents: read
 
 jobs:
@@ -131,8 +132,11 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           registry-url: https://registry.npmjs.org
+
+      - name: Upgrade npm CLI
+        run: npm install -g npm@latest
 
       - name: Download package prebuilds
         uses: actions/download-artifact@v4
@@ -157,7 +161,7 @@ jobs:
 
       - name: Publish to npm
         working-directory: bindings/gom-node
-        run: npm publish --provenance --access public
+        run: npm publish --access public
 
   python-wheels:
     name: python wheels (${{ matrix.os }})
