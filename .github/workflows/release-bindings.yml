@@ -95,10 +95,12 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build native addon
-        run: node bindings/gom-node/scripts/build-native.mjs --release --output bindings/gom-node/.release-inputs/prebuilds/${{ matrix.prebuild_id }}/rom_node_native.node
+        working-directory: bindings/gom-node
+        run: node ./scripts/build-native.mjs --release --output .release-inputs/prebuilds/${{ matrix.prebuild_id }}/rom_node_native.node
 
       - name: Copy release asset
-        run: node -e "const fs=require('node:fs'); fs.mkdirSync('bindings/gom-node/.release-assets',{recursive:true}); fs.copyFileSync('bindings/gom-node/.release-inputs/prebuilds/${{ matrix.prebuild_id }}/rom_node_native.node','bindings/gom-node/.release-assets/rom_node_native-${{ matrix.prebuild_id }}.node');"
+        working-directory: bindings/gom-node
+        run: node -e "const fs=require('node:fs'); fs.mkdirSync('.release-assets',{recursive:true}); fs.copyFileSync('.release-inputs/prebuilds/${{ matrix.prebuild_id }}/rom_node_native.node','.release-assets/rom_node_native-${{ matrix.prebuild_id }}.node');"
 
       - name: Upload package prebuild
         uses: actions/upload-artifact@v4
