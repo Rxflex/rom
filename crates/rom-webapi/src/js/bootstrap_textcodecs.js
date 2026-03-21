@@ -169,7 +169,7 @@
             if ("truncatedLength" in sequence) {
                 if (stream) {
                     return {
-                        text: String.fromCharCode(...codeUnits),
+                        text: codeUnitsToString(codeUnits),
                         pendingBytes: bytes.slice(index),
                         bomHandled,
                     };
@@ -196,10 +196,25 @@
         }
 
         return {
-            text: String.fromCharCode(...codeUnits),
+            text: codeUnitsToString(codeUnits),
             pendingBytes: [],
             bomHandled,
         };
+    }
+
+    function codeUnitsToString(codeUnits) {
+        if (codeUnits.length === 0) {
+            return "";
+        }
+
+        const chunkSize = 0x8000;
+        let output = "";
+        for (let index = 0; index < codeUnits.length; index += chunkSize) {
+            output += String.fromCharCode(
+                ...codeUnits.slice(index, index + chunkSize),
+            );
+        }
+        return output;
     }
 
     function readUtf8Sequence(bytes, index) {
