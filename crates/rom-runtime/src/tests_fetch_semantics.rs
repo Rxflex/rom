@@ -52,7 +52,11 @@ fn read_http_request(stream: &mut std::net::TcpStream) -> String {
 
 #[test]
 fn supports_readable_stream_body_consumption() {
-    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let runtime = RomRuntime::new(RuntimeConfig {
+        cors_enabled: true,
+        ..RuntimeConfig::default()
+    })
+    .unwrap();
     let result = runtime
         .eval_async_as_string(
             r#"
@@ -107,7 +111,11 @@ fn supports_readable_stream_body_consumption() {
 
 #[test]
 fn enforces_request_body_method_guards_and_null_body_surfaces() {
-    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let runtime = RomRuntime::new(RuntimeConfig {
+        cors_enabled: true,
+        ..RuntimeConfig::default()
+    })
+    .unwrap();
     let result = runtime
         .eval_async_as_string(
             r#"
@@ -180,7 +188,11 @@ fn enforces_request_body_method_guards_and_null_body_surfaces() {
 
 #[test]
 fn rejects_reusing_consumed_request_bodies_without_override() {
-    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let runtime = RomRuntime::new(RuntimeConfig {
+        cors_enabled: true,
+        ..RuntimeConfig::default()
+    })
+    .unwrap();
     let result = runtime
         .eval_async_as_string(
             r#"
@@ -258,7 +270,11 @@ fn rejects_reusing_consumed_request_bodies_without_override() {
 
 #[test]
 fn validates_request_method_and_enum_values() {
-    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let runtime = RomRuntime::new(RuntimeConfig {
+        cors_enabled: true,
+        ..RuntimeConfig::default()
+    })
+    .unwrap();
     let result = runtime
         .eval_async_as_string(
             r#"
@@ -356,7 +372,11 @@ fn validates_request_method_and_enum_values() {
 
 #[test]
 fn applies_bodyinit_content_types_and_string_coercion() {
-    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let runtime = RomRuntime::new(RuntimeConfig {
+        cors_enabled: true,
+        ..RuntimeConfig::default()
+    })
+    .unwrap();
     let result = runtime
         .eval_async_as_string(
             r#"
@@ -407,7 +427,11 @@ fn applies_bodyinit_content_types_and_string_coercion() {
 
 #[test]
 fn rejects_non_safelisted_methods_in_no_cors_mode() {
-    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let runtime = RomRuntime::new(RuntimeConfig {
+        cors_enabled: true,
+        ..RuntimeConfig::default()
+    })
+    .unwrap();
     let result = runtime
         .eval_async_as_string(
             r#"
@@ -486,7 +510,11 @@ fn strips_non_safelisted_headers_in_no_cors_mode() {
         stream.flush().unwrap();
     });
 
-    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let runtime = RomRuntime::new(RuntimeConfig {
+        cors_enabled: true,
+        ..RuntimeConfig::default()
+    })
+    .unwrap();
     let script = format!(
         r#"
         (async () => {{
@@ -670,7 +698,11 @@ fn supports_no_cors_opaque_response_semantics() {
         }
     });
 
-    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let runtime = RomRuntime::new(RuntimeConfig {
+        cors_enabled: true,
+        ..RuntimeConfig::default()
+    })
+    .unwrap();
     let script = format!(
         r#"
         (async () => {{

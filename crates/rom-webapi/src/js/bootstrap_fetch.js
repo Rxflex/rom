@@ -136,6 +136,13 @@
         }
     }
 
+    const fetchConfig = (g.__rom_config ?? {}).fetch ?? {};
+    const corsEnabled = fetchConfig.corsEnabled === true;
+    const configuredProxyUrl =
+        typeof fetchConfig.proxyUrl === "string" && fetchConfig.proxyUrl.length > 0
+            ? fetchConfig.proxyUrl
+            : null;
+
     async function fetch(input, init = {}) {
         const request = input instanceof Request ? new Request(input, init) : new Request(input, init);
         const callerOrigin = location.origin;
@@ -163,6 +170,25 @@
         }
 
         return Promise.resolve().then(() => {
+            if (isCrossOrigin && !corsEnabled) {
+                const response = performNetworkFetch(request, callerOrigin, {
+                    includeCookies: true,
+                    includeOrigin: false,
+                });
+                if (handleRedirectMode(response, request)) {
+                    return createOpaqueRedirectResponse();
+                }
+
+                cookieJar.storeResponseCookies(
+                    response.headers,
+                    response.url,
+                    request.credentials,
+                    callerOrigin,
+                );
+
+                return buildBasicResponse(response);
+            }
+
             if (isCrossOrigin) {
                 if (request.mode === "same-origin") {
                     throw new TypeError("Failed to fetch");
@@ -222,7 +248,10 @@
 
     function performNetworkFetch(request, callerOrigin, options = {}) {
         const headers = new Headers(request.headers);
-        if (new URL(request.url).origin !== callerOrigin) {
+        if (
+            options.includeOrigin !== false &&
+            new URL(request.url).origin !== callerOrigin
+        ) {
             headers.set("origin", callerOrigin);
         }
         if (options.includeCookies) {
@@ -240,6 +269,7 @@
                     url: request.url,
                     method: request.method,
                     redirect_mode: request.redirect,
+                    proxy_url: configuredProxyUrl,
                     headers: headers.entries().map(([name, value]) => ({ name, value })),
                     body: request.__bodyBytes,
                 }),
@@ -275,6 +305,7 @@
                 JSON.stringify({
                     url: request.url,
                     method: "OPTIONS",
+                    proxy_url: configuredProxyUrl,
                     headers: headers.entries().map(([name, value]) => ({ name, value })),
                     body: [],
                 }),
