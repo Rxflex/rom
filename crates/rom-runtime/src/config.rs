@@ -18,6 +18,7 @@ pub struct RuntimeConfig {
     pub webdriver: bool,
     pub cors_enabled: bool,
     pub proxy_url: Option<String>,
+    pub cookie_store: Option<String>,
 }
 
 impl Default for RuntimeConfig {
@@ -34,6 +35,7 @@ impl Default for RuntimeConfig {
             webdriver: false,
             cors_enabled: false,
             proxy_url: None,
+            cookie_store: None,
         }
     }
 }
@@ -84,6 +86,7 @@ impl RuntimeConfig {
             fetch: rom_webapi::FetchConfig {
                 cors_enabled: self.cors_enabled,
                 proxy_url: self.proxy_url.clone(),
+                cookie_store: self.cookie_store.clone(),
             },
         })
     }

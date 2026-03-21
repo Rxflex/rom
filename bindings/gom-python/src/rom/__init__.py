@@ -32,7 +32,7 @@ def _run_bridge(command: str, payload: Dict[str, Any]) -> Any:
         response = json.loads(_native.execute_bridge(json.dumps({"command": command, **payload})))
         if not response.get("ok"):
             raise RuntimeError(response.get("error") or "ROM native bridge failed.")
-        return response.get("result")
+        return response
 
     args, cwd = _bridge_command()
     process = subprocess.run(
@@ -51,34 +51,41 @@ def _run_bridge(command: str, payload: Dict[str, Any]) -> Any:
     if process.returncode != 0 or not response.get("ok"):
         raise RuntimeError(response.get("error") or process.stderr.strip() or "ROM bridge failed.")
 
-    return response.get("result")
+    return response
 
 
 class RomRuntime:
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         self.config = config or {}
 
+    def _run(self, command: str, payload: Dict[str, Any]) -> Any:
+        response = _run_bridge(command, {"config": self.config, **payload})
+        state = response.get("state")
+        if isinstance(state, dict) and isinstance(state.get("cookie_store"), str):
+            self.config = {**self.config, "cookie_store": state["cookie_store"]}
+        return response.get("result")
+
     def eval(self, script: str) -> str:
-        return _run_bridge("eval", {"config": self.config, "script": script})
+        return self._run("eval", {"script": script})
 
     def eval_async(self, script: str) -> str:
-        return _run_bridge("eval-async", {"config": self.config, "script": script})
+        return self._run("eval-async", {"script": script})
 
     def eval_json(self, script: str, *, async_mode: bool = True) -> Any:
         value = self.eval_async(script) if async_mode else self.eval(script)
         return json.loads(value)
 
     def surface_snapshot(self) -> Dict[str, Any]:
-        return _run_bridge("surface-snapshot", {"config": self.config})
+        return self._run("surface-snapshot", {})
 
     def fingerprint_probe(self) -> Dict[str, Any]:
-        return _run_bridge("fingerprint-probe", {"config": self.config})
+        return self._run("fingerprint-probe", {})
 
     def run_fingerprintjs_harness(self) -> Dict[str, Any]:
-        return _run_bridge("fingerprint-js-harness", {"config": self.config})
+        return self._run("fingerprint-js-harness", {})
 
     def fingerprintjs_version(self) -> str:
-        return _run_bridge("fingerprint-js-version", {"config": self.config})
+        return self._run("fingerprint-js-version", {})
 
 
 def create_runtime(config: Optional[Dict[str, Any]] = None) -> RomRuntime:

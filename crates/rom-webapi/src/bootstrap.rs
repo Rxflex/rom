@@ -308,6 +308,7 @@ fn make_config_object<'js>(ctx: Ctx<'js>, config: &WebRuntimeConfig) -> Result<O
     let fetch = Object::new(ctx.clone())?;
     fetch.set("corsEnabled", config.fetch.cors_enabled)?;
     fetch.set("proxyUrl", config.fetch.proxy_url.clone())?;
+    fetch.set("cookieStore", config.fetch.cookie_store.clone())?;
 
     root.set("navigator", navigator)?;
     root.set("location", location)?;

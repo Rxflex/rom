@@ -9,8 +9,9 @@ use ureq::http::{Method, StatusCode};
 use url::Url;
 
 use super::{
-    FetchRequestPayload, FetchResponsePayload, HeaderEntry, proxy::ProxyConfig,
-    proxy::resolve_proxy,
+    FetchRequestPayload, FetchResponsePayload, HeaderEntry,
+    proxy::{ProxyConfig, ProxyKind, resolve_proxy},
+    socks::connect_via_socks5,
 };
 
 const READ_TIMEOUT: Duration = Duration::from_secs(20);
@@ -102,12 +103,14 @@ fn connect_stream(url: &Url, proxy: Option<&ProxyConfig>) -> Result<ClientStream
         .ok_or_else(|| "Request URL is missing port.".to_owned())?;
 
     let mut tcp = match proxy {
-        Some(proxy) => connect_tcp(&proxy.host, proxy.port)?,
+        Some(proxy) => connect_proxy_stream(proxy, target_host, target_port)?,
         None => connect_tcp(target_host, target_port)?,
     };
 
     if url.scheme() == "https" {
-        if let Some(proxy) = proxy {
+        if let Some(proxy) = proxy
+            && proxy.uses_http_connect()
+        {
             send_connect_request(
                 &mut tcp,
                 target_host,
@@ -123,6 +126,20 @@ fn connect_stream(url: &Url, proxy: Option<&ProxyConfig>) -> Result<ClientStream
     }
 
     Ok(ClientStream::Plain(tcp))
+}
+
+fn connect_proxy_stream(
+    proxy: &ProxyConfig,
+    target_host: &str,
+    target_port: u16,
+) -> Result<TcpStream, String> {
+    let mut tcp = connect_tcp(&proxy.host, proxy.port)?;
+
+    if matches!(proxy.kind, ProxyKind::Socks5) {
+        connect_via_socks5(&mut tcp, proxy, target_host, target_port)?;
+    }
+
+    Ok(tcp)
 }
 
 fn connect_tcp(host: &str, port: u16) -> Result<TcpStream, String> {
@@ -211,7 +228,11 @@ fn build_http1_request(
     body: &[u8],
     proxy: Option<&ProxyConfig>,
 ) -> Result<Vec<u8>, String> {
-    let request_target = if proxy.is_some() && url.scheme() == "http" {
+    let request_target = if proxy
+        .map(ProxyConfig::uses_absolute_form_for_http)
+        .unwrap_or(false)
+        && url.scheme() == "http"
+    {
         url.as_str().to_owned()
     } else {
         let path = url.path();

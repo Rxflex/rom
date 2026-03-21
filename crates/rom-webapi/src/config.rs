@@ -28,6 +28,7 @@ pub struct LocationConfig {
 pub struct FetchConfig {
     pub cors_enabled: bool,
     pub proxy_url: Option<String>,
+    pub cookie_store: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

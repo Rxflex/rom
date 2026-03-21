@@ -44,7 +44,10 @@ function parseBridgeResponse(stdout, stderr, error) {
     throw new Error(response.error || error?.message || "ROM bridge command failed.");
   }
 
-  return response.result;
+  return {
+    result: response.result,
+    state: response.state ?? null,
+  };
 }
 
 function runNativeBridge(command, payload) {
@@ -85,17 +88,37 @@ function runBridge(command, payload) {
   return runNativeBridge(command, payload) ?? runCliBridge(command, payload);
 }
 
+function applyBridgeState(targetConfig, state) {
+  if (!state || typeof state.cookie_store !== "string") {
+    return targetConfig;
+  }
+
+  return {
+    ...targetConfig,
+    cookie_store: state.cookie_store,
+  };
+}
+
 export class RomRuntime {
   constructor(config = {}) {
     this.config = config;
   }
 
+  async #run(command, payload = {}) {
+    const response = await runBridge(command, {
+      config: this.config,
+      ...payload,
+    });
+    this.config = applyBridgeState(this.config, response.state);
+    return response.result;
+  }
+
   eval(script) {
-    return runBridge("eval", { config: this.config, script });
+    return this.#run("eval", { script });
   }
 
   evalAsync(script) {
-    return runBridge("eval-async", { config: this.config, script });
+    return this.#run("eval-async", { script });
   }
 
   async evalJson(script, { async = true } = {}) {
@@ -104,19 +127,19 @@ export class RomRuntime {
   }
 
   surfaceSnapshot() {
-    return runBridge("surface-snapshot", { config: this.config });
+    return this.#run("surface-snapshot");
   }
 
   fingerprintProbe() {
-    return runBridge("fingerprint-probe", { config: this.config });
+    return this.#run("fingerprint-probe");
   }
 
   runFingerprintJsHarness() {
-    return runBridge("fingerprint-js-harness", { config: this.config });
+    return this.#run("fingerprint-js-harness");
   }
 
   fingerprintJsVersion() {
-    return runBridge("fingerprint-js-version", { config: this.config });
+    return this.#run("fingerprint-js-version");
   }
 }
 
