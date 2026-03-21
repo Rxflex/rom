@@ -7,3 +7,5 @@ __pycache__/
 *.so
 *.dll
 *.dylib
+!fixtures/package/dist/
+!fixtures/package/dist/**
