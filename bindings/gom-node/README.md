@@ -48,7 +48,15 @@ Config keys use the Rust runtime field names, so use snake_case such as `cors_en
 npm run build:native
 ```
 
-`npm pack` and `npm publish` now run the native release build automatically via `prepack`, and the produced `rom_node_native.node` is included in the published tarball for the platform that performed the publish.
+Local `npm pack` and `npm publish` still build the native addon for the current platform via `prepack`.
+Tagged GitHub releases assemble multi-platform prebuilds and publish a single npm package that includes:
+
+- `linux-x64-gnu`
+- `win32-x64-msvc`
+- `darwin-x64`
+- `darwin-arm64`
+
+At runtime the loader picks the matching binary from `prebuilds/<platform>/rom_node_native.node`.
 
 ## Common methods
 
