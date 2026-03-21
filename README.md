@@ -140,11 +140,22 @@ npm install @rxflex/rom
 pip install rom-runtime
 ```
 
+Published packages:
+
+- npm: `@rxflex/rom` https://www.npmjs.com/package/@rxflex/rom
+- PyPI: `rom-runtime` https://pypi.org/project/rom-runtime/
+
 If you want package-specific usage examples, see:
 
 - [bindings/gom-node/README.md](./bindings/gom-node/README.md)
 - [bindings/gom-python/README.md](./bindings/gom-python/README.md)
 - [LLMS.md](./LLMS.md)
+
+### Runtime defaults
+
+- `cors_enabled` is `false` by default, so cross-origin `fetch()` is direct by default instead of browser-blocked.
+- `proxy_url` is optional and supports `http://`, `socks5://`, and `socks5h://`.
+- `cookie_store` is optional, but the Node.js and Python wrappers now update it automatically so cookies survive separate bridge-backed calls.
 
 ### Build
 
@@ -167,15 +178,38 @@ echo "{\"command\":\"surface-snapshot\"}" | cargo run -p rom-runtime --bin rom_b
 ### Use the Node.js wrapper
 
 ```js
-import { RomRuntime, hasNativeBinding } from "./bindings/gom-node/src/index.js";
+import { RomRuntime, hasNativeBinding } from "@rxflex/rom";
 
 const runtime = new RomRuntime({
   href: "https://example.test/",
   cors_enabled: false,
+  proxy_url: process.env.ROM_PROXY_URL ?? null,
 });
-const href = await runtime.evalAsync("(async () => location.href)()");
+
+const result = await runtime.evalAsync(`
+  (async () => {
+    document.cookie = "seed=1; path=/";
+    const response = await fetch("https://example.test/data");
+    return JSON.stringify({
+      href: location.href,
+      status: response.status,
+      body: await response.text(),
+      cookie: document.cookie,
+    });
+  })()
+`);
+
 console.log("native binding:", hasNativeBinding());
-console.log(href);
+console.log(JSON.parse(result));
+
+await runtime.evalAsync(`
+  (async () => {
+    await fetch("https://example.test/next");
+    return document.cookie;
+  })()
+`);
+
+console.log("persisted cookie store:", Boolean(runtime.config.cookie_store));
 ```
 
 Optional native build:
@@ -188,14 +222,45 @@ npm run build:native
 ### Use the Python wrapper
 
 ```python
-import sys
-sys.path.insert(0, "bindings/gom-python/src")
-
 from rom import RomRuntime, has_native_binding
 
-runtime = RomRuntime({"href": "https://example.test/", "cors_enabled": False})
+runtime = RomRuntime(
+    {
+        "href": "https://example.test/",
+        "cors_enabled": False,
+        "proxy_url": None,
+    }
+)
+
 print("native binding:", has_native_binding())
-print(runtime.eval_async("(async () => location.href)()"))
+
+result = runtime.eval_async(
+    """
+    (async () => {
+      document.cookie = "seed=1; path=/";
+      const response = await fetch("https://example.test/data");
+      return JSON.stringify({
+        href: location.href,
+        status: response.status,
+        body: await response.text(),
+        cookie: document.cookie,
+      });
+    })()
+    """
+)
+
+print(result)
+
+runtime.eval_async(
+    """
+    (async () => {
+      await fetch("https://example.test/next");
+      return document.cookie;
+    })()
+    """
+)
+
+print("persisted cookie store:", bool(runtime.config.get("cookie_store")))
 ```
 
 Optional native build:

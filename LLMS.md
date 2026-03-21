@@ -32,7 +32,8 @@ pip install rom-runtime
 ## Runtime Defaults You Should Know
 
 - `cors_enabled` defaults to `false`.
-- `proxy_url` is optional and can point at an HTTP proxy for HTTPS CONNECT flows.
+- `proxy_url` is optional and supports `http://`, `socks5://`, and `socks5h://`.
+- `cookie_store` can be passed back into a new runtime config to continue the same cookie session.
 - ROM can use native bindings when present and fall back to the CLI bridge otherwise.
 
 ## Node Example
@@ -58,6 +59,7 @@ const result = await runtime.evalAsync(`
 `);
 
 console.log(result);
+console.log("cookie store present:", Boolean(runtime.config.cookie_store));
 ```
 
 ## Python Example
@@ -87,6 +89,7 @@ result = runtime.eval_async(
 )
 
 print(result)
+print("cookie store present:", bool(runtime.config.get("cookie_store")))
 ```
 
 ## Useful Calls For Agents
