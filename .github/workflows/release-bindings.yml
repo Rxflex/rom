@@ -232,9 +232,9 @@ jobs:
           - LLM guide: https://github.com/${REPOSITORY}/blob/${RELEASE_TAG}/LLMS.md
           EOF
 
-          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
-            gh release edit "${RELEASE_TAG}" --draft=true --title "ROM bindings ${RELEASE_VERSION}" --notes-file release-notes.md
-            gh release upload "${RELEASE_TAG}" dist/* --clobber
+          if gh release view -R "${REPOSITORY}" "${RELEASE_TAG}" >/dev/null 2>&1; then
+            gh release edit -R "${REPOSITORY}" "${RELEASE_TAG}" --draft=true --title "ROM bindings ${RELEASE_VERSION}" --notes-file release-notes.md
+            gh release upload -R "${REPOSITORY}" "${RELEASE_TAG}" dist/* --clobber
           else
-            gh release create "${RELEASE_TAG}" dist/* --draft --title "ROM bindings ${RELEASE_VERSION}" --notes-file release-notes.md
+            gh release create -R "${REPOSITORY}" "${RELEASE_TAG}" dist/* --draft --title "ROM bindings ${RELEASE_VERSION}" --notes-file release-notes.md
           fi
