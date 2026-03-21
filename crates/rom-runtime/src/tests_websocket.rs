@@ -494,6 +494,7 @@ fn dispatches_websocket_error_before_abnormal_close() {
 }
 
 #[test]
+#[allow(clippy::result_large_err)]
 fn validates_websocket_protocol_negotiation_and_argument_types() {
     let valid_listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let valid_address = valid_listener.local_addr().unwrap();

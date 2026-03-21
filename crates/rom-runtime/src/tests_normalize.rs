@@ -64,6 +64,6 @@ fn supports_node_normalize_for_adjacent_and_empty_text() {
     assert_eq!(value["nestedNodes"], serde_json::json!(["#text"]));
     assert_eq!(value["nestedText"], "inner-text");
     assert_eq!(value["rootText"], "abinner-textc");
-    assert_eq!(value["recordCount"].as_u64().unwrap_or(0) >= 3, true);
-    assert_eq!(value["removedTextNodes"].as_u64().unwrap_or(0) >= 3, true);
+    assert!(value["recordCount"].as_u64().unwrap_or(0) >= 3);
+    assert!(value["removedTextNodes"].as_u64().unwrap_or(0) >= 3);
 }
