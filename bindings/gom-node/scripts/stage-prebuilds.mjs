@@ -7,7 +7,7 @@ const __dirname = path.dirname(__filename);
 const packageRoot = path.resolve(__dirname, "..");
 const args = process.argv.slice(2);
 const sourceRoot =
-  readOptionValue(args, "--source") || path.join(packageRoot, ".release-inputs", "prebuilds");
+  readOptionValue(args, "--source") || path.join(packageRoot, "release-inputs", "prebuilds");
 const outputRoot =
   readOptionValue(args, "--output") || path.join(packageRoot, "prebuilds");
 
