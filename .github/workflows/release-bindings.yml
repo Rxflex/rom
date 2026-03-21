@@ -1,7 +1,6 @@
 name: Release Bindings
 
 on:
-  workflow_dispatch:
   push:
     tags:
       - "bindings-v*"
@@ -10,9 +9,66 @@ permissions:
   contents: read
 
 jobs:
+  release-meta:
+    name: release metadata
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      version: ${{ steps.meta.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Derive release metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#bindings-v}"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate binding versions
+        env:
+          EXPECTED_VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import pathlib
+          import re
+          import tomllib
+
+          root = pathlib.Path.cwd()
+          expected = os.environ["EXPECTED_VERSION"]
+
+          node_package = json.loads((root / "bindings" / "gom-node" / "package.json").read_text(encoding="utf-8"))
+          if node_package["version"] != expected:
+              raise SystemExit(f"bindings/gom-node/package.json version {node_package['version']} != {expected}")
+
+          python_project = tomllib.loads((root / "bindings" / "gom-python" / "pyproject.toml").read_text(encoding="utf-8"))
+          python_version = python_project["project"]["version"]
+          if python_version != expected:
+              raise SystemExit(f"bindings/gom-python/pyproject.toml version {python_version} != {expected}")
+
+          for manifest in (
+              root / "bindings" / "gom-node" / "Cargo.toml",
+              root / "bindings" / "gom-python" / "Cargo.toml",
+          ):
+              text = manifest.read_text(encoding="utf-8")
+              match = re.search(r'^version\s*=\s*"([^"]+)"', text, flags=re.MULTILINE)
+              if match is None:
+                  raise SystemExit(f"Could not find version field in {manifest}")
+              if match.group(1) != expected:
+                  raise SystemExit(f"{manifest.relative_to(root)} version {match.group(1)} != {expected}")
+          PY
+
   node-package:
     name: npm package
     runs-on: ubuntu-latest
+    needs: release-meta
 
     steps:
       - name: Checkout
@@ -44,6 +100,7 @@ jobs:
   python-wheels:
     name: python wheels (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    needs: release-meta
     strategy:
       fail-fast: false
       matrix:
@@ -75,6 +132,7 @@ jobs:
   python-sdist:
     name: python sdist
     runs-on: ubuntu-latest
+    needs: release-meta
 
     steps:
       - name: Checkout
@@ -117,3 +175,61 @@ jobs:
         with:
           command: upload
           args: --non-interactive --skip-existing dist/*
+
+  draft-release:
+    name: draft github release
+    runs-on: ubuntu-latest
+    needs:
+      - release-meta
+      - node-package
+      - python-wheels
+      - python-sdist
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: "*"
+          merge-multiple: true
+          path: dist
+
+      - name: Generate checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum * > SHA256SUMS.txt
+
+      - name: Create or update draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.release-meta.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.release-meta.outputs.version }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > release-notes.md <<EOF
+          ROM bindings ${RELEASE_VERSION}
+
+          Included assets:
+          - npm package tarball
+          - Python wheels
+          - Python source distribution
+          - SHA256 checksums
+
+          Guides:
+          - README: https://github.com/${REPOSITORY}/blob/${RELEASE_TAG}/README.md
+          - Node guide: https://github.com/${REPOSITORY}/blob/${RELEASE_TAG}/bindings/gom-node/README.md
+          - Python guide: https://github.com/${REPOSITORY}/blob/${RELEASE_TAG}/bindings/gom-python/README.md
+          - LLM guide: https://github.com/${REPOSITORY}/blob/${RELEASE_TAG}/LLMS.md
+          EOF
+
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            gh release edit "${RELEASE_TAG}" --draft=true --title "ROM bindings ${RELEASE_VERSION}" --notes-file release-notes.md
+            gh release upload "${RELEASE_TAG}" dist/* --clobber
+          else
+            gh release create "${RELEASE_TAG}" dist/* --draft --title "ROM bindings ${RELEASE_VERSION}" --notes-file release-notes.md
+          fi

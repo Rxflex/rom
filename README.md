@@ -133,6 +133,19 @@ This separation keeps the core small, the web surface modular, and the runtime a
 
 ## Quick Start
 
+### Install the published bindings
+
+```bash
+npm install @rxflex/rom
+pip install rom-runtime
+```
+
+If you want package-specific usage examples, see:
+
+- [bindings/gom-node/README.md](./bindings/gom-node/README.md)
+- [bindings/gom-python/README.md](./bindings/gom-python/README.md)
+- [LLMS.md](./LLMS.md)
+
 ### Build
 
 ```bash
@@ -156,7 +169,10 @@ echo "{\"command\":\"surface-snapshot\"}" | cargo run -p rom-runtime --bin rom_b
 ```js
 import { RomRuntime, hasNativeBinding } from "./bindings/gom-node/src/index.js";
 
-const runtime = new RomRuntime({ href: "https://example.test/" });
+const runtime = new RomRuntime({
+  href: "https://example.test/",
+  cors_enabled: false,
+});
 const href = await runtime.evalAsync("(async () => location.href)()");
 console.log("native binding:", hasNativeBinding());
 console.log(href);
@@ -177,7 +193,7 @@ sys.path.insert(0, "bindings/gom-python/src")
 
 from rom import RomRuntime, has_native_binding
 
-runtime = RomRuntime({"href": "https://example.test/"})
+runtime = RomRuntime({"href": "https://example.test/", "cors_enabled": False})
 print("native binding:", has_native_binding())
 print(runtime.eval_async("(async () => location.href)()"))
 ```
