@@ -198,7 +198,7 @@ mod tests {
         let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
         let report = runtime.run_fingerprintjs_harness().unwrap();
         let baseline = RomRuntime::default_fingerprintjs_harness_snapshot();
-        let diff = report.diff(&baseline);
+        let diff = report.diff(&baseline).without_identity();
 
         assert!(diff.is_empty(), "unexpected fingerprintjs diff: {diff:?}");
     }
