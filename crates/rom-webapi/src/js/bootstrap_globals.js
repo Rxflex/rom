@@ -960,6 +960,53 @@
         return !instance.defaultPrevented;
     }
 
+    function webpackChunkGlobalKeys() {
+        return Object.getOwnPropertyNames(g).filter((key) => (
+            key === "__LOADABLE_LOADED_CHUNKS__" ||
+            /^__LOADABLE_LOADED_CHUNKS__/.test(key) ||
+            /^webpackChunk/.test(key)
+        ));
+    }
+
+    function probeWebpackChunkGlobal(chunkGlobal) {
+        if (!Array.isArray(chunkGlobal) || typeof chunkGlobal.push !== "function") {
+            return null;
+        }
+
+        let capturedRequire = null;
+        const probeChunkId = `__rom_webpack_probe__${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        try {
+            chunkGlobal.push([
+                [probeChunkId],
+                {},
+                (webpackRequire) => {
+                    capturedRequire = webpackRequire;
+                    return undefined;
+                },
+            ]);
+        } catch (_error) {
+            return null;
+        }
+
+        return typeof capturedRequire === "function" ? capturedRequire : null;
+    }
+
+    function exposeWebpackRequireFromChunkGlobals() {
+        if (typeof g.__webpack_require__ === "function") {
+            return g.__webpack_require__;
+        }
+
+        for (const key of webpackChunkGlobalKeys()) {
+            const webpackRequire = probeWebpackChunkGlobal(g[key]);
+            if (typeof webpackRequire === "function") {
+                g.__webpack_require__ = webpackRequire;
+                return webpackRequire;
+            }
+        }
+
+        return null;
+    }
+
     g.window = g;
     g.self = g;
     g.top = g;
@@ -968,6 +1015,7 @@
     g.addEventListener = EventTarget.prototype.addEventListener.bind(g);
     g.removeEventListener = EventTarget.prototype.removeEventListener.bind(g);
     g.dispatchEvent = (event) => dispatchWindowEvent(event);
+    g.__rom_expose_webpack_require = () => exposeWebpackRequireFromChunkGlobals();
     g.onpopstate = null;
     g.onhashchange = null;
     g.document = document;
