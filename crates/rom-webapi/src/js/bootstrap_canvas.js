@@ -140,6 +140,19 @@
         const height = normalizeCanvasDimension(canvas?.height, 150);
         let seed = 2166136261 >>> 0;
         seed = hashCanvasNumbers(seed, width, height);
+        seed = hashCanvasValue(seed, {
+            userAgent: navigatorConfig.userAgent ?? "",
+            platform: navigatorConfig.platform ?? "",
+            language: navigatorConfig.language ?? "",
+            languages: navigatorConfig.languages ?? [],
+            hardwareConcurrency: navigatorConfig.hardwareConcurrency ?? 0,
+            deviceMemory: navigatorConfig.deviceMemory ?? 0,
+            webdriver: Boolean(navigatorConfig.webdriver),
+            timezone:
+                typeof Intl === "object" && typeof Intl.DateTimeFormat === "function"
+                    ? Intl.DateTimeFormat().resolvedOptions().timeZone ?? ""
+                    : "",
+        });
 
         return {
             width,
@@ -247,6 +260,10 @@
         return "image/png";
     }
 
+    function normalizeCanvasContextKind(kind) {
+        return String(kind ?? "").toLowerCase();
+    }
+
     function canvasHeaderBytes(mimeType) {
         if (mimeType === "image/jpeg") {
             return [0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46];
@@ -303,8 +320,8 @@
         return `data:${mimeType};base64,${encodeBase64(payload)}`;
     }
 
-    function createCanvasContext(kind, canvas = null) {
-        const normalizedKind = String(kind ?? "").toLowerCase();
+    function createCanvas2DContext(kind, canvas = null) {
+        const normalizedKind = normalizeCanvasContextKind(kind);
         if (normalizedKind !== "2d") {
             return null;
         }
@@ -411,4 +428,8 @@
         };
 
         return context;
+    }
+
+    function createCanvasContext(kind, canvas = null) {
+        return createCanvas2DContext(kind, canvas);
     }

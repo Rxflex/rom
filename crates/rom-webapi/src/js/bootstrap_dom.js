@@ -1204,7 +1204,7 @@
         }
 
         getContext(kind) {
-            const normalizedKind = String(kind ?? "").toLowerCase();
+            const normalizedKind = normalizeCanvasContextKind(kind);
             if (this.__contexts.has(normalizedKind)) {
                 return this.__contexts.get(normalizedKind);
             }
