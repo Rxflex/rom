@@ -202,7 +202,7 @@ jobs:
           path: bindings/gom-python/dist/*.whl
 
       - name: Install built wheel
-        run: python -m pip install --force-reinstall bindings/gom-python/dist/*.whl
+        run: python -c "from pathlib import Path; import subprocess, sys; wheels = sorted(Path('bindings/gom-python/dist').glob('*.whl')); assert wheels, 'No wheels found'; subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', str(wheels[0])])"
 
       - name: Smoke python binding
         shell: bash
