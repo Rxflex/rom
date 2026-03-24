@@ -83,6 +83,8 @@ mod tests_webcrypto;
 #[cfg(test)]
 mod tests_webgl;
 #[cfg(test)]
+mod tests_webpack_runtime;
+#[cfg(test)]
 mod tests_websocket;
 
 pub use bridge::{

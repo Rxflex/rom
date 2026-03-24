@@ -51,6 +51,11 @@ impl RomCore {
             (() => {{
                 try {{
                     const __gom_value = (0, eval)({encoded_script});
+                    if (typeof globalThis.__rom_expose_webpack_require === "function") {{
+                        try {{
+                            globalThis.__rom_expose_webpack_require();
+                        }} catch (_webpackExposeError) {{}}
+                    }}
                     let __gom_result;
                     if (__gom_value === undefined) {{
                         __gom_result = "undefined";
@@ -96,6 +101,11 @@ impl RomCore {
             (async () => {{
                 try {{
                     const __rom_value = await (0, eval)({encoded_script});
+                    if (typeof globalThis.__rom_expose_webpack_require === "function") {{
+                        try {{
+                            globalThis.__rom_expose_webpack_require();
+                        }} catch (_webpackExposeError) {{}}
+                    }}
                     let __rom_result;
                     if (__rom_value === undefined) {{
                         __rom_result = "undefined";
