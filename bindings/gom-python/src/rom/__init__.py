@@ -13,6 +13,8 @@ try:
 except ImportError:
     _native = None
 
+_NativeRomRuntime = getattr(_native, "NativeRomRuntime", None) if _native is not None else None
+
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[4]
@@ -57,8 +59,44 @@ def _run_bridge(command: str, payload: Dict[str, Any]) -> Any:
 class RomRuntime:
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         self.config = config or {}
+        self._native_runtime = None
+        if _NativeRomRuntime is not None:
+            self._native_runtime = _NativeRomRuntime(json.dumps(self.config))
+
+    def _apply_cookie_store(self) -> None:
+        if self._native_runtime is None:
+            return
+
+        cookie_store = self._native_runtime.export_cookie_store()
+        if isinstance(cookie_store, str):
+            self.config = {**self.config, "cookie_store": cookie_store}
+
+    def _run_native(self, command: str, payload: Dict[str, Any]) -> Any:
+        if self._native_runtime is None:
+            return None
+
+        if command == "eval":
+            result = self._native_runtime.eval(payload["script"])
+        elif command == "eval-async":
+            result = self._native_runtime.eval_async(payload["script"])
+        elif command == "surface-snapshot":
+            result = json.loads(self._native_runtime.surface_snapshot_json())
+        elif command == "fingerprint-probe":
+            result = json.loads(self._native_runtime.fingerprint_probe_json())
+        elif command == "fingerprint-js-harness":
+            result = json.loads(self._native_runtime.fingerprint_js_harness_json())
+        elif command == "fingerprint-js-version":
+            result = self._native_runtime.fingerprint_js_version()
+        else:
+            raise RuntimeError(f"Unsupported ROM native command: {command}")
+
+        self._apply_cookie_store()
+        return result
 
     def _run(self, command: str, payload: Dict[str, Any]) -> Any:
+        if self._native_runtime is not None:
+            return self._run_native(command, payload)
+
         response = _run_bridge(command, {"config": self.config, **payload})
         state = response.get("state")
         if isinstance(state, dict) and isinstance(state.get("cookie_store"), str):

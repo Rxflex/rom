@@ -3,6 +3,8 @@ import { RomRuntime, hasNativeBinding } from "../src/index.js";
 async function main() {
   const runtime = new RomRuntime({ href: "https://example.test/" });
   const href = await runtime.evalAsync("(async () => location.href)()");
+  await runtime.evalAsync("(async () => { globalThis.__romSmokeValue = 42; return 'ok'; })()");
+  const persisted = await runtime.evalAsync("(async () => String(globalThis.__romSmokeValue))()");
   const snapshot = await runtime.surfaceSnapshot();
 
   if (!hasNativeBinding()) {
@@ -17,7 +19,11 @@ async function main() {
     throw new Error("Surface snapshot did not expose window.");
   }
 
-  console.log(JSON.stringify({ native: true, href }));
+  if (persisted !== "42") {
+    throw new Error(`Expected persisted global state, got: ${persisted}`);
+  }
+
+  console.log(JSON.stringify({ native: true, href, persisted }));
 }
 
 main().catch((error) => {

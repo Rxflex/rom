@@ -6,4 +6,4 @@ mod host_url;
 mod host_websocket;
 
 pub use bootstrap::install_browser_api;
-pub use config::{FetchConfig, LocationConfig, NavigatorConfig, WebRuntimeConfig};
+pub use config::{DocumentConfig, FetchConfig, LocationConfig, NavigatorConfig, WebRuntimeConfig};

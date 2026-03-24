@@ -972,6 +972,8 @@
             this.tagName = normalized;
             this.attributes = new Map();
             this.style = createStyleDeclaration();
+            this.scrollTop = 0;
+            this.scrollLeft = 0;
             this.__classList = new DOMTokenList(this, "class");
             this.__dataset = createDatasetProxy(this);
         }
@@ -1093,6 +1095,14 @@
 
         get offsetParent() {
             return this.parentNode;
+        }
+
+        get scrollWidth() {
+            return this.offsetWidth;
+        }
+
+        get scrollHeight() {
+            return this.offsetHeight;
         }
 
         get innerHTML() {

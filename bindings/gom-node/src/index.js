@@ -7,6 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..", "..", "..");
 const nativeBridge = loadNativeBridge();
+const NativeRomRuntime = nativeBridge?.NativeRomRuntime ?? null;
 
 function resolveBridgeCommand() {
   if (process.env.ROM_BRIDGE_BIN) {
@@ -100,11 +101,66 @@ function applyBridgeState(targetConfig, state) {
 }
 
 export class RomRuntime {
+  #nativeRuntime = null;
+
   constructor(config = {}) {
     this.config = config;
+    if (typeof NativeRomRuntime === "function") {
+      this.#nativeRuntime = new NativeRomRuntime(JSON.stringify(this.config));
+    }
+  }
+
+  #applyCookieStore(cookieStore) {
+    if (typeof cookieStore !== "string") {
+      return;
+    }
+
+    this.config = {
+      ...this.config,
+      cookie_store: cookieStore,
+    };
+  }
+
+  #syncNativeState() {
+    if (!this.#nativeRuntime || typeof this.#nativeRuntime.exportCookieStore !== "function") {
+      return;
+    }
+
+    this.#applyCookieStore(this.#nativeRuntime.exportCookieStore());
+  }
+
+  async #runNative(method, ...args) {
+    if (!this.#nativeRuntime || typeof this.#nativeRuntime[method] !== "function") {
+      return null;
+    }
+
+    const result = await Promise.resolve(this.#nativeRuntime[method](...args));
+    this.#syncNativeState();
+    return result;
   }
 
   async #run(command, payload = {}) {
+    if (this.#nativeRuntime) {
+      if (command === "eval") {
+        return this.#runNative("eval", payload.script);
+      }
+      if (command === "eval-async") {
+        return this.#runNative("evalAsync", payload.script);
+      }
+      if (command === "surface-snapshot") {
+        return JSON.parse(await this.#runNative("surfaceSnapshotJson"));
+      }
+      if (command === "fingerprint-probe") {
+        return JSON.parse(await this.#runNative("fingerprintProbeJson"));
+      }
+      if (command === "fingerprint-js-harness") {
+        return JSON.parse(await this.#runNative("fingerprintJsHarnessJson"));
+      }
+      if (command === "fingerprint-js-version") {
+        return this.#runNative("fingerprintJsVersion");
+      }
+    }
+
     const response = await runBridge(command, {
       config: this.config,
       ...payload,

@@ -149,6 +149,10 @@ jobs:
         working-directory: bindings/gom-node
         run: npm run stage:prebuilds -- --source release-inputs/prebuilds --output prebuilds
 
+      - name: Smoke Node binding
+        working-directory: bindings/gom-node
+        run: npm run smoke
+
       - name: Pack npm package
         working-directory: bindings/gom-node
         run: npm pack
@@ -161,7 +165,7 @@ jobs:
 
       - name: Publish to npm
         working-directory: bindings/gom-node
-        run: npm publish --access public
+        run: npm publish --provenance --access public
 
   python-wheels:
     name: python wheels (${{ matrix.os }})
@@ -196,6 +200,31 @@ jobs:
         with:
           name: python-wheels-${{ matrix.os }}
           path: bindings/gom-python/dist/*.whl
+
+      - name: Install built wheel
+        run: python -m pip install --force-reinstall bindings/gom-python/dist/*.whl
+
+      - name: Smoke python binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from rom import RomRuntime, has_native_binding
+
+          runtime = RomRuntime({"href": "https://example.test/"})
+          if not has_native_binding():
+              raise SystemExit("Expected native Python binding to be loaded.")
+
+          href = runtime.eval_async("(async () => location.href)()")
+          runtime.eval_async("(async () => { globalThis.__romSmokeValue = 42; return 'ok'; })()")
+          persisted = runtime.eval_async("(async () => String(globalThis.__romSmokeValue))()")
+
+          if href != "https://example.test/":
+              raise SystemExit(f"Unexpected href: {href}")
+
+          if persisted != "42":
+              raise SystemExit(f"Expected persisted global state, got: {persisted}")
+          PY
 
   python-sdist:
     name: python sdist

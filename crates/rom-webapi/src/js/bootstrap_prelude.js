@@ -3,6 +3,7 @@
     const config = g.__rom_config ?? {};
     const navigatorConfig = config.navigator ?? {};
     const locationConfig = config.location ?? {};
+    const documentConfig = config.document ?? {};
     const nowBase = Date.now();
 
     class Event {

@@ -305,6 +305,9 @@ fn make_config_object<'js>(ctx: Ctx<'js>, config: &WebRuntimeConfig) -> Result<O
     location.set("search", config.location.search.as_str())?;
     location.set("hash", config.location.hash.as_str())?;
 
+    let document = Object::new(ctx.clone())?;
+    document.set("referrer", config.document.referrer.as_str())?;
+
     let fetch = Object::new(ctx.clone())?;
     fetch.set("corsEnabled", config.fetch.cors_enabled)?;
     fetch.set("proxyUrl", config.fetch.proxy_url.clone())?;
@@ -312,6 +315,7 @@ fn make_config_object<'js>(ctx: Ctx<'js>, config: &WebRuntimeConfig) -> Result<O
 
     root.set("navigator", navigator)?;
     root.set("location", location)?;
+    root.set("document", document)?;
     root.set("fetch", fetch)?;
 
     Ok(root)
