@@ -1,8 +1,7 @@
-use boring::ssl::{ConnectConfiguration, SslConnector, SslMethod, SslVerifyMode};
 use httparse::Response as HttpParseResponse;
 use std::{
     io::{Read, Write},
-    net::{IpAddr, TcpStream, ToSocketAddrs},
+    net::{TcpStream, ToSocketAddrs},
     time::Duration,
 };
 use ureq::http::{Method, StatusCode};
@@ -12,13 +11,12 @@ use super::{
     FetchRequestPayload, FetchResponsePayload, HeaderEntry,
     proxy::{ProxyConfig, ProxyKind, resolve_proxy},
     socks::connect_via_socks5,
+    tls::build_tls_config,
 };
 
 const READ_TIMEOUT: Duration = Duration::from_secs(20);
 const WRITE_TIMEOUT: Duration = Duration::from_secs(20);
 const MAX_REDIRECTS: usize = 10;
-const CHROME_LIKE_CIPHER_LIST: &str = "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA:AES256-SHA";
-
 pub fn execute_request(request: &FetchRequestPayload) -> Result<FetchResponsePayload, String> {
     let mut current_url = Url::parse(&request.url).map_err(|error| error.to_string())?;
     let mut method = request
@@ -102,9 +100,9 @@ fn connect_stream(url: &Url, proxy: Option<&ProxyConfig>) -> Result<ClientStream
         .port_or_known_default()
         .ok_or_else(|| "Request URL is missing port.".to_owned())?;
 
-    let mut tcp = match proxy {
+    let mut stream = match proxy {
         Some(proxy) => connect_proxy_stream(proxy, target_host, target_port)?,
-        None => connect_tcp(target_host, target_port)?,
+        None => Box::new(connect_tcp(target_host, target_port)?),
     };
 
     if url.scheme() == "https" {
@@ -112,7 +110,7 @@ fn connect_stream(url: &Url, proxy: Option<&ProxyConfig>) -> Result<ClientStream
             && proxy.uses_http_connect()
         {
             send_connect_request(
-                &mut tcp,
+                &mut *stream,
                 target_host,
                 target_port,
                 proxy.authorization.as_deref(),
@@ -120,26 +118,34 @@ fn connect_stream(url: &Url, proxy: Option<&ProxyConfig>) -> Result<ClientStream
         }
 
         let tls = build_tls_config(target_host)?
-            .connect(target_host, tcp)
+            .connect(target_host, stream)
             .map_err(|error| error.to_string())?;
-        return Ok(ClientStream::Tls(tls));
+        return Ok(Box::new(tls));
     }
 
-    Ok(ClientStream::Plain(tcp))
+    Ok(stream)
 }
 
 fn connect_proxy_stream(
     proxy: &ProxyConfig,
     target_host: &str,
     target_port: u16,
-) -> Result<TcpStream, String> {
+) -> Result<ClientStream, String> {
     let mut tcp = connect_tcp(&proxy.host, proxy.port)?;
 
     if matches!(proxy.kind, ProxyKind::Socks5) {
         connect_via_socks5(&mut tcp, proxy, target_host, target_port)?;
+        return Ok(Box::new(tcp));
     }
 
-    Ok(tcp)
+    if proxy.uses_tls() {
+        let tls = build_tls_config(&proxy.host)?
+            .connect(&proxy.host, tcp)
+            .map_err(|error| error.to_string())?;
+        return Ok(Box::new(tls));
+    }
+
+    Ok(Box::new(tcp))
 }
 
 fn connect_tcp(host: &str, port: u16) -> Result<TcpStream, String> {
@@ -158,41 +164,8 @@ fn connect_tcp(host: &str, port: u16) -> Result<TcpStream, String> {
     Ok(stream)
 }
 
-fn build_tls_config(host: &str) -> Result<ConnectConfiguration, String> {
-    let mut builder = SslConnector::builder(SslMethod::tls()).map_err(|error| error.to_string())?;
-    if is_local_tls_host(host) {
-        builder.set_verify(SslVerifyMode::NONE);
-    } else {
-        let _ = builder.set_default_verify_paths();
-    }
-    builder.set_grease_enabled(true);
-    builder.enable_ocsp_stapling();
-    builder.enable_signed_cert_timestamps();
-    builder
-        .set_cipher_list(CHROME_LIKE_CIPHER_LIST)
-        .map_err(|error| error.to_string())?;
-    builder
-        .set_alpn_protos(b"\x08http/1.1")
-        .map_err(|error| error.to_string())?;
-
-    let connector = builder.build();
-    let mut config = connector.configure().map_err(|error| error.to_string())?;
-    if is_local_tls_host(host) {
-        config.set_verify_hostname(false);
-    }
-    Ok(config)
-}
-
-fn is_local_tls_host(host: &str) -> bool {
-    host.eq_ignore_ascii_case("localhost")
-        || host
-            .parse::<IpAddr>()
-            .map(|address| address.is_loopback())
-            .unwrap_or(false)
-}
-
 fn send_connect_request(
-    stream: &mut TcpStream,
+    stream: &mut dyn ReadWriteStream,
     target_host: &str,
     target_port: u16,
     proxy_authorization: Option<&str>,
@@ -252,6 +225,7 @@ fn build_http1_request(
     let mut has_connection = false;
     let mut has_content_length = false;
     let mut has_accept_encoding = false;
+    let mut has_proxy_authorization = false;
 
     for header in headers {
         let normalized = header.name.to_ascii_lowercase();
@@ -259,6 +233,7 @@ fn build_http1_request(
         has_connection |= normalized == "connection";
         has_content_length |= normalized == "content-length";
         has_accept_encoding |= normalized == "accept-encoding";
+        has_proxy_authorization |= normalized == "proxy-authorization";
         lines.push(format!("{}: {}", header.name, header.value));
     }
 
@@ -270,6 +245,15 @@ fn build_http1_request(
     }
     if !has_accept_encoding {
         lines.push("Accept-Encoding: identity".to_owned());
+    }
+    if !has_proxy_authorization
+        && url.scheme() == "http"
+        && let Some(proxy_authorization) = proxy.and_then(|value| value.authorization.as_deref())
+        && proxy
+            .map(ProxyConfig::uses_absolute_form_for_http)
+            .unwrap_or(false)
+    {
+        lines.push(format!("Proxy-Authorization: {proxy_authorization}"));
     }
     if !body.is_empty() && !has_content_length {
         lines.push(format!("Content-Length: {}", body.len()));
@@ -297,7 +281,7 @@ struct HttpResponseData {
 }
 
 fn read_http1_response(
-    stream: &mut impl Read,
+    stream: &mut (impl Read + ?Sized),
     body_forbidden: bool,
 ) -> Result<HttpResponseData, String> {
     let (status, headers, mut body_buffer) = read_response_head(stream)?;
@@ -353,7 +337,7 @@ fn read_http1_response(
 }
 
 fn read_response_head(
-    stream: &mut impl Read,
+    stream: &mut (impl Read + ?Sized),
 ) -> Result<(StatusCode, Vec<HeaderEntry>, Vec<u8>), String> {
     let mut buffer = Vec::new();
     let mut header_end = None;
@@ -415,7 +399,10 @@ fn is_chunked_response(headers: &[HeaderEntry]) -> bool {
     })
 }
 
-fn read_chunked_body(stream: &mut impl Read, buffer: &mut Vec<u8>) -> Result<Vec<u8>, String> {
+fn read_chunked_body(
+    stream: &mut (impl Read + ?Sized),
+    buffer: &mut Vec<u8>,
+) -> Result<Vec<u8>, String> {
     let mut output = Vec::new();
 
     loop {
@@ -437,7 +424,7 @@ fn read_chunked_body(stream: &mut impl Read, buffer: &mut Vec<u8>) -> Result<Vec
     Ok(output)
 }
 
-fn read_line(stream: &mut impl Read, buffer: &mut Vec<u8>) -> Result<String, String> {
+fn read_line(stream: &mut (impl Read + ?Sized), buffer: &mut Vec<u8>) -> Result<String, String> {
     loop {
         if let Some(index) = buffer.windows(2).position(|window| window == b"\r\n") {
             let line = String::from_utf8_lossy(&buffer[..index]).into_owned();
@@ -449,7 +436,7 @@ fn read_line(stream: &mut impl Read, buffer: &mut Vec<u8>) -> Result<String, Str
 }
 
 fn ensure_buffered(
-    stream: &mut impl Read,
+    stream: &mut (impl Read + ?Sized),
     buffer: &mut Vec<u8>,
     required_len: usize,
 ) -> Result<(), String> {
@@ -469,32 +456,8 @@ fn should_switch_to_get(status: u16, method: &Method) -> bool {
     status == 303 || ((status == 301 || status == 302) && *method == Method::POST)
 }
 
-enum ClientStream {
-    Plain(TcpStream),
-    Tls(boring::ssl::SslStream<TcpStream>),
-}
+trait ReadWriteStream: Read + Write {}
 
-impl Read for ClientStream {
-    fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
-        match self {
-            Self::Plain(stream) => stream.read(buffer),
-            Self::Tls(stream) => stream.read(buffer),
-        }
-    }
-}
+impl<T> ReadWriteStream for T where T: Read + Write {}
 
-impl Write for ClientStream {
-    fn write(&mut self, buffer: &[u8]) -> std::io::Result<usize> {
-        match self {
-            Self::Plain(stream) => stream.write(buffer),
-            Self::Tls(stream) => stream.write(buffer),
-        }
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        match self {
-            Self::Plain(stream) => stream.flush(),
-            Self::Tls(stream) => stream.flush(),
-        }
-    }
-}
+type ClientStream = Box<dyn ReadWriteStream>;
