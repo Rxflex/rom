@@ -47,6 +47,7 @@ print(runtime.eval_async("(async () => String(globalThis.__rom_value))()"))
 Config keys use the Rust runtime field names, so use snake_case such as `cors_enabled` and `proxy_url`.
 `cors_enabled` is `False` by default.
 When the native extension is loaded, one `RomRuntime` instance keeps JS globals alive across multiple `eval()` and `eval_async()` calls.
+For cookie seeding, the wrapper accepts serialized `cookie_store`, a raw cookie header string, or a `cookies` alias with string/object/array inputs and normalizes them automatically.
 
 ## Optional native build from source
 

@@ -156,6 +156,7 @@ If you want package-specific usage examples, see:
 - `cors_enabled` is `false` by default, so cross-origin `fetch()` is direct by default instead of browser-blocked.
 - `proxy_url` is optional and supports `http://`, `socks5://`, and `socks5h://`.
 - `cookie_store` is optional, but the Node.js and Python wrappers now update it automatically so cookies survive separate bridge-backed calls.
+- For convenience, the Node.js and Python wrappers also accept `cookie_store` as a raw cookie header string and a `cookies` alias with string/object/array inputs, then normalize it into ROM's serialized cookie store.
 - `referrer` is optional if you need `document.referrer` to match an upstream page.
 - Native Node.js and Python bindings keep one live runtime per `RomRuntime` instance, so globals created in one `eval()` call remain available to the next call.
 

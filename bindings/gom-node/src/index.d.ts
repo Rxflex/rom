@@ -1,3 +1,20 @@
+export interface CookieEntry {
+  name: string;
+  value: string;
+  domain?: string;
+  hostOnly?: boolean;
+  path?: string;
+  secure?: boolean;
+  httpOnly?: boolean;
+  sameSite?: "Lax" | "Strict" | "None";
+  expiresAt?: number | null;
+}
+
+export type CookieInput =
+  | string
+  | CookieEntry[]
+  | Record<string, string | number | boolean | null | undefined>;
+
 export interface RuntimeConfig {
   href?: string;
   referrer?: string;
@@ -11,7 +28,8 @@ export interface RuntimeConfig {
   webdriver?: boolean;
   cors_enabled?: boolean;
   proxy_url?: string | null;
-  cookie_store?: string | null;
+  cookie_store?: CookieInput | null;
+  cookies?: CookieInput | null;
 }
 
 export declare class RomRuntime {

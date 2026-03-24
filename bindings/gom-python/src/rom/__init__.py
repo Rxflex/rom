@@ -14,6 +14,15 @@ except ImportError:
     _native = None
 
 _NativeRomRuntime = getattr(_native, "NativeRomRuntime", None) if _native is not None else None
+_COOKIE_ATTRIBUTE_NAMES = {
+    "domain",
+    "path",
+    "expires",
+    "max-age",
+    "samesite",
+    "secure",
+    "httponly",
+}
 
 
 def _repo_root() -> Path:
@@ -56,9 +65,146 @@ def _run_bridge(command: str, payload: Dict[str, Any]) -> Any:
     return response
 
 
+def _normalize_runtime_config(config: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    normalized = dict(config or {})
+    cookie_store = _normalize_cookie_store_input(
+        normalized.get("cookie_store", normalized.get("cookies")),
+        normalized.get("href"),
+    )
+    normalized.pop("cookies", None)
+    if cookie_store is not None:
+        normalized["cookie_store"] = cookie_store
+    return normalized
+
+
+def _normalize_cookie_store_input(value: Any, href: Optional[str]) -> Optional[str]:
+    if value in (None, ""):
+        return None
+
+    if isinstance(value, str):
+        trimmed = value.strip()
+        if not trimmed:
+            return None
+        if _looks_like_serialized_cookie_store(trimmed):
+            return trimmed
+        return _serialize_cookie_entries(_parse_cookie_header_string(trimmed, href))
+
+    if isinstance(value, list):
+        return _serialize_cookie_entries(_normalize_cookie_entries(value, href))
+
+    if isinstance(value, dict):
+        return _serialize_cookie_entries(_normalize_cookie_entries(value, href))
+
+    return None
+
+
+def _looks_like_serialized_cookie_store(value: str) -> bool:
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError:
+        return False
+    return isinstance(parsed, list)
+
+
+def _normalize_cookie_entries(value: Any, href: Optional[str]) -> list[Dict[str, Any]]:
+    if isinstance(value, list):
+        return [entry for entry in (_normalize_cookie_entry_object(item, href) for item in value) if entry]
+
+    return [_create_cookie_entry(name, entry_value, href) for name, entry_value in value.items()]
+
+
+def _normalize_cookie_entry_object(entry: Any, href: Optional[str]) -> Optional[Dict[str, Any]]:
+    if not isinstance(entry, dict):
+        return None
+
+    url = _safe_cookie_url(href)
+    path = entry.get("path") if isinstance(entry.get("path"), str) and entry["path"].startswith("/") else "/"
+    domain = (
+        entry["domain"].strip().lstrip(".").lower()
+        if isinstance(entry.get("domain"), str) and entry["domain"].strip()
+        else url.hostname.lower()
+    )
+
+    return {
+        "name": str(entry.get("name", "")),
+        "value": str(entry.get("value", "")),
+        "domain": domain,
+        "hostOnly": entry.get("hostOnly", "domain" not in entry),
+        "path": path,
+        "secure": bool(entry.get("secure", url.scheme == "https")),
+        "httpOnly": bool(entry.get("httpOnly", False)),
+        "sameSite": _normalize_same_site(entry.get("sameSite")),
+        "expiresAt": _normalize_expires_at(entry.get("expiresAt")),
+    }
+
+
+def _parse_cookie_header_string(value: str, href: Optional[str]) -> list[Dict[str, Any]]:
+    entries: list[Dict[str, Any]] = []
+    for part in (segment.strip() for segment in value.split(";")):
+        if not part:
+            continue
+        separator = part.find("=")
+        if separator <= 0:
+            continue
+        name = part[:separator].strip()
+        if not name or name.lower() in _COOKIE_ATTRIBUTE_NAMES:
+            continue
+        entries.append(_create_cookie_entry(name, part[separator + 1 :], href))
+    return entries
+
+
+def _create_cookie_entry(name: Any, value: Any, href: Optional[str]) -> Dict[str, Any]:
+    url = _safe_cookie_url(href)
+    return {
+        "name": str(name),
+        "value": str(value),
+        "domain": url.hostname.lower(),
+        "hostOnly": True,
+        "path": "/",
+        "secure": url.scheme == "https",
+        "httpOnly": False,
+        "sameSite": "Lax",
+        "expiresAt": None,
+    }
+
+
+def _safe_cookie_url(href: Optional[str]):
+    from urllib.parse import urlparse
+
+    parsed = urlparse(href or "https://rom.local/")
+    if not parsed.scheme or not parsed.hostname:
+        parsed = urlparse("https://rom.local/")
+    return parsed
+
+
+def _normalize_same_site(value: Any) -> str:
+    normalized = str(value or "Lax").lower()
+    if normalized == "strict":
+        return "Strict"
+    if normalized == "none":
+        return "None"
+    return "Lax"
+
+
+def _normalize_expires_at(value: Any) -> Optional[float]:
+    if value in (None, ""):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _serialize_cookie_entries(entries: list[Dict[str, Any]]) -> Optional[str]:
+    filtered = [entry for entry in entries if entry.get("name")]
+    if not filtered:
+        return None
+    return json.dumps(filtered)
+
+
 class RomRuntime:
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
-        self.config = config or {}
+        self.config = _normalize_runtime_config(config)
         self._native_runtime = None
         if _NativeRomRuntime is not None:
             self._native_runtime = _NativeRomRuntime(json.dumps(self.config))

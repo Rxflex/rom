@@ -8,6 +8,15 @@ const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..", "..", "..");
 const nativeBridge = loadNativeBridge();
 const NativeRomRuntime = nativeBridge?.NativeRomRuntime ?? null;
+const COOKIE_ATTRIBUTE_NAMES = new Set([
+  "domain",
+  "path",
+  "expires",
+  "max-age",
+  "samesite",
+  "secure",
+  "httponly",
+]);
 
 function resolveBridgeCommand() {
   if (process.env.ROM_BRIDGE_BIN) {
@@ -100,11 +109,173 @@ function applyBridgeState(targetConfig, state) {
   };
 }
 
+function normalizeRuntimeConfig(config = {}) {
+  const normalized = { ...config };
+  const cookieStore = normalizeCookieStoreInput(
+    normalized.cookie_store ?? normalized.cookies ?? null,
+    normalized.href,
+  );
+
+  delete normalized.cookies;
+  if (cookieStore !== null) {
+    normalized.cookie_store = cookieStore;
+  }
+
+  return normalized;
+}
+
+function normalizeCookieStoreInput(value, href) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    if (looksLikeSerializedCookieStore(trimmed)) {
+      return trimmed;
+    }
+
+    return serializeCookieEntries(parseCookieHeaderString(trimmed, href));
+  }
+
+  if (Array.isArray(value)) {
+    return serializeCookieEntries(normalizeCookieEntries(value, href));
+  }
+
+  if (typeof value === "object") {
+    return serializeCookieEntries(normalizeCookieEntries(value, href));
+  }
+
+  return null;
+}
+
+function looksLikeSerializedCookieStore(value) {
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed);
+  } catch {
+    return false;
+  }
+}
+
+function normalizeCookieEntries(value, href) {
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => normalizeCookieEntryObject(entry, href))
+      .filter(Boolean);
+  }
+
+  return Object.entries(value).map(([name, entryValue]) =>
+    createCookieEntry(name, entryValue, href),
+  );
+}
+
+function normalizeCookieEntryObject(entry, href) {
+  if (!entry || typeof entry !== "object") {
+    return null;
+  }
+
+  const url = safeCookieUrl(href);
+  const path = typeof entry.path === "string" && entry.path.startsWith("/") ? entry.path : "/";
+  const domain =
+    typeof entry.domain === "string" && entry.domain.trim()
+      ? entry.domain.trim().replace(/^\./, "").toLowerCase()
+      : url.hostname.toLowerCase();
+
+  return {
+    name: String(entry.name ?? ""),
+    value: String(entry.value ?? ""),
+    domain,
+    hostOnly: entry.hostOnly ?? !("domain" in entry),
+    path,
+    secure: Boolean(entry.secure ?? (url.protocol === "https:")),
+    httpOnly: Boolean(entry.httpOnly),
+    sameSite: normalizeSameSite(entry.sameSite),
+    expiresAt: normalizeExpiresAt(entry.expiresAt),
+  };
+}
+
+function parseCookieHeaderString(value, href) {
+  return value
+    .split(";")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const separator = part.indexOf("=");
+      if (separator <= 0) {
+        return null;
+      }
+
+      const name = part.slice(0, separator).trim();
+      if (!name || COOKIE_ATTRIBUTE_NAMES.has(name.toLowerCase())) {
+        return null;
+      }
+
+      return createCookieEntry(name, part.slice(separator + 1), href);
+    })
+    .filter(Boolean);
+}
+
+function createCookieEntry(name, value, href) {
+  const url = safeCookieUrl(href);
+  return {
+    name: String(name),
+    value: String(value),
+    domain: url.hostname.toLowerCase(),
+    hostOnly: true,
+    path: "/",
+    secure: url.protocol === "https:",
+    httpOnly: false,
+    sameSite: "Lax",
+    expiresAt: null,
+  };
+}
+
+function safeCookieUrl(href) {
+  try {
+    return new URL(href || "https://rom.local/");
+  } catch {
+    return new URL("https://rom.local/");
+  }
+}
+
+function normalizeSameSite(value) {
+  const normalized = String(value ?? "Lax").toLowerCase();
+  if (normalized === "strict") {
+    return "Strict";
+  }
+  if (normalized === "none") {
+    return "None";
+  }
+  return "Lax";
+}
+
+function normalizeExpiresAt(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function serializeCookieEntries(entries) {
+  if (!Array.isArray(entries) || entries.length === 0) {
+    return null;
+  }
+
+  return JSON.stringify(entries.filter((entry) => entry && entry.name));
+}
+
 export class RomRuntime {
   #nativeRuntime = null;
 
   constructor(config = {}) {
-    this.config = config;
+    this.config = normalizeRuntimeConfig(config);
     if (typeof NativeRomRuntime === "function") {
       this.#nativeRuntime = new NativeRomRuntime(JSON.stringify(this.config));
     }
