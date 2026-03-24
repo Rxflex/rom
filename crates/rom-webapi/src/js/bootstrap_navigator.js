@@ -324,8 +324,12 @@
         const userAgentData = createNavigatorUAData(navigatorConfig);
 
         return {
-            userAgent: navigatorConfig.userAgent ?? "ROM/0.1",
-            appVersion: navigatorConfig.userAgent ?? "ROM/0.1",
+            userAgent:
+                navigatorConfig.userAgent ??
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+            appVersion:
+                navigatorConfig.userAgent ??
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
             appName: navigatorConfig.appName ?? "Netscape",
             platform: navigatorConfig.platform ?? "unknown",
             language: navigatorConfig.language ?? "en-US",
@@ -335,7 +339,7 @@
             cookieEnabled: true,
             webdriver: Boolean(navigatorConfig.webdriver),
             maxTouchPoints: 0,
-            vendor: "ROM",
+            vendor: "Google Inc.",
             product: "Gecko",
             productSub: "20030107",
             userAgentData,
@@ -372,8 +376,9 @@
     function createNavigatorUAData(navigatorConfig) {
         const platform = normalizeUaPlatform(navigatorConfig.platform);
         const brands = [
-            { brand: "ROM", version: "0" },
-            { brand: "Not=A?Brand", version: "99" },
+            { brand: "Chromium", version: "137" },
+            { brand: "Google Chrome", version: "137" },
+            { brand: "Not=A?Brand", version: "24" },
         ];
 
         return new NavigatorUAData({
@@ -385,7 +390,7 @@
             formFactors: ["Desktop"],
             model: "",
             platformVersion: "15.0.0",
-            uaFullVersion: "0.1.0",
+            uaFullVersion: "137.0.0.0",
             fullVersionList: brands,
             wow64: false,
         });

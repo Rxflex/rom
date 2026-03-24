@@ -99,14 +99,22 @@ function runBridge(command, payload) {
 }
 
 function applyBridgeState(targetConfig, state) {
-  if (!state || typeof state.cookie_store !== "string") {
+  if (!state || typeof state !== "object") {
     return targetConfig;
   }
 
-  return {
-    ...targetConfig,
-    cookie_store: state.cookie_store,
-  };
+  const nextConfig = { ...targetConfig };
+  if (typeof state.cookie_store === "string") {
+    nextConfig.cookie_store = state.cookie_store;
+  }
+  if (typeof state.local_storage === "string") {
+    nextConfig.local_storage = state.local_storage;
+  }
+  if (typeof state.session_storage === "string") {
+    nextConfig.session_storage = state.session_storage;
+  }
+
+  return nextConfig;
 }
 
 function normalizeRuntimeConfig(config = {}) {
@@ -115,10 +123,24 @@ function normalizeRuntimeConfig(config = {}) {
     normalized.cookie_store ?? normalized.cookies ?? null,
     normalized.href,
   );
+  const localStorage = normalizeStorageInput(
+    normalized.local_storage ?? normalized.localStorage ?? null,
+  );
+  const sessionStorage = normalizeStorageInput(
+    normalized.session_storage ?? normalized.sessionStorage ?? null,
+  );
 
   delete normalized.cookies;
+  delete normalized.localStorage;
+  delete normalized.sessionStorage;
   if (cookieStore !== null) {
     normalized.cookie_store = cookieStore;
+  }
+  if (localStorage !== null) {
+    normalized.local_storage = localStorage;
+  }
+  if (sessionStorage !== null) {
+    normalized.session_storage = sessionStorage;
   }
 
   return normalized;
@@ -153,10 +175,39 @@ function normalizeCookieStoreInput(value, href) {
   return null;
 }
 
+function normalizeStorageInput(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed || !looksLikeSerializedStorage(trimmed)) {
+      return null;
+    }
+    return serializeStorageEntries(JSON.parse(trimmed));
+  }
+
+  if (Array.isArray(value) || typeof value === "object") {
+    return serializeStorageEntries(value);
+  }
+
+  return null;
+}
+
 function looksLikeSerializedCookieStore(value) {
   try {
     const parsed = JSON.parse(value);
     return Array.isArray(parsed);
+  } catch {
+    return false;
+  }
+}
+
+function looksLikeSerializedStorage(value) {
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) || (!!parsed && typeof parsed === "object");
   } catch {
     return false;
   }
@@ -271,6 +322,28 @@ function serializeCookieEntries(entries) {
   return JSON.stringify(entries.filter((entry) => entry && entry.name));
 }
 
+function serializeStorageEntries(value) {
+  if (Array.isArray(value)) {
+    return JSON.stringify(
+      Object.fromEntries(
+        value
+          .filter((entry) => Array.isArray(entry) && entry.length >= 2)
+          .map(([key, entryValue]) => [String(key), String(entryValue)]),
+      ),
+    );
+  }
+
+  if (value && typeof value === "object") {
+    return JSON.stringify(
+      Object.fromEntries(
+        Object.entries(value).map(([key, entryValue]) => [key, String(entryValue)]),
+      ),
+    );
+  }
+
+  return null;
+}
+
 export class RomRuntime {
   #nativeRuntime = null;
 
@@ -292,12 +365,31 @@ export class RomRuntime {
     };
   }
 
-  #syncNativeState() {
-    if (!this.#nativeRuntime || typeof this.#nativeRuntime.exportCookieStore !== "function") {
+  #applyStorageState(key, value) {
+    if (typeof value !== "string") {
       return;
     }
 
-    this.#applyCookieStore(this.#nativeRuntime.exportCookieStore());
+    this.config = {
+      ...this.config,
+      [key]: value,
+    };
+  }
+
+  #syncNativeState() {
+    if (!this.#nativeRuntime) {
+      return;
+    }
+
+    if (typeof this.#nativeRuntime.exportCookieStore === "function") {
+      this.#applyCookieStore(this.#nativeRuntime.exportCookieStore());
+    }
+    if (typeof this.#nativeRuntime.exportLocalStorage === "function") {
+      this.#applyStorageState("local_storage", this.#nativeRuntime.exportLocalStorage());
+    }
+    if (typeof this.#nativeRuntime.exportSessionStorage === "function") {
+      this.#applyStorageState("session_storage", this.#nativeRuntime.exportSessionStorage());
+    }
   }
 
   async #runNative(method, ...args) {

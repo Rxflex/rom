@@ -184,3 +184,62 @@ fn bridge_preserves_cookie_store_between_invocations() {
         "{\"text\":\"echo\",\"documentCookie\":\"init=1; session=bridge\"}"
     );
 }
+
+#[test]
+fn bridge_preserves_local_storage_between_invocations() {
+    let (success_first, first) = run_bridge(json!({
+        "command": "eval-async",
+        "config": {
+            "href": "https://example.test/app",
+        },
+        "script": r#"
+            (async () => {
+                localStorage.setItem("VerifyAuthToken", "seeded-local");
+                sessionStorage.setItem("session-key", "seeded-session");
+                return JSON.stringify({
+                    local: localStorage.getItem("VerifyAuthToken"),
+                    session: sessionStorage.getItem("session-key"),
+                });
+            })()
+        "#,
+    }));
+
+    assert!(success_first);
+    assert_eq!(first["ok"], true);
+    assert_eq!(
+        first["result"],
+        "{\"local\":\"seeded-local\",\"session\":\"seeded-session\"}"
+    );
+
+    let local_storage = first["state"]["local_storage"].as_str().unwrap().to_owned();
+    let session_storage = first["state"]["session_storage"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert_eq!(local_storage, "{\"VerifyAuthToken\":\"seeded-local\"}");
+    assert_eq!(session_storage, "{\"session-key\":\"seeded-session\"}");
+
+    let (success_second, second) = run_bridge(json!({
+        "command": "eval-async",
+        "config": {
+            "href": "https://example.test/app",
+            "local_storage": local_storage,
+            "session_storage": session_storage,
+        },
+        "script": r#"
+            (async () => {
+                return JSON.stringify({
+                    local: localStorage.getItem("VerifyAuthToken"),
+                    session: sessionStorage.getItem("session-key"),
+                });
+            })()
+        "#,
+    }));
+
+    assert!(success_second);
+    assert_eq!(second["ok"], true);
+    assert_eq!(
+        second["result"],
+        "{\"local\":\"seeded-local\",\"session\":\"seeded-session\"}"
+    );
+}

@@ -309,6 +309,8 @@ fn make_config_object<'js>(ctx: Ctx<'js>, config: &WebRuntimeConfig) -> Result<O
 
     let document = Object::new(ctx.clone())?;
     document.set("referrer", config.document.referrer.as_str())?;
+    document.set("localStorage", config.document.local_storage.clone())?;
+    document.set("sessionStorage", config.document.session_storage.clone())?;
 
     let fetch = Object::new(ctx.clone())?;
     fetch.set("corsEnabled", config.fetch.cors_enabled)?;

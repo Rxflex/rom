@@ -27,6 +27,8 @@ pub struct LocationConfig {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DocumentConfig {
     pub referrer: String,
+    pub local_storage: Option<String>,
+    pub session_storage: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

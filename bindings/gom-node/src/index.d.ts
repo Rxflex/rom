@@ -15,6 +15,11 @@ export type CookieInput =
   | CookieEntry[]
   | Record<string, string | number | boolean | null | undefined>;
 
+export type StorageInput =
+  | string
+  | Record<string, string | number | boolean | null | undefined>
+  | Array<[string, string | number | boolean | null | undefined]>;
+
 export interface RuntimeConfig {
   href?: string;
   referrer?: string;
@@ -30,6 +35,10 @@ export interface RuntimeConfig {
   proxy_url?: string | null;
   cookie_store?: CookieInput | null;
   cookies?: CookieInput | null;
+  local_storage?: StorageInput | null;
+  session_storage?: StorageInput | null;
+  localStorage?: StorageInput | null;
+  sessionStorage?: StorageInput | null;
 }
 
 export declare class RomRuntime {

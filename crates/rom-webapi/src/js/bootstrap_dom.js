@@ -1425,6 +1425,41 @@
         clear() {
             this.__store.clear();
         }
+
+        importState(serializedState) {
+            if (serializedState === null || serializedState === undefined || serializedState === "") {
+                return;
+            }
+
+            let parsed;
+            try {
+                parsed = JSON.parse(String(serializedState));
+            } catch {
+                return;
+            }
+
+            if (Array.isArray(parsed)) {
+                for (const entry of parsed) {
+                    if (!Array.isArray(entry) || entry.length < 2) {
+                        continue;
+                    }
+                    this.setItem(entry[0], entry[1]);
+                }
+                return;
+            }
+
+            if (!parsed || typeof parsed !== "object") {
+                return;
+            }
+
+            for (const [key, value] of Object.entries(parsed)) {
+                this.setItem(key, value);
+            }
+        }
+
+        exportState() {
+            return JSON.stringify(Object.fromEntries(this.__store.entries()));
+        }
     }
 
     const document = new Document();

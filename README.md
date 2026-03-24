@@ -157,8 +157,10 @@ If you want package-specific usage examples, see:
 - `proxy_url` is optional and supports `http://`, `socks5://`, and `socks5h://`.
 - `cookie_store` is optional, but the Node.js and Python wrappers now update it automatically so cookies survive separate bridge-backed calls.
 - For convenience, the Node.js and Python wrappers also accept `cookie_store` as a raw cookie header string and a `cookies` alias with string/object/array inputs, then normalize it into ROM's serialized cookie store.
+- `local_storage` and `session_storage` are optional and accept serialized JSON objects, JS/Python maps, or entry arrays in the wrappers; updated values are synced back into wrapper config after each call.
 - `referrer` is optional if you need `document.referrer` to match an upstream page.
-- Native Node.js and Python bindings keep one live runtime per `RomRuntime` instance, so globals created in one `eval()` call remain available to the next call.
+- Native Node.js and Python bindings keep one live runtime per `RomRuntime` instance, so globals, cookies, and storage created in one `eval()` call remain available to the next call.
+- The default navigator surface is Chrome-like rather than ROM-branded, including `navigator.userAgent`, `navigator.vendor`, and `navigator.userAgentData`.
 
 ### Build
 
