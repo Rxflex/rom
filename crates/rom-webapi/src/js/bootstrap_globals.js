@@ -1022,7 +1022,7 @@
             }
         });
     g.requestAnimationFrame = (callback) =>
-        registerTimer(() => callback(performance.now()), false, []);
+        registerTimer(() => callback(performance.now()), false, 16, []);
     g.cancelAnimationFrame = clearTimer;
     g.fetch = fetch;
     g.Headers = Headers;

@@ -72,3 +72,41 @@ fn supports_interval_repetition_and_clear() {
     assert!(value["firstTick"].as_f64().unwrap() >= 10.0);
     assert!(value["lastTick"].as_f64().unwrap() >= 35.0);
 }
+
+#[test]
+fn supports_request_animation_frame_promises_and_microtasks() {
+    let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+    let result = runtime
+        .eval_async_as_string(
+            r#"
+            (async () => {
+                const events = [];
+                const started = performance.now();
+
+                const frameTime = await new Promise((resolve) => {
+                    requestAnimationFrame((timestamp) => {
+                        events.push("frame");
+                        queueMicrotask(() => {
+                            events.push("microtask");
+                        });
+                        resolve(timestamp);
+                    });
+                });
+
+                await Promise.resolve();
+
+                return {
+                    frameTime,
+                    elapsed: performance.now() - started,
+                    events,
+                };
+            })()
+            "#,
+        )
+        .unwrap();
+
+    let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+    assert!(value["frameTime"].as_f64().unwrap() >= 0.0);
+    assert!(value["elapsed"].as_f64().unwrap() >= 10.0);
+    assert_eq!(value["events"], serde_json::json!(["frame", "microtask"]));
+}
