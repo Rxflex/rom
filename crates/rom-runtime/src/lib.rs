@@ -67,6 +67,8 @@ mod tests_performance;
 #[cfg(test)]
 mod tests_raw_risk_surface;
 #[cfg(test)]
+mod tests_react_dom_surface;
+#[cfg(test)]
 mod tests_selectors;
 #[cfg(test)]
 mod tests_split_text;
