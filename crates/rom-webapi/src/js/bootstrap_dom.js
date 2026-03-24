@@ -1,3 +1,6 @@
+    const HTML_NAMESPACE = "http://www.w3.org/1999/xhtml";
+    const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+
     function notifyDomMutation(record) {
         if (typeof g.__rom_queueMutationRecord === "function") {
             g.__rom_queueMutationRecord(record);
@@ -970,6 +973,7 @@
             const normalized = String(tagName).toUpperCase();
             super(1, normalized);
             this.tagName = normalized;
+            this.namespaceURI = HTML_NAMESPACE;
             this.attributes = new Map();
             this.style = createStyleDeclaration();
             this.scrollTop = 0;
@@ -981,6 +985,7 @@
         cloneNode(deep = false) {
             const clone = new this.constructor(this.tagName);
             clone.__ownerDocument = this.ownerDocument;
+            clone.namespaceURI = this.namespaceURI;
             for (const [key, value] of this.attributes.entries()) {
                 clone.setAttribute(key, value);
             }
@@ -1005,6 +1010,10 @@
             });
         }
 
+        setAttributeNS(_namespaceURI, qualifiedName, value) {
+            this.setAttribute(qualifiedName, value);
+        }
+
         getAttribute(name) {
             return this.attributes.get(String(name)) ?? null;
         }
@@ -1027,6 +1036,10 @@
                 attributeName: normalizedName,
                 oldValue,
             });
+        }
+
+        removeAttributeNS(_namespaceURI, qualifiedName) {
+            this.removeAttribute(qualifiedName);
         }
 
         get id() {
@@ -1192,6 +1205,20 @@
                 bottom: this.offsetHeight,
             };
         }
+
+        focus() {
+            const ownerDocument = this.ownerDocument;
+            if (ownerDocument) {
+                ownerDocument.__activeElement = this;
+            }
+        }
+
+        blur() {
+            const ownerDocument = this.ownerDocument;
+            if (ownerDocument?.__activeElement === this) {
+                ownerDocument.__activeElement = ownerDocument.body;
+            }
+        }
     }
 
     class HTMLCanvasElement extends Element {
@@ -1321,12 +1348,16 @@
             this.documentElement = new Element("html");
             this.head = new Element("head");
             this.body = new Element("body");
+            this.documentElement.namespaceURI = HTML_NAMESPACE;
+            this.head.namespaceURI = HTML_NAMESPACE;
+            this.body.namespaceURI = HTML_NAMESPACE;
             assignOwnerDocumentToSubtree(this.documentElement, this);
             assignOwnerDocumentToSubtree(this.head, this);
             assignOwnerDocumentToSubtree(this.body, this);
             this.appendChild(this.documentElement);
             this.documentElement.appendChild(this.head);
             this.documentElement.appendChild(this.body);
+            this.__activeElement = this.body;
         }
 
         createElement(tagName) {
@@ -1340,6 +1371,14 @@
                 element = new Element(tagName);
             }
             assignOwnerDocumentToSubtree(element, this);
+            return element;
+        }
+
+        createElementNS(namespaceURI, qualifiedName) {
+            const element = this.createElement(qualifiedName);
+            element.namespaceURI = namespaceURI === SVG_NAMESPACE
+                ? SVG_NAMESPACE
+                : HTML_NAMESPACE;
             return element;
         }
 
@@ -1363,6 +1402,14 @@
             const fragment = new DocumentFragment();
             assignOwnerDocumentToSubtree(fragment, this);
             return fragment;
+        }
+
+        get activeElement() {
+            return this.__activeElement ?? this.body;
+        }
+
+        hasFocus() {
+            return true;
         }
 
         querySelector(selector) {

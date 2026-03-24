@@ -628,10 +628,73 @@
         }
     }
 
+    function consoleMessage(args) {
+        return args.map(String).join(" ");
+    }
+
+    function emitConsole(method, sinkName, args) {
+        const sink = typeof g[sinkName] === "function"
+            ? g[sinkName]
+            : typeof g.__rom_console_log === "function"
+                ? g.__rom_console_log
+                : null;
+        if (sink) {
+            sink(consoleMessage(args));
+        }
+        return undefined;
+    }
+
+    const consoleCounters = new Map();
+    const consoleTimers = new Map();
+
     const console = {
-        log: (...args) => g.__rom_console_log(args.map(String).join(" ")),
-        warn: (...args) => g.__rom_console_warn(args.map(String).join(" ")),
-        error: (...args) => g.__rom_console_error(args.map(String).join(" ")),
+        log: (...args) => emitConsole("log", "__rom_console_log", args),
+        info: (...args) => emitConsole("info", "__rom_console_log", args),
+        debug: (...args) => emitConsole("debug", "__rom_console_log", args),
+        warn: (...args) => emitConsole("warn", "__rom_console_warn", args),
+        error: (...args) => emitConsole("error", "__rom_console_error", args),
+        trace: (...args) => emitConsole("trace", "__rom_console_error", args),
+        dir: (...args) => emitConsole("dir", "__rom_console_log", args),
+        dirxml: (...args) => emitConsole("dirxml", "__rom_console_log", args),
+        table: (...args) => emitConsole("table", "__rom_console_log", args),
+        clear: () => undefined,
+        group: (...args) => emitConsole("group", "__rom_console_log", args),
+        groupCollapsed: (...args) => emitConsole("groupCollapsed", "__rom_console_log", args),
+        groupEnd: () => undefined,
+        count(label = "default") {
+            const key = String(label);
+            const nextValue = (consoleCounters.get(key) ?? 0) + 1;
+            consoleCounters.set(key, nextValue);
+            emitConsole("count", "__rom_console_log", [`${key}: ${nextValue}`]);
+        },
+        countReset(label = "default") {
+            consoleCounters.set(String(label), 0);
+        },
+        time(label = "default") {
+            consoleTimers.set(String(label), Date.now());
+        },
+        timeLog(label = "default", ...args) {
+            const key = String(label);
+            const startedAt = consoleTimers.get(key) ?? Date.now();
+            emitConsole("timeLog", "__rom_console_log", [`${key}: ${Date.now() - startedAt}ms`, ...args]);
+        },
+        timeEnd(label = "default") {
+            const key = String(label);
+            const startedAt = consoleTimers.get(key) ?? Date.now();
+            consoleTimers.delete(key);
+            emitConsole("timeEnd", "__rom_console_log", [`${key}: ${Date.now() - startedAt}ms`]);
+        },
+        assert(condition, ...args) {
+            if (!condition) {
+                emitConsole(
+                    "assert",
+                    "__rom_console_error",
+                    args.length ? args : ["Assertion failed"],
+                );
+            }
+        },
+        profile: () => undefined,
+        profileEnd: () => undefined,
     };
 
     function supportsCssLength(value) {
@@ -982,8 +1045,11 @@
     g.Element = Element;
     g.HTMLElement = Element;
     g.HTMLCanvasElement = HTMLCanvasElement;
+    g.HTMLIFrameElement = HTMLIFrameElement;
     g.Text = Text;
+    g.Comment = Comment;
     g.Document = Document;
+    g.DocumentFragment = DocumentFragment;
     g.DOMParser = DOMParser;
     g.Permissions = Permissions;
     g.PermissionStatus = PermissionStatus;
