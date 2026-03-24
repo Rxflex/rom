@@ -5,6 +5,7 @@ use url::Url;
 #[derive(Clone, Debug)]
 pub enum ProxyKind {
     Http,
+    Https,
     Socks5,
 }
 
@@ -25,11 +26,15 @@ pub struct ProxyConfig {
 
 impl ProxyConfig {
     pub fn uses_http_connect(&self) -> bool {
-        matches!(self.kind, ProxyKind::Http)
+        matches!(self.kind, ProxyKind::Http | ProxyKind::Https)
     }
 
     pub fn uses_absolute_form_for_http(&self) -> bool {
-        matches!(self.kind, ProxyKind::Http)
+        matches!(self.kind, ProxyKind::Http | ProxyKind::Https)
+    }
+
+    pub fn uses_tls(&self) -> bool {
+        matches!(self.kind, ProxyKind::Https)
     }
 }
 
@@ -120,7 +125,7 @@ fn parse_proxy_url(proxy_url: &str) -> Result<ProxyConfig, String> {
         })
     };
     let authorization = credentials.as_ref().and_then(|credentials| {
-        matches!(kind, ProxyKind::Http).then(|| {
+        matches!(kind, ProxyKind::Http | ProxyKind::Https).then(|| {
             let basic = format!("{}:{}", credentials.username, credentials.password);
             format!("Basic {}", STANDARD.encode(basic))
         })
@@ -140,9 +145,16 @@ fn parse_proxy_kind(scheme: &str) -> Result<ProxyKind, String> {
         return Ok(ProxyKind::Http);
     }
 
+    if scheme.eq_ignore_ascii_case("https") {
+        return Ok(ProxyKind::Https);
+    }
+
     if scheme.eq_ignore_ascii_case("socks5") || scheme.eq_ignore_ascii_case("socks5h") {
         return Ok(ProxyKind::Socks5);
     }
 
-    Err("Only http://, socks5://, and socks5h:// proxies are currently supported.".to_owned())
+    Err(
+        "Only http://, https://, socks5://, and socks5h:// proxies are currently supported."
+            .to_owned(),
+    )
 }
