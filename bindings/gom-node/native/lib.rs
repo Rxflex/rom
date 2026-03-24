@@ -78,6 +78,18 @@ impl NativeRomRuntime {
             .map(|value| value.to_owned())
     }
 
+    #[napi(js_name = "exportLocalStorage")]
+    pub fn export_local_storage(&self) -> Result<String> {
+        map_runtime_error(self.runtime.export_local_storage())
+            .map(|value| value.to_owned())
+    }
+
+    #[napi(js_name = "exportSessionStorage")]
+    pub fn export_session_storage(&self) -> Result<String> {
+        map_runtime_error(self.runtime.export_session_storage())
+            .map(|value| value.to_owned())
+    }
+
     #[napi(js_name = "evalJson")]
     pub fn eval_json(&self, script: String, asynchronous: bool) -> Result<String> {
         let value = if asynchronous {

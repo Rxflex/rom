@@ -4,11 +4,13 @@ async function main() {
   const runtime = new RomRuntime({
     href: "https://example.test/",
     cookie_store: "seed=1; path=/",
+    local_storage: { VerifyAuthToken: "seeded-storage" },
   });
   const href = await runtime.evalAsync("(async () => location.href)()");
   await runtime.evalAsync("(async () => { globalThis.__romSmokeValue = 42; return 'ok'; })()");
   const persisted = await runtime.evalAsync("(async () => String(globalThis.__romSmokeValue))()");
   const cookie = await runtime.evalAsync("(async () => document.cookie)()");
+  const storage = await runtime.evalAsync("(async () => localStorage.getItem('VerifyAuthToken'))()");
   const snapshot = await runtime.surfaceSnapshot();
 
   if (!hasNativeBinding()) {
@@ -31,7 +33,11 @@ async function main() {
     throw new Error(`Expected seeded cookie, got: ${cookie}`);
   }
 
-  console.log(JSON.stringify({ native: true, href, persisted, cookie }));
+  if (storage !== "seeded-storage") {
+    throw new Error(`Expected seeded localStorage, got: ${storage}`);
+  }
+
+  console.log(JSON.stringify({ native: true, href, persisted, cookie, storage }));
 }
 
 main().catch((error) => {

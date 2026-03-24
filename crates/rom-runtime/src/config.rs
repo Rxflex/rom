@@ -20,13 +20,15 @@ pub struct RuntimeConfig {
     pub proxy_url: Option<String>,
     pub cookie_store: Option<String>,
     pub referrer: String,
+    pub local_storage: Option<String>,
+    pub session_storage: Option<String>,
 }
 
 impl Default for RuntimeConfig {
     fn default() -> Self {
         Self {
             href: "https://rom.local/".to_owned(),
-            user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) ROM/0.1".to_owned(),
+            user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36".to_owned(),
             app_name: "Netscape".to_owned(),
             platform: "Win32".to_owned(),
             language: "en-US".to_owned(),
@@ -38,6 +40,8 @@ impl Default for RuntimeConfig {
             proxy_url: None,
             cookie_store: None,
             referrer: String::new(),
+            local_storage: None,
+            session_storage: None,
         }
     }
 }
@@ -87,6 +91,8 @@ impl RuntimeConfig {
             },
             document: DocumentConfig {
                 referrer: self.referrer.clone(),
+                local_storage: self.local_storage.clone(),
+                session_storage: self.session_storage.clone(),
             },
             fetch: rom_webapi::FetchConfig {
                 cors_enabled: self.cors_enabled,

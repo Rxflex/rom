@@ -68,6 +68,16 @@ impl NativeRomRuntime {
         map_runtime_error(self.runtime.export_cookie_store())
             .map(|value| value.to_owned())
     }
+
+    fn export_local_storage(&self) -> PyResult<String> {
+        map_runtime_error(self.runtime.export_local_storage())
+            .map(|value| value.to_owned())
+    }
+
+    fn export_session_storage(&self) -> PyResult<String> {
+        map_runtime_error(self.runtime.export_session_storage())
+            .map(|value| value.to_owned())
+    }
 }
 
 #[pymodule]

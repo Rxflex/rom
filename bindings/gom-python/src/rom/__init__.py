@@ -71,9 +71,21 @@ def _normalize_runtime_config(config: Optional[Dict[str, Any]]) -> Dict[str, Any
         normalized.get("cookie_store", normalized.get("cookies")),
         normalized.get("href"),
     )
+    local_storage = _normalize_storage_input(
+        normalized.get("local_storage", normalized.get("localStorage"))
+    )
+    session_storage = _normalize_storage_input(
+        normalized.get("session_storage", normalized.get("sessionStorage"))
+    )
     normalized.pop("cookies", None)
+    normalized.pop("localStorage", None)
+    normalized.pop("sessionStorage", None)
     if cookie_store is not None:
         normalized["cookie_store"] = cookie_store
+    if local_storage is not None:
+        normalized["local_storage"] = local_storage
+    if session_storage is not None:
+        normalized["session_storage"] = session_storage
     return normalized
 
 
@@ -104,6 +116,30 @@ def _looks_like_serialized_cookie_store(value: str) -> bool:
     except json.JSONDecodeError:
         return False
     return isinstance(parsed, list)
+
+
+def _normalize_storage_input(value: Any) -> Optional[str]:
+    if value in (None, ""):
+        return None
+
+    if isinstance(value, str):
+        trimmed = value.strip()
+        if not trimmed or not _looks_like_serialized_storage(trimmed):
+            return None
+        return _serialize_storage_entries(json.loads(trimmed))
+
+    if isinstance(value, (list, dict)):
+        return _serialize_storage_entries(value)
+
+    return None
+
+
+def _looks_like_serialized_storage(value: str) -> bool:
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError:
+        return False
+    return isinstance(parsed, (list, dict))
 
 
 def _normalize_cookie_entries(value: Any, href: Optional[str]) -> list[Dict[str, Any]]:
@@ -202,6 +238,21 @@ def _serialize_cookie_entries(entries: list[Dict[str, Any]]) -> Optional[str]:
     return json.dumps(filtered)
 
 
+def _serialize_storage_entries(value: Any) -> Optional[str]:
+    if isinstance(value, list):
+        entries = {
+            str(entry[0]): str(entry[1])
+            for entry in value
+            if isinstance(entry, (list, tuple)) and len(entry) >= 2
+        }
+        return json.dumps(entries)
+
+    if isinstance(value, dict):
+        return json.dumps({str(key): str(entry_value) for key, entry_value in value.items()})
+
+    return None
+
+
 class RomRuntime:
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         self.config = _normalize_runtime_config(config)
@@ -216,6 +267,16 @@ class RomRuntime:
         cookie_store = self._native_runtime.export_cookie_store()
         if isinstance(cookie_store, str):
             self.config = {**self.config, "cookie_store": cookie_store}
+
+        if hasattr(self._native_runtime, "export_local_storage"):
+            local_storage = self._native_runtime.export_local_storage()
+            if isinstance(local_storage, str):
+                self.config = {**self.config, "local_storage": local_storage}
+
+        if hasattr(self._native_runtime, "export_session_storage"):
+            session_storage = self._native_runtime.export_session_storage()
+            if isinstance(session_storage, str):
+                self.config = {**self.config, "session_storage": session_storage}
 
     def _run_native(self, command: str, payload: Dict[str, Any]) -> Any:
         if self._native_runtime is None:
@@ -245,8 +306,15 @@ class RomRuntime:
 
         response = _run_bridge(command, {"config": self.config, **payload})
         state = response.get("state")
-        if isinstance(state, dict) and isinstance(state.get("cookie_store"), str):
-            self.config = {**self.config, "cookie_store": state["cookie_store"]}
+        if isinstance(state, dict):
+            next_config = dict(self.config)
+            if isinstance(state.get("cookie_store"), str):
+                next_config["cookie_store"] = state["cookie_store"]
+            if isinstance(state.get("local_storage"), str):
+                next_config["local_storage"] = state["local_storage"]
+            if isinstance(state.get("session_storage"), str):
+                next_config["session_storage"] = state["session_storage"]
+            self.config = next_config
         return response.get("result")
 
     def eval(self, script: str) -> str:

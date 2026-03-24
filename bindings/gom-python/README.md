@@ -48,6 +48,8 @@ Config keys use the Rust runtime field names, so use snake_case such as `cors_en
 `cors_enabled` is `False` by default.
 When the native extension is loaded, one `RomRuntime` instance keeps JS globals alive across multiple `eval()` and `eval_async()` calls.
 For cookie seeding, the wrapper accepts serialized `cookie_store`, a raw cookie header string, or a `cookies` alias with string/object/array inputs and normalizes them automatically.
+For storage seeding, the wrapper accepts `local_storage` and `session_storage` as serialized JSON objects, Python dicts, or entry arrays such as `[('VerifyAuthToken', 'seeded')]`.
+The default navigator surface is Chrome-like, including `navigator.userAgent`, `navigator.vendor`, and `navigator.userAgentData`.
 
 ## Optional native build from source
 

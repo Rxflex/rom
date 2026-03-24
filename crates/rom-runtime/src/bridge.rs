@@ -33,6 +33,8 @@ pub struct BridgeResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BridgeState {
     pub cookie_store: String,
+    pub local_storage: String,
+    pub session_storage: String,
 }
 
 impl BridgeResponse {
@@ -119,6 +121,12 @@ fn try_execute_bridge_request(request: BridgeRequest) -> Result<(Value, BridgeSt
         BridgeState {
             cookie_store: runtime
                 .export_cookie_store()
+                .map_err(|error| error.to_string())?,
+            local_storage: runtime
+                .export_local_storage()
+                .map_err(|error| error.to_string())?,
+            session_storage: runtime
+                .export_session_storage()
                 .map_err(|error| error.to_string())?,
         },
     ))

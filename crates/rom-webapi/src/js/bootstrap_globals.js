@@ -920,6 +920,8 @@
     g.visualViewport = visualViewport;
     g.localStorage = new Storage();
     g.sessionStorage = new Storage();
+    g.localStorage.importState(initialLocalStorage);
+    g.sessionStorage.importState(initialSessionStorage);
     g.performance = performance;
     g.crypto = crypto;
     g.CryptoKey = CryptoKey;
@@ -948,6 +950,8 @@
     g.clearTimeout = clearTimer;
     g.setInterval = (callback, delay = 0, ...args) => registerTimer(callback, true, delay, args);
     g.clearInterval = clearTimer;
+    g.__rom_export_local_storage = () => g.localStorage.exportState();
+    g.__rom_export_session_storage = () => g.sessionStorage.exportState();
     g.queueMicrotask = (callback) =>
         Promise.resolve().then(() => {
             if (typeof callback === "function") {

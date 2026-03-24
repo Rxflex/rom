@@ -42,4 +42,12 @@ impl RomRuntime {
     pub fn export_cookie_store(&self) -> Result<String> {
         Ok(self.core.eval_as_string("__rom_export_cookie_store()")?)
     }
+
+    pub fn export_local_storage(&self) -> Result<String> {
+        Ok(self.core.eval_as_string("__rom_export_local_storage()")?)
+    }
+
+    pub fn export_session_storage(&self) -> Result<String> {
+        Ok(self.core.eval_as_string("__rom_export_session_storage()")?)
+    }
 }

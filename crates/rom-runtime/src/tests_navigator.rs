@@ -44,6 +44,7 @@ fn supports_navigator_permissions_media_and_plugin_surfaces() {
                     microphoneBefore: microphoneBefore.state,
                     notificationState: notification.state,
                     uaDataIsPresent: userAgentData instanceof NavigatorUAData,
+                    vendor: navigator.vendor,
                     uaDataBrands: userAgentData.brands,
                     uaDataPlatform: userAgentData.platform,
                     uaDataMobile: userAgentData.mobile,
@@ -87,11 +88,13 @@ fn supports_navigator_permissions_media_and_plugin_surfaces() {
     assert_eq!(value["microphoneBefore"], "prompt");
     assert_eq!(value["notificationState"], "default");
     assert_eq!(value["uaDataIsPresent"], true);
+    assert_eq!(value["vendor"], "Google Inc.");
     assert_eq!(
         value["uaDataBrands"],
         serde_json::json!([
-            { "brand": "ROM", "version": "0" },
-            { "brand": "Not=A?Brand", "version": "99" }
+            { "brand": "Chromium", "version": "137" },
+            { "brand": "Google Chrome", "version": "137" },
+            { "brand": "Not=A?Brand", "version": "24" }
         ])
     );
     assert_eq!(value["uaDataPlatform"], "Windows");
@@ -99,13 +102,14 @@ fn supports_navigator_permissions_media_and_plugin_surfaces() {
     assert_eq!(value["highEntropyValues"]["architecture"], "x86");
     assert_eq!(value["highEntropyValues"]["bitness"], "64");
     assert_eq!(value["highEntropyValues"]["platformVersion"], "15.0.0");
-    assert_eq!(value["highEntropyValues"]["uaFullVersion"], "0.1.0");
+    assert_eq!(value["highEntropyValues"]["uaFullVersion"], "137.0.0.0");
     assert_eq!(value["highEntropyValues"]["wow64"], false);
     assert_eq!(
         value["highEntropyValues"]["fullVersionList"],
         serde_json::json!([
-            { "brand": "ROM", "version": "0" },
-            { "brand": "Not=A?Brand", "version": "99" }
+            { "brand": "Chromium", "version": "137" },
+            { "brand": "Google Chrome", "version": "137" },
+            { "brand": "Not=A?Brand", "version": "24" }
         ])
     );
     assert_eq!(

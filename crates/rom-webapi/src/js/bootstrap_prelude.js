@@ -4,6 +4,8 @@
     const navigatorConfig = config.navigator ?? {};
     const locationConfig = config.location ?? {};
     const documentConfig = config.document ?? {};
+    const initialLocalStorage = documentConfig.localStorage ?? null;
+    const initialSessionStorage = documentConfig.sessionStorage ?? null;
     const nowBase = Date.now();
 
     class Event {
