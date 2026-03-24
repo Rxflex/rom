@@ -27,6 +27,7 @@ import { RomRuntime, hasNativeBinding } from "@rxflex/rom";
 
 const runtime = new RomRuntime({
   href: "https://example.test/",
+  referrer: "https://referrer.example/",
   cors_enabled: false,
   proxy_url: process.env.ROM_PROXY_URL ?? null,
 });
@@ -37,10 +38,14 @@ const snapshot = await runtime.surfaceSnapshot();
 console.log("native:", hasNativeBinding());
 console.log(href);
 console.log(snapshot.fetch);
+
+await runtime.evalAsync("(async () => { globalThis.__romValue = 42; return 'ok'; })()");
+console.log(await runtime.evalAsync("(async () => String(globalThis.__romValue))()"));
 ```
 
 Config keys use the Rust runtime field names, so use snake_case such as `cors_enabled` and `proxy_url`.
 `cors_enabled` is `false` by default.
+When the native addon is loaded, one `RomRuntime` instance keeps JS globals alive across multiple `eval()` and `evalAsync()` calls.
 
 ## Optional native build
 

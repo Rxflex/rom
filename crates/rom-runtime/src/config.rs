@@ -1,4 +1,4 @@
-use rom_webapi::{LocationConfig, NavigatorConfig, WebRuntimeConfig};
+use rom_webapi::{DocumentConfig, LocationConfig, NavigatorConfig, WebRuntimeConfig};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -19,6 +19,7 @@ pub struct RuntimeConfig {
     pub cors_enabled: bool,
     pub proxy_url: Option<String>,
     pub cookie_store: Option<String>,
+    pub referrer: String,
 }
 
 impl Default for RuntimeConfig {
@@ -36,6 +37,7 @@ impl Default for RuntimeConfig {
             cors_enabled: false,
             proxy_url: None,
             cookie_store: None,
+            referrer: String::new(),
         }
     }
 }
@@ -82,6 +84,9 @@ impl RuntimeConfig {
                 pathname,
                 search,
                 hash,
+            },
+            document: DocumentConfig {
+                referrer: self.referrer.clone(),
             },
             fetch: rom_webapi::FetchConfig {
                 cors_enabled: self.cors_enabled,

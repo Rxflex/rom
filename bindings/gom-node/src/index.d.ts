@@ -1,5 +1,6 @@
 export interface RuntimeConfig {
   href?: string;
+  referrer?: string;
   user_agent?: string;
   app_name?: string;
   platform?: string;

@@ -16,12 +16,12 @@ function candidatePaths() {
     candidates.push(process.env.ROM_NATIVE_NODE_BINDING);
   }
 
-  candidates.push(path.join(packageRoot, "rom_node_native.node"));
-
   const prebuildId = detectNativePrebuildId();
   if (prebuildId !== null) {
     candidates.push(path.join(packageRoot, "prebuilds", prebuildId, "rom_node_native.node"));
   }
+
+  candidates.push(path.join(packageRoot, "rom_node_native.node"));
 
   return candidates;
 }

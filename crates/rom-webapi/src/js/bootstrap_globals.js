@@ -1006,5 +1006,6 @@
     g.webkitOfflineAudioContext = OfflineAudioContext;
 
     bindDocumentCookie(document, location);
+    defineReadOnly(document, "referrer", String(documentConfig.referrer ?? ""));
     defineReadOnly(document, "defaultView", g);
 })();

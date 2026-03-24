@@ -28,6 +28,7 @@ from rom import RomRuntime, has_native_binding
 runtime = RomRuntime(
     {
         "href": "https://example.test/",
+        "referrer": "https://referrer.example/",
         "cors_enabled": False,
         "proxy_url": None,
     }
@@ -38,10 +39,14 @@ snapshot = runtime.surface_snapshot()
 print("native:", has_native_binding())
 print(href)
 print(snapshot["fetch"])
+
+runtime.eval_async("(async () => { globalThis.__rom_value = 42; return 'ok'; })()")
+print(runtime.eval_async("(async () => String(globalThis.__rom_value))()"))
 ```
 
 Config keys use the Rust runtime field names, so use snake_case such as `cors_enabled` and `proxy_url`.
 `cors_enabled` is `False` by default.
+When the native extension is loaded, one `RomRuntime` instance keeps JS globals alive across multiple `eval()` and `eval_async()` calls.
 
 ## Optional native build from source
 

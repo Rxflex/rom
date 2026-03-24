@@ -25,6 +25,11 @@ pub struct LocationConfig {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DocumentConfig {
+    pub referrer: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FetchConfig {
     pub cors_enabled: bool,
     pub proxy_url: Option<String>,
@@ -35,5 +40,6 @@ pub struct FetchConfig {
 pub struct WebRuntimeConfig {
     pub navigator: NavigatorConfig,
     pub location: LocationConfig,
+    pub document: DocumentConfig,
     pub fetch: FetchConfig,
 }

@@ -23,6 +23,8 @@ mod tests_css;
 #[cfg(test)]
 mod tests_dataset;
 #[cfg(test)]
+mod tests_document_surface;
+#[cfg(test)]
 mod tests_dom_mutations;
 #[cfg(test)]
 mod tests_dom_navigation;
@@ -58,6 +60,8 @@ mod tests_normalize;
 mod tests_parsing;
 #[cfg(test)]
 mod tests_performance;
+#[cfg(test)]
+mod tests_raw_risk_surface;
 #[cfg(test)]
 mod tests_selectors;
 #[cfg(test)]
@@ -130,6 +134,20 @@ mod tests {
             .unwrap();
 
         assert!(result);
+    }
+
+    #[test]
+    fn preserves_globals_across_runtime_eval_calls() {
+        let runtime = RomRuntime::new(RuntimeConfig::default()).unwrap();
+        let first = runtime
+            .eval_as_string("globalThis.__rom_eval_value = 42; 'ok'")
+            .unwrap();
+        let second = runtime
+            .eval_as_string("String(globalThis.__rom_eval_value)")
+            .unwrap();
+
+        assert_eq!(first, "ok");
+        assert_eq!(second, "42");
     }
 
     #[test]
