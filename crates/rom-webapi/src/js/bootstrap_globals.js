@@ -992,6 +992,7 @@
     g.MediaQueryList = MediaQueryList;
     g.MediaStream = MediaStream;
     g.MediaStreamTrack = MediaStreamTrack;
+    g.TextMetrics = TextMetrics;
     g.Plugin = Plugin;
     g.PluginArray = PluginArray;
     g.MimeType = MimeType;

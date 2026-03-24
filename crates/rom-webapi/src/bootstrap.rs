@@ -10,6 +10,8 @@ use crate::host_websocket::WebSocketHost;
 const WEB_BOOTSTRAP: &str = concat!(
     include_str!("js/bootstrap_prelude.js"),
     "\n",
+    include_str!("js/bootstrap_canvas.js"),
+    "\n",
     include_str!("js/bootstrap_dom.js"),
     "\n",
     include_str!("js/bootstrap_observers.js"),

@@ -1199,16 +1199,28 @@
             super("canvas");
             this.width = 300;
             this.height = 150;
+            this.__contexts = new Map();
+            this.__canvasBitmapState = createCanvasBitmapState(this);
         }
 
         getContext(kind) {
-            const context = createCanvasContext(kind);
+            const normalizedKind = String(kind ?? "").toLowerCase();
+            if (this.__contexts.has(normalizedKind)) {
+                return this.__contexts.get(normalizedKind);
+            }
+
+            const context = createCanvasContext(normalizedKind, this);
+            if (context === null) {
+                return null;
+            }
+
             context.canvas = this;
+            this.__contexts.set(normalizedKind, context);
             return context;
         }
 
-        toDataURL() {
-            return "data:image/png;base64,Uk9N";
+        toDataURL(type = "image/png") {
+            return serializeCanvasDataUrl(this, type);
         }
     }
 
