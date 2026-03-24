@@ -7,6 +7,8 @@ mod runtime;
 #[cfg(test)]
 mod tests_adjacent_html;
 #[cfg(test)]
+mod tests_canvas;
+#[cfg(test)]
 mod tests_character_data;
 #[cfg(test)]
 mod tests_classlist;
