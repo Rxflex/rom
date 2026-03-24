@@ -31,6 +31,8 @@ mod tests_dom_mutations;
 #[cfg(test)]
 mod tests_dom_navigation;
 #[cfg(test)]
+mod tests_errors;
+#[cfg(test)]
 mod tests_events;
 #[cfg(test)]
 mod tests_eventsource;
