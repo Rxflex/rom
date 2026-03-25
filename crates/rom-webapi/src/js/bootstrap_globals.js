@@ -914,6 +914,14 @@
         }
     }
 
+    class PromiseRejectionEvent extends Event {
+        constructor(type, init = {}) {
+            super(type, init);
+            this.promise = init.promise ?? null;
+            this.reason = init.reason ?? null;
+        }
+    }
+
     class Image {}
 
     class Audio {
@@ -925,6 +933,17 @@
     class HTMLButtonElement extends Element {}
 
     class CompositionEvent extends Event {}
+
+    function invokeWindowListener(listener, event) {
+        if (typeof listener === "function") {
+            listener.call(g, event);
+            return;
+        }
+
+        if (listener && typeof listener.handleEvent === "function") {
+            listener.handleEvent.call(listener, event);
+        }
+    }
 
     function dispatchWindowEvent(event) {
         const instance = event instanceof Event ? event : new Event(event?.type ?? event);
@@ -943,7 +962,7 @@
         if (!instance.__stopImmediatePropagation) {
             const listeners = g.__listeners?.get(instance.type) ?? [];
             for (const entry of listeners.slice()) {
-                entry.listener.call(g, instance);
+                invokeWindowListener(entry.listener, instance);
                 if (entry.once) {
                     g.removeEventListener(instance.type, entry.listener, {
                         capture: entry.capture,
@@ -958,6 +977,32 @@
         instance.currentTarget = null;
         instance.eventPhase = Event.NONE;
         return !instance.defaultPrevented;
+    }
+
+    function markCompletedLifecycleEvent(target, type) {
+        if (!target.__romCompletedEvents) {
+            target.__romCompletedEvents = new Set();
+        }
+        target.__romCompletedEvents.add(String(type));
+    }
+
+    function dispatchCompletedLifecycleEvent(target, event) {
+        markCompletedLifecycleEvent(target, event.type);
+        if (target === g) {
+            return dispatchWindowEvent(event);
+        }
+        return target.dispatchEvent(event);
+    }
+
+    function scheduleStartupLifecycleEvents() {
+        Promise.resolve().then(() => {
+            dispatchCompletedLifecycleEvent(document, new Event("readystatechange"));
+            dispatchCompletedLifecycleEvent(document, new Event("DOMContentLoaded"));
+            dispatchCompletedLifecycleEvent(g, new Event("load"));
+            const pageShowEvent = new Event("pageshow");
+            pageShowEvent.persisted = false;
+            dispatchCompletedLifecycleEvent(g, pageShowEvent);
+        });
     }
 
     function webpackChunkGlobalKeys() {
@@ -991,16 +1036,91 @@
         return typeof capturedRequire === "function" ? capturedRequire : null;
     }
 
+    async function loadWebpackScript(url) {
+        if (!g.__romWebpackScriptLoads) {
+            g.__romWebpackScriptLoads = new Map();
+        }
+
+        const normalizedUrl = String(url ?? "");
+        if (g.__romWebpackScriptLoads.has(normalizedUrl)) {
+            return g.__romWebpackScriptLoads.get(normalizedUrl);
+        }
+
+        const task = (async () => {
+            const response = await g.fetch(normalizedUrl);
+            if (!response || response.status >= 400) {
+                throw new Error(`Failed to load script: ${normalizedUrl}`);
+            }
+
+            const source = await response.text();
+            (0, g.eval)(source);
+            return undefined;
+        })();
+
+        const trackedTask = task.finally(() => {
+            g.__romWebpackScriptLoads.delete(normalizedUrl);
+        });
+        g.__romWebpackScriptLoads.set(normalizedUrl, trackedTask);
+        return trackedTask;
+    }
+
+    function installWebpackRuntimePatches(webpackRequire) {
+        if (typeof webpackRequire !== "function" || webpackRequire.__romPatched) {
+            return webpackRequire;
+        }
+
+        Object.defineProperty(webpackRequire, "__romPatched", {
+            configurable: true,
+            enumerable: false,
+            writable: true,
+            value: true,
+        });
+
+        if (typeof webpackRequire.l === "function") {
+            webpackRequire.l = (url, done) => {
+                loadWebpackScript(url)
+                    .then(() => {
+                        exposeWebpackRequireFromChunkGlobals();
+                        if (typeof done === "function") {
+                            done({ type: "load", target: { src: url } });
+                        }
+                    })
+                    .catch((error) => {
+                        if (typeof done === "function") {
+                            done({ type: "error", target: { src: url }, error });
+                        }
+                    });
+            };
+        }
+
+        if (webpackRequire.f && typeof webpackRequire.f.miniCss === "function") {
+            const loadedCssChunks = new Set();
+            webpackRequire.f.miniCss = (chunkId, promises) => {
+                if (loadedCssChunks.has(chunkId)) {
+                    return;
+                }
+                loadedCssChunks.add(chunkId);
+                promises.push(Promise.resolve());
+            };
+        }
+
+        if (webpackRequire.F && typeof webpackRequire.F.j === "function") {
+            webpackRequire.F.j = () => undefined;
+        }
+
+        return webpackRequire;
+    }
+
     function exposeWebpackRequireFromChunkGlobals() {
         if (typeof g.__webpack_require__ === "function") {
-            return g.__webpack_require__;
+            return installWebpackRuntimePatches(g.__webpack_require__);
         }
 
         for (const key of webpackChunkGlobalKeys()) {
             const webpackRequire = probeWebpackChunkGlobal(g[key]);
             if (typeof webpackRequire === "function") {
-                g.__webpack_require__ = webpackRequire;
-                return webpackRequire;
+                g.__webpack_require__ = installWebpackRuntimePatches(webpackRequire);
+                return g.__webpack_require__;
             }
         }
 
@@ -1012,6 +1132,9 @@
     g.top = g;
     g.parent = g;
     g.__listeners = new Map();
+    g.__romCompletedEvents = new Set();
+    document.__romCompletedEvents = new Set();
+    g.__REGION_CONFIG__ = {};
     g.addEventListener = EventTarget.prototype.addEventListener.bind(g);
     g.removeEventListener = EventTarget.prototype.removeEventListener.bind(g);
     g.dispatchEvent = (event) => dispatchWindowEvent(event);
@@ -1045,6 +1168,9 @@
     g.CompositionEvent = CompositionEvent;
     g.PopStateEvent = PopStateEvent;
     g.HashChangeEvent = HashChangeEvent;
+    g.PromiseRejectionEvent = PromiseRejectionEvent;
+    g.onunhandledrejection = null;
+    g.onrejectionhandled = null;
     g.MessageChannel = MessageChannel;
     g.MessagePort = MessagePort;
     g.MessageEvent = MessageEvent;
@@ -1092,8 +1218,11 @@
     g.Node = Node;
     g.Element = Element;
     g.HTMLElement = Element;
+    g.HTMLAnchorElement = HTMLAnchorElement;
     g.HTMLCanvasElement = HTMLCanvasElement;
     g.HTMLIFrameElement = HTMLIFrameElement;
+    g.HTMLLinkElement = HTMLLinkElement;
+    g.HTMLScriptElement = HTMLScriptElement;
     g.Text = Text;
     g.Comment = Comment;
     g.Document = Document;
@@ -1127,4 +1256,5 @@
     bindDocumentCookie(document, location);
     defineReadOnly(document, "referrer", String(documentConfig.referrer ?? ""));
     defineReadOnly(document, "defaultView", g);
+    scheduleStartupLifecycleEvents();
 })();
