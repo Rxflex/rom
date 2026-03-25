@@ -1127,6 +1127,14 @@
         return null;
     }
 
+    const nativeEval = g.eval;
+
+    function evalWithWebpackExposure(source) {
+        const result = nativeEval(source);
+        exposeWebpackRequireFromChunkGlobals();
+        return result;
+    }
+
     g.window = g;
     g.self = g;
     g.top = g;
@@ -1139,6 +1147,7 @@
     g.removeEventListener = EventTarget.prototype.removeEventListener.bind(g);
     g.dispatchEvent = (event) => dispatchWindowEvent(event);
     g.__rom_expose_webpack_require = () => exposeWebpackRequireFromChunkGlobals();
+    g.eval = evalWithWebpackExposure;
     g.onpopstate = null;
     g.onhashchange = null;
     g.document = document;
