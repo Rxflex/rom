@@ -65,7 +65,7 @@
         }
 
         addEventListener(type, listener, options = false) {
-            if (typeof listener !== "function") {
+            if (!isEventListener(listener)) {
                 return;
             }
 
@@ -87,6 +87,10 @@
                 once: normalizedOptions.once,
             });
             this.__listeners.set(key, listeners);
+
+            if (hasCompletedEvent(this, key)) {
+                replayCompletedEvent(this, key, listeners[listeners.length - 1]);
+            }
         }
 
         removeEventListener(type, listener, options = false) {
@@ -156,6 +160,57 @@
         };
     }
 
+    function isEventListener(listener) {
+        return typeof listener === "function" ||
+            (
+                listener &&
+                typeof listener === "object" &&
+                typeof listener.handleEvent === "function"
+            );
+    }
+
+    function invokeEventListener(target, listener, event) {
+        if (typeof listener === "function") {
+            listener.call(target, event);
+            return;
+        }
+
+        listener.handleEvent.call(listener, event);
+    }
+
+    function hasCompletedEvent(target, type) {
+        return Boolean(
+            target &&
+            target.__romCompletedEvents &&
+            target.__romCompletedEvents.has(String(type)),
+        );
+    }
+
+    function createCompletedEvent(type) {
+        const event = new Event(type);
+        if (type === "pageshow") {
+            event.persisted = false;
+        }
+        return event;
+    }
+
+    function replayCompletedEvent(target, type, entry) {
+        if (!hasCompletedEvent(target, type)) {
+            return;
+        }
+
+        const event = createCompletedEvent(type);
+        event.target = target;
+        event.currentTarget = target;
+        event.eventPhase = Event.AT_TARGET;
+        invokeEventListener(target, entry.listener, event);
+        if (entry.once) {
+            target.removeEventListener(type, entry.listener, {
+                capture: entry.capture,
+            });
+        }
+    }
+
     function buildEventPath(target) {
         const path = [target];
         let current = target?.parentNode ?? null;
@@ -177,7 +232,7 @@
                 continue;
             }
 
-            entry.listener.call(target, event);
+            invokeEventListener(target, entry.listener, event);
             if (entry.once) {
                 target.removeEventListener(event.type, entry.listener, {
                     capture: entry.capture,

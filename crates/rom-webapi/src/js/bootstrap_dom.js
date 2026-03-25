@@ -10,12 +10,101 @@
         }
     }
 
-    function notifyIframeLoad(node) {
-        if (
-            node instanceof HTMLIFrameElement &&
-            typeof node.onload === "function"
-        ) {
-            Promise.resolve().then(() => node.onload());
+    const pendingResourceLoads = [];
+    let resourceLoadActive = false;
+
+    function dispatchNodeHandler(node, type, detail = {}) {
+        const event = Object.assign({ type, target: node, currentTarget: node }, detail);
+        const handler = node?.[`on${type}`];
+        if (typeof handler === "function") {
+            Promise.resolve().then(() => handler.call(node, event));
+        }
+    }
+
+    function enqueueResourceLoad(task) {
+        pendingResourceLoads.push(task);
+        if (!resourceLoadActive) {
+            resourceLoadActive = true;
+            Promise.resolve().then(processNextResourceLoad);
+        }
+    }
+
+    async function processNextResourceLoad() {
+        while (pendingResourceLoads.length > 0) {
+            const task = pendingResourceLoads.shift();
+            try {
+                await task();
+            } catch {
+                // Individual resource loaders already dispatch error events.
+            }
+        }
+        resourceLoadActive = false;
+    }
+
+    function resolveNodeUrl(node, value) {
+        return new URL(String(value ?? ""), getBaseUriForNode(node)).href;
+    }
+
+    async function loadScriptNode(node) {
+        if (node.__romLoadStarted || !node.isConnected) {
+            return;
+        }
+        node.__romLoadStarted = true;
+
+        try {
+            const src = node.src || node.getAttribute?.("src") || "";
+            if (src) {
+                const response = await g.fetch(resolveNodeUrl(node, src));
+                if (!response || response.status >= 400) {
+                    throw new Error(`Failed to load script: ${src}`);
+                }
+                const source = await response.text();
+                (0, g.eval)(source);
+            } else if (node.textContent) {
+                (0, g.eval)(node.textContent);
+            }
+
+            if (typeof g.__rom_expose_webpack_require === "function") {
+                g.__rom_expose_webpack_require();
+            }
+
+            dispatchNodeHandler(node, "load");
+        } catch (error) {
+            dispatchNodeHandler(node, "error", { error });
+        }
+    }
+
+    async function loadLinkNode(node) {
+        if (node.__romLoadStarted || !node.isConnected) {
+            return;
+        }
+        node.__romLoadStarted = true;
+
+        try {
+            const href = node.href || node.getAttribute?.("href") || "";
+            if (!href) {
+                dispatchNodeHandler(node, "load");
+                return;
+            }
+            dispatchNodeHandler(node, "load");
+        } catch (error) {
+            dispatchNodeHandler(node, "error", { error });
+        }
+    }
+
+    function notifyInsertedNode(node) {
+        if (node instanceof HTMLIFrameElement) {
+            dispatchNodeHandler(node, "load");
+            return;
+        }
+
+        if (node instanceof HTMLScriptElement) {
+            enqueueResourceLoad(() => loadScriptNode(node));
+            return;
+        }
+
+        if (node instanceof HTMLLinkElement) {
+            enqueueResourceLoad(() => loadLinkNode(node));
         }
     }
 
@@ -109,7 +198,7 @@
                 insertedNode,
                 parent.nodeType === 9 ? parent : parent.ownerDocument,
             );
-            notifyIframeLoad(insertedNode);
+            notifyInsertedNode(insertedNode);
         }
 
         if (normalizedInsertedNodes.length > 0 || removedNodes.length > 0) {
@@ -1251,6 +1340,107 @@
         }
     }
 
+    class HTMLAnchorElement extends Element {
+        constructor() {
+            super("a");
+            this.__href = "";
+            this.protocol = "";
+            this.host = "";
+            this.hostname = "";
+            this.port = "";
+            this.pathname = "";
+            this.search = "";
+            this.hash = "";
+            this.origin = "";
+        }
+
+        cloneNode(deep = false) {
+            const clone = super.cloneNode(deep);
+            clone.href = this.href;
+            return clone;
+        }
+
+        get href() {
+            return this.__href;
+        }
+
+        set href(value) {
+            const parsed = new URL(String(value ?? ""), getBaseUriForNode(this));
+            this.__href = parsed.href;
+            this.protocol = parsed.protocol;
+            this.host = parsed.host;
+            this.hostname = parsed.hostname;
+            this.port = parsed.port;
+            this.pathname = parsed.pathname;
+            this.search = parsed.search;
+            this.hash = parsed.hash;
+            this.origin = parsed.origin;
+            super.setAttribute("href", this.__href);
+        }
+    }
+
+    class HTMLScriptElement extends Element {
+        constructor() {
+            super("script");
+            this.async = true;
+            this.defer = false;
+            this.charset = "";
+            this.crossOrigin = "";
+            this.onload = null;
+            this.onerror = null;
+            this.__romLoadStarted = false;
+        }
+
+        get src() {
+            return this.getAttribute("src") ?? "";
+        }
+
+        set src(value) {
+            super.setAttribute("src", resolveNodeUrl(this, value));
+        }
+
+        get text() {
+            return this.textContent;
+        }
+
+        set text(value) {
+            this.textContent = value;
+        }
+    }
+
+    class HTMLLinkElement extends Element {
+        constructor() {
+            super("link");
+            this.onload = null;
+            this.onerror = null;
+            this.__romLoadStarted = false;
+        }
+
+        get href() {
+            return this.getAttribute("href") ?? "";
+        }
+
+        set href(value) {
+            super.setAttribute("href", resolveNodeUrl(this, value));
+        }
+
+        get rel() {
+            return this.getAttribute("rel") ?? "";
+        }
+
+        set rel(value) {
+            super.setAttribute("rel", value);
+        }
+
+        get as() {
+            return this.getAttribute("as") ?? "";
+        }
+
+        set as(value) {
+            super.setAttribute("as", value);
+        }
+    }
+
     function createIframeWindow() {
         const frameWindow = Object.create(g);
         const frameDocument = new Document();
@@ -1365,8 +1555,14 @@
             let element = null;
             if (normalized === "canvas") {
                 element = new HTMLCanvasElement();
+            } else if (normalized === "a") {
+                element = new HTMLAnchorElement();
             } else if (normalized === "iframe") {
                 element = new HTMLIFrameElement();
+            } else if (normalized === "script") {
+                element = new HTMLScriptElement();
+            } else if (normalized === "link") {
+                element = new HTMLLinkElement();
             } else {
                 element = new Element(tagName);
             }

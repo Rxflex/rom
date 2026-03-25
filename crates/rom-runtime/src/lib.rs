@@ -49,6 +49,8 @@ mod tests_innerhtml;
 #[cfg(test)]
 mod tests_layout_observers;
 #[cfg(test)]
+mod tests_lifecycle;
+#[cfg(test)]
 mod tests_messaging;
 #[cfg(test)]
 mod tests_mutation_observer;
@@ -68,6 +70,8 @@ mod tests_performance;
 mod tests_raw_risk_surface;
 #[cfg(test)]
 mod tests_react_dom_surface;
+#[cfg(test)]
+mod tests_resource_loading;
 #[cfg(test)]
 mod tests_selectors;
 #[cfg(test)]
