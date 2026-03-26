@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "rom-runtime"
-version = "0.0.18"
+version = "0.0.19"
 description = "Python wrapper for the ROM browser-like runtime"
 readme = "README.md"
 requires-python = ">=3.9"
