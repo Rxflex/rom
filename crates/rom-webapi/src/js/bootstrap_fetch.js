@@ -277,6 +277,41 @@
         );
     }
 
+    function loadScriptSourceSync(url) {
+        const resolvedUrl = new URL(String(url), location.href).href;
+
+        if (resolvedUrl.startsWith("blob:")) {
+            const entry = objectUrlRegistry.get(resolvedUrl);
+            if (!entry) {
+                throw new TypeError("Failed to fetch");
+            }
+
+            return decodeBytes(entry.bytes.slice());
+        }
+
+        const request = new Request(resolvedUrl, {
+            method: "GET",
+            credentials: "same-origin",
+        });
+        const response = performNetworkFetch(request, location.origin, {
+            includeCookies: true,
+            includeOrigin: false,
+        });
+
+        if (!response || response.status >= 400) {
+            throw new Error(`Failed to load script: ${resolvedUrl}`);
+        }
+
+        cookieJar.storeResponseCookies(
+            response.headers,
+            request.url,
+            request.credentials,
+            location.origin,
+        );
+
+        return decodeBytes(response.body ?? []);
+    }
+
     function handleRedirectMode(response, request) {
         if (!response.is_redirect_response) {
             return false;
@@ -685,3 +720,4 @@
     URL.revokeObjectURL = (objectUrl) => {
         objectUrlRegistry.delete(String(objectUrl));
     };
+    g.__rom_load_script_source_sync = loadScriptSourceSync;

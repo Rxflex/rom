@@ -199,16 +199,35 @@
             return;
         }
 
-        const event = createCompletedEvent(type);
-        event.target = target;
-        event.currentTarget = target;
-        event.eventPhase = Event.AT_TARGET;
-        invokeEventListener(target, entry.listener, event);
-        if (entry.once) {
-            target.removeEventListener(type, entry.listener, {
-                capture: entry.capture,
-            });
+        if (
+            String(type) === "DOMContentLoaded" &&
+            (
+                target?.__romSyntheticDomContentLoadedQueued ||
+                target?.__romSuppressDomContentLoadedReplay
+            )
+        ) {
+            return;
         }
+
+        setTimeout(() => {
+            Promise.resolve().then(() => {
+                const listeners = target.__listeners?.get(String(type)) ?? [];
+                if (!listeners.includes(entry)) {
+                    return;
+                }
+
+                const event = createCompletedEvent(type);
+                event.target = target;
+                event.currentTarget = target;
+                event.eventPhase = Event.AT_TARGET;
+                invokeEventListener(target, entry.listener, event);
+                if (entry.once) {
+                    target.removeEventListener(type, entry.listener, {
+                        capture: entry.capture,
+                    });
+                }
+            });
+        }, 0);
     }
 
     function buildEventPath(target) {
