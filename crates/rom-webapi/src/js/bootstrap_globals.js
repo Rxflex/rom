@@ -1127,12 +1127,186 @@
         return null;
     }
 
+    function loadExternalScriptViaDom(url, integrity = "") {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src = String(url);
+            script.async = false;
+            script.crossOrigin = "anonymous";
+            if (integrity) {
+                script.integrity = String(integrity);
+            }
+            script.onload = () => resolve(script.src);
+            script.onerror = (event) =>
+                reject(event?.error ?? new Error(`Failed to load script: ${url}`));
+            document.head.appendChild(script);
+        });
+    }
+
+    function installXRenderResourcesLoaderPatches(loader) {
+        if (!loader || typeof loader !== "object" || loader.__romPatchedXRenderLoader) {
+            return loader;
+        }
+
+        Object.defineProperty(loader, "__romPatchedXRenderLoader", {
+            configurable: true,
+            enumerable: false,
+            writable: false,
+            value: true,
+        });
+
+        loader.loadScript = function loadScript(url, integrity = "", _immediate = false) {
+            return loadExternalScriptViaDom(url, integrity);
+        };
+
+        loader.loadScripts = function loadScripts(urls, integrities = [], immediate = false) {
+            return Array.from(urls ?? [], (url, index) =>
+                loader.loadScript(url, integrities?.[index] ?? "", immediate));
+        };
+
+        return loader;
+    }
+
+    function interceptXRenderResourcesLoader() {
+        let currentValue = installXRenderResourcesLoaderPatches(g.__XRenderResourcesLoader ?? null);
+
+        try {
+            delete g.__XRenderResourcesLoader;
+        } catch (_error) {
+            return;
+        }
+
+        Object.defineProperty(g, "__XRenderResourcesLoader", {
+            configurable: true,
+            enumerable: true,
+            get() {
+                return currentValue;
+            },
+            set(value) {
+                currentValue = installXRenderResourcesLoaderPatches(value);
+            },
+        });
+    }
+
     const nativeEval = g.eval;
 
+    function normalizeEvalScriptSource(source) {
+        return String(source ?? "")
+            .replace(/\r\n?/g, "\n")
+            .trim();
+    }
+
+    function findExistingEvalScript(source) {
+        if (!document || typeof document.scripts?.find !== "function") {
+            return null;
+        }
+
+        const normalized = normalizeEvalScriptSource(source);
+        if (!normalized) {
+            return null;
+        }
+
+        return document.scripts.find((script) => {
+            if (script.getAttribute?.("src")) {
+                return false;
+            }
+
+            const scriptSource = normalizeEvalScriptSource(script.textContent ?? "");
+            return (
+                scriptSource === normalized ||
+                scriptSource.includes(normalized) ||
+                normalized.includes(scriptSource)
+            );
+        }) ?? null;
+    }
+
+    function pushEvalScriptContext(source) {
+        if (!document) {
+            return null;
+        }
+
+        const currentScript = document.currentScript;
+        const existingScript = findExistingEvalScript(source);
+        if (currentScript && !currentScript.__romSyntheticEvalScript && !existingScript) {
+            return null;
+        }
+
+        if (existingScript) {
+            if (!document.__currentScriptStack) {
+                document.__currentScriptStack = [];
+            }
+            document.__currentScriptStack.push(existingScript);
+            document.__currentScript = existingScript;
+            return existingScript;
+        }
+
+        const syntheticScript = document.createElement("script");
+        syntheticScript.text = "";
+        syntheticScript.__romSyntheticEvalScript = true;
+        if (!document.__currentScriptStack) {
+            document.__currentScriptStack = [];
+        }
+        document.__currentScriptStack.push(syntheticScript);
+        document.__currentScript = syntheticScript;
+        return syntheticScript;
+    }
+
+    function popEvalScriptContext(scriptNode) {
+        if (!scriptNode || !document) {
+            return;
+        }
+
+        const stack = document.__currentScriptStack ?? [];
+        if (stack[stack.length - 1] === scriptNode) {
+            stack.pop();
+        } else {
+            const index = stack.lastIndexOf(scriptNode);
+            if (index >= 0) {
+                stack.splice(index, 1);
+            }
+        }
+        document.__currentScript = stack[stack.length - 1] ?? null;
+    }
+
+    function isInertInlineScriptPayload(source) {
+        const normalized = String(source ?? "").trim();
+        if (!normalized || !/^[{\[]/.test(normalized)) {
+            return false;
+        }
+
+        try {
+            JSON.parse(normalized);
+            return true;
+        } catch (_error) {
+            return false;
+        }
+    }
+
+    function flushPendingSyntheticDomContentLoaded() {
+        if (!document?.__romPendingSyntheticDomContentLoaded) {
+            return;
+        }
+
+        document.__romPendingSyntheticDomContentLoaded = false;
+        document.dispatchEvent(new Event("DOMContentLoaded"));
+        document.__romSuppressDomContentLoadedReplay = false;
+    }
+
     function evalWithWebpackExposure(source) {
-        const result = nativeEval(source);
-        exposeWebpackRequireFromChunkGlobals();
-        return result;
+        const scriptNode = pushEvalScriptContext(source);
+        try {
+            if (isInertInlineScriptPayload(source)) {
+                flushPendingSyntheticDomContentLoaded();
+                exposeWebpackRequireFromChunkGlobals();
+                return undefined;
+            }
+            const result = nativeEval(source);
+            flushPendingSyntheticDomContentLoaded();
+            exposeWebpackRequireFromChunkGlobals();
+            return result;
+        } finally {
+            popEvalScriptContext(scriptNode);
+        }
     }
 
     g.window = g;
@@ -1147,6 +1321,7 @@
     g.removeEventListener = EventTarget.prototype.removeEventListener.bind(g);
     g.dispatchEvent = (event) => dispatchWindowEvent(event);
     g.__rom_expose_webpack_require = () => exposeWebpackRequireFromChunkGlobals();
+    interceptXRenderResourcesLoader();
     g.eval = evalWithWebpackExposure;
     g.onpopstate = null;
     g.onhashchange = null;

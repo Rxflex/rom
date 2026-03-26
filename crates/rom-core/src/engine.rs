@@ -51,6 +51,14 @@ impl RomCore {
             (() => {{
                 try {{
                     const __gom_value = (0, eval)({encoded_script});
+                    if (
+                        globalThis.document &&
+                        globalThis.document.__romPendingSyntheticDomContentLoaded
+                    ) {{
+                        globalThis.document.__romPendingSyntheticDomContentLoaded = false;
+                        globalThis.document.dispatchEvent(new Event("DOMContentLoaded"));
+                        globalThis.document.__romSuppressDomContentLoadedReplay = false;
+                    }}
                     if (typeof globalThis.__rom_expose_webpack_require === "function") {{
                         try {{
                             globalThis.__rom_expose_webpack_require();
@@ -100,7 +108,16 @@ impl RomCore {
             r#"
             (async () => {{
                 try {{
-                    const __rom_value = await (0, eval)({encoded_script});
+                    const __rom_value_promise = (0, eval)({encoded_script});
+                    if (
+                        globalThis.document &&
+                        globalThis.document.__romPendingSyntheticDomContentLoaded
+                    ) {{
+                        globalThis.document.__romPendingSyntheticDomContentLoaded = false;
+                        globalThis.document.dispatchEvent(new Event("DOMContentLoaded"));
+                        globalThis.document.__romSuppressDomContentLoadedReplay = false;
+                    }}
+                    const __rom_value = await __rom_value_promise;
                     if (typeof globalThis.__rom_expose_webpack_require === "function") {{
                         try {{
                             globalThis.__rom_expose_webpack_require();

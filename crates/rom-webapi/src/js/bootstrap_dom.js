@@ -25,52 +25,110 @@
         pendingResourceLoads.push(task);
         if (!resourceLoadActive) {
             resourceLoadActive = true;
-            Promise.resolve().then(processNextResourceLoad);
+            Promise.resolve().then(() => {
+                processNextResourceLoad();
+            });
         }
     }
 
-    async function processNextResourceLoad() {
-        while (pendingResourceLoads.length > 0) {
-            const task = pendingResourceLoads.shift();
-            try {
-                await task();
-            } catch {
-                // Individual resource loaders already dispatch error events.
-            }
+    function processNextResourceLoad() {
+        const task = pendingResourceLoads.shift();
+        if (!task) {
+            resourceLoadActive = false;
+            return;
         }
-        resourceLoadActive = false;
+
+        Promise.resolve()
+            .then(() => task())
+            .catch(() => {
+                // Individual resource loaders already dispatch error events.
+            })
+            .then(() => {
+                processNextResourceLoad();
+            });
     }
 
     function resolveNodeUrl(node, value) {
         return new URL(String(value ?? ""), getBaseUriForNode(node)).href;
     }
 
-    async function loadScriptNode(node) {
-        if (node.__romLoadStarted || !node.isConnected) {
+    function shouldExecuteScriptNode(node) {
+        const type = String(node?.getAttribute?.("type") ?? node?.type ?? "")
+            .trim()
+            .toLowerCase();
+
+        if (!type) {
+            return true;
+        }
+
+        if (type === "module") {
+            return true;
+        }
+
+        return /(java|ecma)script/.test(type);
+    }
+
+    function pushCurrentScript(node) {
+        if (!document.__currentScriptStack) {
+            document.__currentScriptStack = [];
+        }
+        document.__currentScriptStack.push(node);
+        document.__currentScript = node;
+    }
+
+    function popCurrentScript(node) {
+        const stack = document.__currentScriptStack ?? [];
+        if (stack.length === 0) {
+            document.__currentScript = null;
             return;
+        }
+
+        if (stack[stack.length - 1] === node) {
+            stack.pop();
+        } else {
+            const index = stack.lastIndexOf(node);
+            if (index >= 0) {
+                stack.splice(index, 1);
+            }
+        }
+
+        document.__currentScript = stack[stack.length - 1] ?? null;
+    }
+
+    function loadScriptNode(node) {
+        if (node.__romLoadStarted || !node.isConnected) {
+            return Promise.resolve();
         }
         node.__romLoadStarted = true;
 
         try {
+            if (!shouldExecuteScriptNode(node)) {
+                dispatchNodeHandler(node, "load");
+                return Promise.resolve();
+            }
+
             const src = node.src || node.getAttribute?.("src") || "";
+            pushCurrentScript(node);
             if (src) {
-                const response = await g.fetch(resolveNodeUrl(node, src));
-                if (!response || response.status >= 400) {
-                    throw new Error(`Failed to load script: ${src}`);
-                }
-                const source = await response.text();
+                const source = typeof g.__rom_load_script_source_sync === "function"
+                    ? g.__rom_load_script_source_sync(resolveNodeUrl(node, src))
+                    : "";
                 (0, g.eval)(source);
             } else if (node.textContent) {
                 (0, g.eval)(node.textContent);
             }
+            popCurrentScript(node);
 
             if (typeof g.__rom_expose_webpack_require === "function") {
                 g.__rom_expose_webpack_require();
             }
 
             dispatchNodeHandler(node, "load");
+            return Promise.resolve();
         } catch (error) {
+            popCurrentScript(node);
             dispatchNodeHandler(node, "error", { error });
+            return Promise.reject(error);
         }
     }
 
@@ -99,12 +157,19 @@
         }
 
         if (node instanceof HTMLScriptElement) {
-            enqueueResourceLoad(() => loadScriptNode(node));
+            void loadScriptNode(node);
             return;
         }
 
         if (node instanceof HTMLLinkElement) {
             enqueueResourceLoad(() => loadLinkNode(node));
+        }
+    }
+
+    function notifyInsertedSubtree(node) {
+        notifyInsertedNode(node);
+        for (const child of node.childNodes ?? []) {
+            notifyInsertedSubtree(child);
         }
     }
 
@@ -172,6 +237,67 @@
         return normalized;
     }
 
+    function scheduleSyntheticDomContentLoaded(document) {
+        if (!document || document.readyState !== "complete") {
+            return;
+        }
+
+        document.dispatchEvent(new Event("DOMContentLoaded"));
+        document.__romSuppressDomContentLoadedReplay = false;
+    }
+
+    function shouldReplayDomContentLoadedAfterInnerHtml(target) {
+        const document = target?.ownerDocument;
+        if (!document) {
+            return false;
+        }
+
+        if (
+            target !== document.head &&
+            target !== document.body &&
+            target !== document.documentElement
+        ) {
+            return false;
+        }
+
+        return target.getElementsByTagName?.("script").length > 0;
+    }
+
+    function subtreeContainsScriptNode(node) {
+        if (!node) {
+            return false;
+        }
+
+        if (node instanceof HTMLScriptElement) {
+            return true;
+        }
+
+        for (const child of node.childNodes ?? []) {
+            if (subtreeContainsScriptNode(child)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    function shouldReplayDomContentLoadedForInsertedNodes(target, nodes) {
+        const document = target?.ownerDocument;
+        if (!document) {
+            return false;
+        }
+
+        if (
+            target !== document.head &&
+            target !== document.body &&
+            target !== document.documentElement
+        ) {
+            return false;
+        }
+
+        return nodes.some((node) => subtreeContainsScriptNode(node));
+    }
+
     function mutateChildList(parent, index, insertedNodes, removedNodes) {
         const normalizedInsertedNodes = normalizeInsertionNodes(insertedNodes);
         if (index < 0) {
@@ -198,7 +324,7 @@
                 insertedNode,
                 parent.nodeType === 9 ? parent : parent.ownerDocument,
             );
-            notifyInsertedNode(insertedNode);
+            notifyInsertedSubtree(insertedNode);
         }
 
         if (normalizedInsertedNodes.length > 0 || removedNodes.length > 0) {
@@ -1212,12 +1338,22 @@
         }
 
         set innerHTML(value) {
+            const nodes = parseHtmlFragment(value);
+            const shouldReplay = shouldReplayDomContentLoadedForInsertedNodes(this, nodes);
+            if (shouldReplay) {
+                this.ownerDocument.__romSuppressDomContentLoadedReplay = true;
+            }
+
             while (this.childNodes.length > 0) {
                 this.removeChild(this.childNodes[this.childNodes.length - 1]);
             }
 
-            for (const node of parseHtmlFragment(value)) {
+            for (const node of nodes) {
                 this.appendChild(node);
+            }
+
+            if (shouldReplay) {
+                scheduleSyntheticDomContentLoaded(this.ownerDocument);
             }
         }
 
@@ -1535,6 +1671,8 @@
             this.readyState = "complete";
             this.visibilityState = "visible";
             this.hidden = false;
+            this.__currentScript = null;
+            this.__currentScriptStack = [];
             this.documentElement = new Element("html");
             this.head = new Element("head");
             this.body = new Element("body");
@@ -1602,6 +1740,14 @@
 
         get activeElement() {
             return this.__activeElement ?? this.body;
+        }
+
+        get currentScript() {
+            return this.__currentScript ?? null;
+        }
+
+        get scripts() {
+            return this.getElementsByTagName("script");
         }
 
         hasFocus() {
