@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { loadNativeBridge } from "./native.js";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { RomLocator, RomPage } from "./page.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -346,12 +347,14 @@ function serializeStorageEntries(value) {
 
 export class RomRuntime {
   #nativeRuntime = null;
+  #page = null;
 
   constructor(config = {}) {
     this.config = normalizeRuntimeConfig(config);
     if (typeof NativeRomRuntime === "function") {
       this.#nativeRuntime = new NativeRomRuntime(JSON.stringify(this.config));
     }
+    this.#page = new RomPage(this);
   }
 
   #applyCookieStore(cookieStore) {
@@ -460,6 +463,58 @@ export class RomRuntime {
   fingerprintJsVersion() {
     return this.#run("fingerprint-js-version");
   }
+
+  hasLiveSession() {
+    return !!this.#nativeRuntime;
+  }
+
+  page() {
+    return this.#page;
+  }
+
+  goto(url, options = {}) {
+    return this.#page.goto(url, options);
+  }
+
+  setContent(html, options = {}) {
+    return this.#page.setContent(html, options);
+  }
+
+  content() {
+    return this.#page.content();
+  }
+
+  evaluate(pageFunction, arg = null) {
+    return this.#page.evaluate(pageFunction, arg);
+  }
+
+  waitForSelector(selector, options = {}) {
+    return this.#page.waitForSelector(selector, options);
+  }
+
+  waitForFunction(pageFunction, arg = null, options = {}) {
+    return this.#page.waitForFunction(pageFunction, arg, options);
+  }
+
+  click(selector, options = {}) {
+    return this.#page.click(selector, options);
+  }
+
+  fill(selector, value, options = {}) {
+    return this.#page.fill(selector, value, options);
+  }
+
+  textContent(selector, options = {}) {
+    return this.#page.textContent(selector, options);
+  }
+
+  innerHTML(selector, options = {}) {
+    return this.#page.innerHTML(selector, options);
+  }
+
+  locator(selector) {
+    return this.#page.locator(selector);
+  }
 }
 
 export function createRuntime(config = {}) {
@@ -469,3 +524,5 @@ export function createRuntime(config = {}) {
 export function hasNativeBinding() {
   return !!nativeBridge;
 }
+
+export { RomLocator, RomPage };

@@ -7,6 +7,17 @@ This package exposes a thin Python API on top of ROM:
 - `eval()`
 - `eval_async()`
 - `eval_json()`
+- `goto()`
+- `set_content()`
+- `content()`
+- `evaluate()`
+- `wait_for_selector()`
+- `wait_for_function()`
+- `click()`
+- `fill()`
+- `text_content()`
+- `inner_html()`
+- `locator()`
 - `surface_snapshot()`
 - `fingerprint_probe()`
 - `run_fingerprintjs_harness()`
@@ -42,11 +53,20 @@ print(snapshot["fetch"])
 
 runtime.eval_async("(async () => { globalThis.__rom_value = 42; return 'ok'; })()")
 print(runtime.eval_async("(async () => String(globalThis.__rom_value))()"))
+
+runtime.set_content(
+    '<div id="app"><input id="name" /><button id="go">Go</button><span id="out"></span></div>'
+    '<script>document.querySelector("#go").addEventListener("click",()=>{document.querySelector("#out").textContent=document.querySelector("#name").value;});</script>'
+)
+runtime.fill("#name", "ROM")
+runtime.click("#go")
+print(runtime.text_content("#out"))
 ```
 
 Config keys use the Rust runtime field names, so use snake_case such as `cors_enabled` and `proxy_url`.
 `cors_enabled` is `False` by default.
 When the native extension is loaded, one `RomRuntime` instance keeps JS globals alive across multiple `eval()` and `eval_async()` calls.
+The page-like helpers such as `goto()`, `set_content()`, `click()`, and `wait_for_selector()` require the native extension because CLI bridge mode is stateless across calls.
 For cookie seeding, the wrapper accepts serialized `cookie_store`, a raw cookie header string, or a `cookies` alias with string/object/array inputs and normalizes them automatically.
 For storage seeding, the wrapper accepts `local_storage` and `session_storage` as serialized JSON objects, Python dicts, or entry arrays such as `[('VerifyAuthToken', 'seeded')]`.
 The default navigator surface is Chrome-like, including `navigator.userAgent`, `navigator.vendor`, and `navigator.userAgentData`.
@@ -65,6 +85,17 @@ Tagged GitHub releases build and publish wheels for Linux, Windows, and macOS, p
 - `eval()`
 - `eval_async()`
 - `eval_json()`
+- `goto(url, options=None)`
+- `set_content(html, options=None)`
+- `content()`
+- `evaluate(js_expression, arg=None)`
+- `wait_for_selector(selector, options=None)`
+- `wait_for_function(js_expression, arg=None, options=None)`
+- `click(selector, options=None)`
+- `fill(selector, value, options=None)`
+- `text_content(selector, options=None)`
+- `inner_html(selector, options=None)`
+- `locator(selector)`
 - `surface_snapshot()`
 - `fingerprint_probe()`
 - `run_fingerprintjs_harness()`

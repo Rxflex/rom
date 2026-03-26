@@ -5,6 +5,7 @@ import os
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, Optional
+from .page import RomLocator, RomPage
 
 try:
     if os.environ.get("ROM_FORCE_CLI_BRIDGE") == "1":
@@ -259,6 +260,7 @@ class RomRuntime:
         self._native_runtime = None
         if _NativeRomRuntime is not None:
             self._native_runtime = _NativeRomRuntime(json.dumps(self.config))
+        self._page = RomPage(self)
 
     def _apply_cookie_store(self) -> None:
         if self._native_runtime is None:
@@ -339,6 +341,62 @@ class RomRuntime:
     def fingerprintjs_version(self) -> str:
         return self._run("fingerprint-js-version", {})
 
+    def has_live_session(self) -> bool:
+        return self._native_runtime is not None
+
+    def page(self) -> RomPage:
+        return self._page
+
+    def goto(self, url: str, options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        return self._page.goto(url, options)
+
+    def set_content(self, html: str, options: Optional[Dict[str, Any]] = None) -> None:
+        self._page.set_content(html, options)
+
+    def content(self) -> str:
+        return self._page.content()
+
+    def evaluate(self, page_function: str, arg: Any = None) -> Any:
+        return self._page.evaluate(page_function, arg)
+
+    def wait_for_selector(
+        self,
+        selector: str,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> Optional[RomLocator]:
+        return self._page.wait_for_selector(selector, options)
+
+    def wait_for_function(
+        self,
+        page_function: str,
+        arg: Any = None,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> Any:
+        return self._page.wait_for_function(page_function, arg, options)
+
+    def click(self, selector: str, options: Optional[Dict[str, Any]] = None) -> None:
+        self._page.click(selector, options)
+
+    def fill(self, selector: str, value: Any, options: Optional[Dict[str, Any]] = None) -> None:
+        self._page.fill(selector, value, options)
+
+    def text_content(
+        self,
+        selector: str,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> Optional[str]:
+        return self._page.text_content(selector, options)
+
+    def inner_html(
+        self,
+        selector: str,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> Optional[str]:
+        return self._page.inner_html(selector, options)
+
+    def locator(self, selector: str) -> RomLocator:
+        return self._page.locator(selector)
+
 
 def create_runtime(config: Optional[Dict[str, Any]] = None) -> RomRuntime:
     return RomRuntime(config=config)
@@ -348,4 +406,4 @@ def has_native_binding() -> bool:
     return _native is not None
 
 
-__all__ = ["RomRuntime", "create_runtime", "has_native_binding"]
+__all__ = ["RomRuntime", "RomPage", "RomLocator", "create_runtime", "has_native_binding"]

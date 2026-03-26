@@ -7,6 +7,17 @@ This package exposes a small JavaScript API on top of ROM:
 - `eval()`
 - `evalAsync()`
 - `evalJson()`
+- `goto()`
+- `setContent()`
+- `content()`
+- `evaluate()`
+- `waitForSelector()`
+- `waitForFunction()`
+- `click()`
+- `fill()`
+- `textContent()`
+- `innerHTML()`
+- `locator()`
 - `surfaceSnapshot()`
 - `fingerprintProbe()`
 - `runFingerprintJsHarness()`
@@ -41,11 +52,20 @@ console.log(snapshot.fetch);
 
 await runtime.evalAsync("(async () => { globalThis.__romValue = 42; return 'ok'; })()");
 console.log(await runtime.evalAsync("(async () => String(globalThis.__romValue))()"));
+
+await runtime.setContent(
+  '<div id="app"><input id="name" /><button id="go">Go</button><span id="out"></span></div>' +
+    '<script>document.querySelector("#go").addEventListener("click",()=>{document.querySelector("#out").textContent=document.querySelector("#name").value;});</script>',
+);
+await runtime.fill("#name", "ROM");
+await runtime.click("#go");
+console.log(await runtime.textContent("#out"));
 ```
 
 Config keys use the Rust runtime field names, so use snake_case such as `cors_enabled` and `proxy_url`.
 `cors_enabled` is `false` by default.
 When the native addon is loaded, one `RomRuntime` instance keeps JS globals alive across multiple `eval()` and `evalAsync()` calls.
+The page-like helpers such as `goto()`, `setContent()`, `click()`, and `waitForSelector()` require the native binding because CLI bridge mode is stateless across calls.
 For cookie seeding, the wrapper accepts either serialized `cookie_store`, a raw cookie header string such as `"api_uid=seeded; _nano_fp=abc"`, or a `cookies` alias with string/object/array inputs.
 For storage seeding, the wrapper accepts `local_storage` and `session_storage` as serialized JSON objects, plain JS objects, or entry arrays such as `[['VerifyAuthToken', 'seeded']]`.
 The default navigator surface is Chrome-like, including `navigator.userAgent`, `navigator.vendor`, and `navigator.userAgentData`.
@@ -71,6 +91,17 @@ At runtime the loader picks the matching binary from `prebuilds/<platform>/rom_n
 - `eval(script)`
 - `evalAsync(script)`
 - `evalJson(script, { async })`
+- `goto(url, options)`
+- `setContent(html, options)`
+- `content()`
+- `evaluate(pageFunctionOrExpression, arg)`
+- `waitForSelector(selector, options)`
+- `waitForFunction(pageFunctionOrExpression, arg, options)`
+- `click(selector, options)`
+- `fill(selector, value, options)`
+- `textContent(selector, options)`
+- `innerHTML(selector, options)`
+- `locator(selector)`
 - `surfaceSnapshot()`
 - `fingerprintProbe()`
 - `runFingerprintJsHarness()`

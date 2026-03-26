@@ -14,6 +14,13 @@ def main() -> None:
     persisted = runtime.eval_async("(async () => String(globalThis.__romSmokeValue))()")
     cookie = runtime.eval_async("(async () => document.cookie)()")
     storage = runtime.eval_async("(async () => localStorage.getItem('VerifyAuthToken'))()")
+    runtime.set_content(
+        '<div id="app"><input id="name" /><button id="go">Go</button><span id="out"></span></div>'
+        '<script>document.querySelector("#go").addEventListener("click",()=>{document.querySelector("#out").textContent=document.querySelector("#name").value;});</script>'
+    )
+    runtime.fill("#name", "ROM")
+    runtime.click("#go")
+    page_text = runtime.text_content("#out")
     snapshot = runtime.surface_snapshot()
 
     if not has_native_binding():
@@ -34,7 +41,19 @@ def main() -> None:
     if storage != "seeded-storage":
         raise RuntimeError(f"Expected seeded localStorage, got: {storage}")
 
-    print({"native": True, "href": href, "persisted": persisted, "cookie": cookie, "storage": storage})
+    if page_text != "ROM":
+        raise RuntimeError(f"Expected page helper flow to update text, got: {page_text}")
+
+    print(
+        {
+            "native": True,
+            "href": href,
+            "persisted": persisted,
+            "cookie": cookie,
+            "storage": storage,
+            "page_text": page_text,
+        }
+    )
 
 
 if __name__ == "__main__":
